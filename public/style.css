@@ -1,0 +1,101 @@
+/* Schlichtes, modernes Design – gut lesbar am Handy */
+
+:root {
+  --farbe-text: #1f2328;
+  --farbe-hintergrund: #ffffff;
+  --farbe-akzent: #2563eb;
+  --farbe-rand: #e2e5e9;
+  --farbe-platzhalter-hintergrund: #fff8e1;
+  --farbe-platzhalter-rand: #f0c419;
+  --schrift: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --max-breite: 40rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --farbe-text: #e8eaed;
+    --farbe-hintergrund: #16181c;
+    --farbe-akzent: #60a5fa;
+    --farbe-rand: #2a2e35;
+    --farbe-platzhalter-hintergrund: #332b12;
+    --farbe-platzhalter-rand: #c9a227;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--schrift);
+  color: var(--farbe-text);
+  background: var(--farbe-hintergrund);
+  line-height: 1.6;
+}
+
+.site-header,
+main,
+.site-footer {
+  max-width: var(--max-breite);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
+}
+
+.site-header {
+  padding-bottom: 0.5rem;
+}
+
+.site-header h1 {
+  margin: 0;
+  font-size: 1.9rem;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--farbe-akzent);
+  font-weight: 500;
+}
+
+section {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--farbe-rand);
+}
+
+section:last-of-type {
+  border-bottom: none;
+}
+
+h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+ul {
+  padding-left: 1.25rem;
+}
+
+.platzhalter {
+  background: var(--farbe-platzhalter-hintergrund);
+  border-left: 3px solid var(--farbe-platzhalter-rand);
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+}
+
+.site-footer {
+  color: #6b7280;
+  font-size: 0.85rem;
+  padding-top: 0.5rem;
+}
+
+a {
+  color: var(--farbe-akzent);
+}
+
+@media (max-width: 30rem) {
+  .site-header h1 {
+    font-size: 1.6rem;
+  }
+}

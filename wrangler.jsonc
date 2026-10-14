@@ -1,0 +1,8 @@
+{
+  // Konfiguration für Cloudflare Workers (statische Dateien, kein Build-Schritt)
+  "name": "meine-homepage",
+  "compatibility_date": "2026-10-14",
+  "assets": {
+    "directory": "./public"
+  }
+}
