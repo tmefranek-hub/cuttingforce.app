@@ -2,3 +2,4 @@ node_modules/
 .wrangler/
 .venv/
 .DS_Store
+.dev.vars

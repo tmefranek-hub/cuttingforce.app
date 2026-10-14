@@ -71,17 +71,29 @@ header.top .wrap {
   flex-wrap: wrap;
 }
 
-.top-nav a {
-  color: var(--brand-ink);
-  font: 600 14px/1.2 var(--f-disp);
-  letter-spacing: 0.02em;
+.btn-cta {
+  display: inline-block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 600 17px/1.2 var(--f-disp);
+  letter-spacing: 0.01em;
   text-decoration: none;
-  border-bottom: 1px solid var(--brand-muted);
-  padding-bottom: 2px;
+  padding: 14px 20px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
 }
 
-.top-nav a:hover {
-  border-bottom-color: var(--brand-ink);
+.btn-cta:hover {
+  opacity: 0.85;
+}
+
+@media (min-width: 30rem) {
+  .btn-cta {
+    width: auto;
+  }
 }
 
 .brand-logo {
@@ -182,4 +194,26 @@ a {
   header.top .wrap {
     padding-block: 16px;
   }
+}
+
+/* Rechtliche Seiten (Impressum, Datenschutzerklärung) */
+.legal {
+  max-width: var(--max-breite);
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.legal h1 {
+  font: 700 clamp(24px, 6vw, 32px) / 1.2 var(--f-disp);
+  margin: 0.5rem 0 1rem;
+}
+
+.legal h2 {
+  font: 600 18px/1.2 var(--f-disp);
+  margin: 1.75rem 0 0.5rem;
+}
+
+.legal ul {
+  padding-left: 1.25rem;
+  margin: 0 0 0.75rem;
 }

@@ -1,8 +1,18 @@
 {
-  // Konfiguration für Cloudflare Workers (statische Dateien, kein Build-Schritt)
+  // Konfiguration für Cloudflare Workers (statische Dateien + kleiner Worker für /api/*, kein Build-Schritt)
   "name": "meine-homepage",
   "compatibility_date": "2026-10-14",
+  // Worker-Script: läuft nur für Adressen, zu denen keine Datei unter public/ passt (siehe worker/index.js)
+  "main": "worker/index.js",
   "assets": {
     "directory": "./public"
-  }
+  },
+  // D1-Datenbank für Benutzerkonten/Sitzungen. database_id erst nach "npx wrangler d1 create cuttingforce-db" eintragen.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cuttingforce-db",
+      "database_id": "BITTE-NACH-WRANGLER-D1-CREATE-HIER-EINTRAGEN"
+    }
+  ]
 }

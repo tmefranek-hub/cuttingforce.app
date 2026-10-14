@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Versuchsprotokoll Zerspanung</title>
+<title>Schnittkraftrechner – cuttingforce.app</title>
+<meta name="description" content="Schnittkraftrechner nach Kienzle für Drehen, Fräsen und Bohren – inklusive Versuchsdokumentation und Bericht.">
+<link rel="canonical" href="https://cuttingforce.app/schnittkraftrechner/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
@@ -173,10 +175,18 @@ tr:last-child td{border-bottom:0}
  .inp input,.inp select,.inp textarea{font-size:16px}
  main{padding-block:16px 40vh}
 }
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .hdr-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .hdr-btn{background:var(--brand-ink);color:var(--brand);border-color:var(--brand-ink);font-weight:600}
 .hdr-btn:hover{border-color:var(--brand-muted)}
 .hdr-btn:focus-visible{outline:2px solid var(--brand-ink)!important}
+.auth-email{font:500 13px var(--f-mono);color:var(--brand-muted)}
+.authmodal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.authbox{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 22px;width:min(380px,100%)}
+.authbox h2{margin:0 0 4px}
+.autherr{color:var(--bad);font-size:13px;margin:10px 0 0;min-height:1.2em}
+.app-footer{color:var(--muted);font-size:13px;padding-block:20px 40px;text-align:center}
+.app-footer a{color:var(--muted)}
 /* Scrollstreifen für Links-/Rechtshänder (nur Handy) */
 .scroll-lane{display:none}
 .seg button[aria-pressed="true"]:is([data-hand],[data-lane],[data-themeset],[data-lang],[data-cattab],[data-matmode],[data-impmode]){background:var(--accent);color:var(--accent-ink)}
@@ -299,23 +309,28 @@ tr:last-child td{border-bottom:0}
 <body>
 <header class="top">
   <div class="wrap">
-    <div class="brand">
-      <a href="/" aria-label="Zur Startseite" style="display:flex;flex:none">
-        <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="cuttingforce Icon">
-          <rect x="2" y="2" width="96" height="96" rx="20" fill="#ffffff" stroke="#0a0a0a" stroke-width="4"/>
-          <rect x="13" y="13" width="74" height="74" rx="12" fill="none" stroke="#0a0a0a" stroke-width="2.5"/>
-          <text x="50" y="60" text-anchor="middle" font-family="'Barlow Semi Condensed',sans-serif" font-weight="700" font-size="30" letter-spacing="-1" fill="#0a0a0a">CFA</text>
-        </svg>
-      </a>
-      <h1 id="h-kunde">Versuchsprotokoll</h1>
-      <div class="meta" id="h-meta"></div>
+    <div class="topbar">
+      <div class="brand">
+        <a href="/" aria-label="Zur Startseite" style="display:flex;flex:none">
+          <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="cuttingforce Icon">
+            <rect x="2" y="2" width="96" height="96" rx="20" fill="#ffffff" stroke="#0a0a0a" stroke-width="4"/>
+            <rect x="13" y="13" width="74" height="74" rx="12" fill="none" stroke="#0a0a0a" stroke-width="2.5"/>
+            <text x="50" y="60" text-anchor="middle" font-family="'Barlow Semi Condensed',sans-serif" font-weight="700" font-size="30" letter-spacing="-1" fill="#0a0a0a">CFA</text>
+          </svg>
+        </a>
+        <h1 id="h-kunde">Schnittkraftrechner</h1>
+        <div class="meta" id="h-meta"></div>
+      </div>
+      <div class="hdr-right" id="auth-box"></div>
     </div>
     <nav class="tabs" role="tablist" id="tabs"></nav>
   </div>
 </header>
 <main class="wrap" id="main"></main>
+<footer class="app-footer"><div class="wrap"><a href="/">cuttingforce.app</a> · <a href="/impressum/">Impressum</a> · <a href="/datenschutz/">Datenschutzerklärung</a></div></footer>
 <div class="scroll-lane" aria-hidden="true"><span></span></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="auth-modal" hidden></div>
 
 <script>
 /* Quellcode beim Laden festhalten (vor jeder Änderung am DOM) */
@@ -323,6 +338,16 @@ const SRC0='<!doctype html>\n'+document.documentElement.outerHTML;
 const KEY='zv-versuchsprotokoll-v1';
 const PROCS=['drehen','fraesen','bohren','schaelen','blechkante','kurbelwelle'];
 const TABS=[['versuch','Versuch'],['drehen','Drehen'],['fraesen','Fräsen'],['bohren','Bohren'],['schaelen','Drehschälen'],['blechkante','Blechkantenfräsen'],['kurbelwelle','Kurbelwellenfräsen'],['bericht','Bericht'],['einstellungen','Einstellungen']];
+/* Zentrale Zugriffssteuerung je Prozess: 'public' = für alle, 'user' = nur angemeldet, 'wip' = nur Administrator (in Arbeit).
+   Einzelne Prozesse können hier jederzeit auf 'user' oder 'public' umgestellt werden, sobald sie fertig sind. */
+const PROC_ACCESS={drehen:'public',fraesen:'public',bohren:'public',schaelen:'wip',blechkante:'wip',kurbelwelle:'wip'};
+/* Rolle kommt ausschließlich vom Server (GET /api/me), nie aus localStorage */
+let ROLE='guest',ROLE_EMAIL=null;
+const roleAllowed=k=>{const a=PROC_ACCESS[k]||'public';
+ if(a==='public')return true;
+ if(a==='user')return ROLE==='user'||ROLE==='admin';
+ if(a==='wip')return ROLE==='admin';
+ return false;};
 
 /* Werkstoffgruppen nach VDI 3323 / ISO 513 (Hauptgruppe + Untergruppe).
    kc1.1 [N/mm²] und mc sind allgemeine Richtwerte, bitte durch firmeneigene Werte ersetzen. */
@@ -670,7 +695,7 @@ const RULES=[
  [/^Eingabe als Vorschubgeschwindigkeit vf – (.+) wird berechnet$/,m=>pick(`Input as feed rate vf – ${m[1]} is calculated`,`Inserimento come velocità di avanzamento vf – ${m[1]} viene calcolato`)],
  [/^Eingabe als (.+)$/,m=>pick('Input as ','Inserimento come ')+tr(m[1])],
  [/^(.+): (.+) übernommen$/,m=>tr(m[1])+': '+m[2].split(', ').map(tr).join(', ')+pick(' applied',' applicato')],
- [/^Erstellt am (.+)\. Diese Datei enthält alle Versuchsdaten und kann im Versuchsprotokoll über „Gespeicherte Datei öffnen“ wieder geladen werden\.$/,m=>pick(`Created on ${m[1]}. This file contains all test data and can be loaded again via “Open saved file”.`,`Creato il ${m[1]}. Questo file contiene tutti i dati della prova e può essere ricaricato con “Apri file salvato”.`)],
+ [/^Erstellt am (.+)\. Diese Datei enthält alle Versuchsdaten und kann im Schnittkraftrechner über „Gespeicherte Datei öffnen“ wieder geladen werden\.$/,m=>pick(`Created on ${m[1]}. This file contains all test data and can be loaded again via “Open saved file”.`,`Creato il ${m[1]}. Questo file contiene tutti i dati della prova e può essere ricaricato con “Apri file salvato”.`)],
  [/^Fotos\/Videos: (\d+) \(in der Berichtsdatei enthalten\)$/,m=>pick(`Photos/videos: ${m[1]} (included in the report file)`,`Foto/video: ${m[1]} (inclusi nel file del rapporto)`)],
  [/^\[(.+?)\] (.*)$/,m=>'['+tr(m[1])+'] '+m[2]],
  [/^=== (.+) ===$/,m=>{const p=PROCS.find(q=>PROC[q].name.toUpperCase()===m[1]);return '=== '+(p?tr(PROC[p].name).toUpperCase():m[1])+' ==='}],
@@ -735,7 +760,9 @@ function trLine(line){
 /* Sichtbare Prozesse (je Gerät) */
 let VIS=null;try{VIS=JSON.parse(localStorage.getItem('zv-procs'))}catch(e){}
 if(!Array.isArray(VIS)||!VIS.length)VIS=[...PROCS];
-const procVisible=k=>VIS.includes(k)||lockedProc()===k;
+/* Ein Prozess ist sichtbar, wenn die Rolle ihn erlaubt UND das Gerät ihn nicht ausgeblendet hat –
+   ein Versuch mit bereits vorhandenen Daten bleibt davon unabhängig immer erreichbar. */
+const procVisible=k=>(roleAllowed(k)&&VIS.includes(k))||lockedProc()===k;
 
 function toast(m){const t=document.getElementById('toast');t.textContent=tr(m);t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),1800);}
 function copyText(text,area){
@@ -753,7 +780,80 @@ function renderHeader(){
   const c=PROCS.includes(k)?S.sets.filter(s=>s.proc===k).length:0;
   const lk=lockedProc(),off=PROCS.includes(k)&&lk&&lk!==k;
   return `<button class="tab${off?' off':''}" role="tab" data-tab="${k}" aria-selected="${S.tab===k}" ${off?`aria-disabled="true" title="Gesperrt: Versuch läuft im Prozess ${PROC[lk].name}"`:''}>${off?'<svg class="lock" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h1zm2 0h6V7a3 3 0 0 0-6 0v3z"/></svg>':''}${l}${c?`<span class="cnt">${c}</span>`:''}</button>`}).join('');
+ renderAuthBox();
 }
+
+/* ---------- Anmeldung / Registrierung ---------- */
+function renderAuthBox(){
+ const el=document.getElementById('auth-box');if(!el)return;
+ el.innerHTML=ROLE==='guest'
+  ?`<button class="btn sm hdr-btn" data-auth="login">Anmelden</button><button class="btn sm hdr-btn" data-auth="register">Registrieren</button>`
+  :`<span class="auth-email">${esc(ROLE_EMAIL||'')}${ROLE==='admin'?' · Admin':''}</span><button class="btn sm hdr-btn" data-auth="logout">Abmelden</button>`;
+}
+let AUTH_MODE='login',AUTH_ERR='';
+function authModalHTML(){
+ const isReg=AUTH_MODE==='register';
+ return `<div class="authmodal" id="auth-overlay"><div class="authbox" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+  <h2 id="auth-title">${isReg?'Registrieren':'Anmelden'}</h2>
+  <p class="hint">${isReg?'Kostenloses Konto anlegen (E-Mail und Passwort).':'Mit E-Mail und Passwort anmelden.'}</p>
+  <div class="seg" role="group" aria-label="Modus" style="margin-bottom:14px">
+   <button type="button" data-authmode="login" aria-pressed="${!isReg}">Anmelden</button>
+   <button type="button" data-authmode="register" aria-pressed="${isReg}">Registrieren</button>
+  </div>
+  <form id="auth-form" novalidate>
+   <div class="fields">
+    <label class="fld wide"><span class="lbl">E-Mail</span><span class="inp"><input type="email" id="auth-email-in" required autocomplete="email"></span></label>
+    <label class="fld wide"><span class="lbl">Passwort</span><span class="inp"><input type="password" id="auth-pass-in" required minlength="8" autocomplete="${isReg?'new-password':'current-password'}"></span></label>
+    ${isReg?`<label class="fld wide"><span class="lbl">Passwort wiederholen</span><span class="inp"><input type="password" id="auth-pass2-in" required minlength="8" autocomplete="new-password"></span></label>`:''}
+   </div>
+   <p class="autherr" id="auth-err">${esc(AUTH_ERR)}</p>
+   <div class="toolbar">
+    <button type="submit" class="btn primary">${isReg?'Konto anlegen':'Anmelden'}</button>
+    <button type="button" class="btn" data-authclose="1">Abbrechen</button>
+   </div>
+  </form>
+ </div></div>`;
+}
+function openAuthModal(mode){AUTH_MODE=mode;AUTH_ERR='';const el=document.getElementById('auth-modal');if(!el)return;el.innerHTML=authModalHTML();el.hidden=false;const f=document.getElementById('auth-email-in');if(f)f.focus({preventScroll:true});}
+function closeAuthModal(){const el=document.getElementById('auth-modal');if(!el)return;el.hidden=true;el.innerHTML='';}
+async function submitAuth(e){
+ e.preventDefault();
+ const email=(document.getElementById('auth-email-in')||{}).value?.trim()||'';
+ const pass=(document.getElementById('auth-pass-in')||{}).value||'';
+ const isReg=AUTH_MODE==='register';
+ if(!email||!pass){AUTH_ERR='Bitte E-Mail und Passwort eintragen';openAuthModal(AUTH_MODE);return;}
+ if(isReg){
+  const pass2=(document.getElementById('auth-pass2-in')||{}).value||'';
+  if(pass.length<8){AUTH_ERR='Das Passwort muss mindestens 8 Zeichen haben';openAuthModal(AUTH_MODE);return;}
+  if(pass!==pass2){AUTH_ERR='Die Passwörter stimmen nicht überein';openAuthModal(AUTH_MODE);return;}
+ }
+ try{
+  const r=await fetch(isReg?'/api/register':'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){AUTH_ERR=d.error||'Das hat nicht funktioniert.';openAuthModal(AUTH_MODE);return;}
+  ROLE=d.role||'user';ROLE_EMAIL=d.email||email;ADMIN=ROLE==='admin';
+  closeAuthModal();renderHeader();render();toast(isReg?'Konto angelegt':'Angemeldet');
+ }catch(err){AUTH_ERR='Keine Verbindung zum Server';openAuthModal(AUTH_MODE);}
+}
+async function doLogout(){
+ try{await fetch('/api/logout',{method:'POST'});}catch(e){}
+ ROLE='guest';ROLE_EMAIL=null;ADMIN=false;renderHeader();render();toast('Abgemeldet');
+}
+async function fetchRole(){
+ try{
+  const r=await fetch('/api/me');
+  if(r.ok){const d=await r.json();ROLE=d.role||'guest';ROLE_EMAIL=d.email||null;ADMIN=ROLE==='admin';}
+ }catch(e){/* kein API-Server erreichbar (z. B. reine Dateivorschau) – bleibt Gast */}
+ renderHeader();render();
+}
+document.addEventListener('click',e=>{
+ const ab=e.target.closest('[data-auth]');
+ if(ab){const m=ab.dataset.auth;if(m==='logout')doLogout();else openAuthModal(m);return;}
+ const am=e.target.closest('[data-authmode]');
+ if(am){openAuthModal(am.dataset.authmode);return;}
+ if(e.target.id==='auth-overlay'||e.target.closest('[data-authclose]')){closeAuthModal();return;}
+});
+document.addEventListener('submit',e=>{if(e.target.id==='auth-form')submitAuth(e);});
 
 /* ---------- Field helpers ---------- */
 function field(scope,k,label,o={}){
@@ -973,7 +1073,8 @@ const bewPill=()=>{const b=bewOf();return b?`<span class="bew bew-${b[2]}">${b[1
 /* ---------- Stammdaten (Administratormodus) ---------- */
 /* Tabellen: wsp = Wendeschneidplatten, tr = Werkzeugträger (Halter, Grundkörper, Kassetten, Schälköpfe), mat = Werkstoffe */
 let CAT={wsp:[],tr:[],mat:[],matMode:'add'};try{const c=JSON.parse(localStorage.getItem('zv-catalog'));if(c)CAT={...CAT,...c};}catch(e){}
-let ADMIN=false;try{ADMIN=localStorage.getItem('zv-admin')==='1'}catch(e){}
+/* ADMIN kommt ausschließlich von der Serverrolle (siehe ROLE/fetchRole weiter unten), kein lokaler Schalter mehr */
+let ADMIN=false;
 const saveCat=()=>{try{localStorage.setItem('zv-catalog',JSON.stringify(CAT))}catch(e){toast('Stammdaten konnten nicht gespeichert werden (Speicher voll?)')}};
 const CATCOLS={
  wsp:[['proc','Prozess'],['nr','Materialnummer'],['bez','Bezeichnung'],['sorte','Sorte'],['kr','κr']],
@@ -1149,8 +1250,9 @@ function renderStamm(){
  return `<div class="proc3 stamm"><nav class="secnav" aria-label="Stammdaten">${nav}<div class="navtyp"><span class="pill eigen">Administratormodus</span></div></nav><div class="mid">${mid}</div></div>`;
 }
 function renderAdmin(){
- if(!ADMIN)return `<section class="card"><h2>Administratormodus</h2><p class="hint">Im Administratormodus hinterlegen Sie Stammdaten für Auswahlfelder: Wendeschneidplatten, Werkzeugträger und Werkstoffe – per CSV-Import oder direkt in der Tabelle.</p><button class="btn" data-admin="1">Administratormodus aktivieren</button></section>`;
- return `<section class="card admin"><h2>Administratormodus</h2><p class="hint">Der Reiter „Stammdaten“ ist in der Reiterleiste eingeblendet.</p><div class="toolbar" style="margin:0"><button class="btn primary" data-gostamm="1">Zu den Stammdaten</button><button class="btn" data-admin="0">Administratormodus beenden</button></div></section>`;
+ /* Administratormodus wird ausschließlich über die Anmeldung (ADMIN_EMAIL am Server) vergeben, kein lokaler Schalter mehr */
+ if(!ADMIN)return '';
+ return `<section class="card admin"><h2>Administratormodus</h2><p class="hint">Angemeldet als Administrator (${esc(ROLE_EMAIL||'')}). Der Reiter „Stammdaten“ ist in der Reiterleiste eingeblendet, zusätzlich sind alle „in Arbeit“-Prozesse zum Testen sichtbar.</p><div class="toolbar" style="margin:0"><button class="btn primary" data-gostamm="1">Zu den Stammdaten</button></div></section>`;
 }
 async function dlFile(name,data){if(!DL){toast('Speichern ist in dieser Ansicht nicht verfügbar');return;}try{await DL.save({filename:name,data});}catch(e){if(!(e&&e.code==='declined'))toast('Die Datei konnte nicht gespeichert werden');}}
 
@@ -1339,7 +1441,6 @@ main.addEventListener('click',e=>{
  if(b.dataset.swcancel){pendingSwitch=null;pendingReset=null;render();return;}
  if(b.dataset.swreset){if(pendingReset==='switch'){const lk=lockedProc();resetProc(lk);S.tab=pendingSwitch;pendingSwitch=null;pendingReset=null;save();render();window.scrollTo(0,0);toast(`${PROC[lk].name}-Daten zurückgesetzt`);}else{pendingReset='switch';render();}return;}
  if(b.dataset.swsave){(async()=>{const ok=await saveShare(b);if(!ok)return;const lk=lockedProc();resetProc(lk);S.tab=pendingSwitch;pendingSwitch=null;save();render();window.scrollTo(0,0);toast(`Versuch gespeichert – weiter mit ${PROC[S.tab].name}`);})();return;}
- if(b.dataset.admin){ADMIN=b.dataset.admin==='1';setPref('zv-admin',ADMIN?'1':'0');if(ADMIN){S.tab='stamm';save();}render();window.scrollTo(0,0);return;}
  if(b.dataset.mdsub){const [pp,k]=b.dataset.mdsub.split(':');md(pp).sub=k;render();return;}
  if(b.dataset.mdiso){md('mat').iso=b.dataset.mdiso;render();return;}
  if(b.dataset.mdmat){const err=matSave();if(err){toast(err);return;}render();toast('Werkstoff übernommen');return;}
@@ -1487,7 +1588,7 @@ body{margin:0}</style></head><body>
 <section class="card"><h2>Versuch</h2>${bewPill()?`<p style="margin:0 0 8px">${bewPill()}</p>`:''}<p class="hint">${esc(t.ziel||'')}</p><dl class="rep-head">${head.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl></section>
 ${procs||'<section class="card"><div class="empty">Keine Parametersätze gespeichert.</div></section>'}
 ${S.fazit||bewOf()?`<section class="card"><h2>Fazit und Empfehlung</h2>${bewOf()?`<p style="margin:0 0 10px">${bewPill()}</p>`:''}${S.fazit?`<p style="white-space:pre-wrap;margin:0">${esc(S.fazit)}</p>`:''}</section>`:''}
-<p class="note">Erstellt am ${new Date().toLocaleString(LOC())}. Diese Datei enthält alle Versuchsdaten und kann im Versuchsprotokoll über „Gespeicherte Datei öffnen“ wieder geladen werden.</p>
+<p class="note">Erstellt am ${new Date().toLocaleString(LOC())}. Diese Datei enthält alle Versuchsdaten und kann im Schnittkraftrechner über „Gespeicherte Datei öffnen“ wieder geladen werden.</p>
 </div></main>
 <script type="application/json" id="zv-data">${data}<\/script>
 </body></html>`;
@@ -1545,6 +1646,7 @@ if(window.visualViewport){let t;window.visualViewport.addEventListener('resize',
 
 document.documentElement.lang=LANG;
 render();
+fetchRole();
 </script>
 </body>
 </html>
