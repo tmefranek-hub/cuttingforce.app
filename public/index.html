@@ -14,51 +14,47 @@
   <meta property="og:url" content="https://example.com/">
   <meta property="og:locale" content="de_DE">
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <header class="site-header">
-    <h1>Tobias Franek</h1>
-    <p class="subtitle">Maschinenbau · Zerspanungstechnik</p>
+  <header class="top">
+    <div class="wrap">
+      <h1 class="brand-logo">
+        <svg class="logo-icon" viewBox="0 0 100 100" role="img" aria-label="cuttingforce Icon">
+          <rect x="2" y="2" width="96" height="96" rx="20" fill="#ffffff" stroke="#0a0a0a" stroke-width="4"/>
+          <rect x="13" y="13" width="74" height="74" rx="12" fill="none" stroke="#0a0a0a" stroke-width="2.5"/>
+          <text x="50" y="60" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-weight="700" font-size="28" letter-spacing="-1" fill="#0a0a0a">CFA</text>
+        </svg>
+        <span class="wordmark"><span class="wm-light">cutting</span><span class="wm-bold">force</span><span class="wm-mono">.app</span></span>
+      </h1>
+      <nav class="top-nav" aria-label="Hauptnavigation">
+        <a href="/versuchsprotokoll-zerspanung/">Versuchsprotokoll</a>
+      </nav>
+    </div>
   </header>
 
-  <main>
-    <section id="vorstellung" aria-labelledby="vorstellung-titel">
-      <h2 id="vorstellung-titel">Über mich</h2>
-      <!-- PLATZHALTER: Text später durch eigene Vorstellung ersetzen -->
-      <p class="platzhalter">
-        [PLATZHALTER: Kurze Vorstellung – z. B. wer du bist, was dich antreibt
-        und was Besucher:innen auf dieser Seite erwartet.]
-      </p>
-      <p>
-        Ich habe Maschinenbau an der Montanuniversität Leoben studiert
-        (Abschluss 2025) mit Schwerpunkt Zerspanungstechnik.
-      </p>
-    </section>
+  <main class="wrap">
+    <div class="stack">
 
-    <section id="schwerpunkte" aria-labelledby="schwerpunkte-titel">
-      <h2 id="schwerpunkte-titel">Schwerpunkte</h2>
-      <!-- PLATZHALTER: Liste später an eigene Schwerpunkte anpassen -->
-      <ul class="platzhalter">
-        <li>[PLATZHALTER: z. B. Zerspanungstechnik / Werkzeugverschleiß]</li>
-        <li>[PLATZHALTER: z. B. CNC-Fertigung / Prozessoptimierung]</li>
-        <li>[PLATZHALTER: z. B. Simulation / Messtechnik]</li>
-      </ul>
-    </section>
+      <section class="card" id="kontakt" aria-labelledby="kontakt-titel">
+        <h2 id="kontakt-titel">Kontakt</h2>
+        <p>
+          E-Mail: <a href="mailto:tme.franek@gmail.com">tme.franek@gmail.com</a><br>
+          <!-- PLATZHALTER: LinkedIn-Link später eintragen -->
+          LinkedIn: <span class="platzhalter">[PLATZHALTER: Link zu deinem LinkedIn-Profil]</span>
+        </p>
+      </section>
 
-    <section id="kontakt" aria-labelledby="kontakt-titel">
-      <h2 id="kontakt-titel">Kontakt</h2>
-      <!-- PLATZHALTER: Kontaktdaten später eintragen -->
-      <p class="platzhalter">
-        E-Mail: [PLATZHALTER: deine-email@beispiel.at]<br>
-        LinkedIn: [PLATZHALTER: Link zu deinem LinkedIn-Profil]
-      </p>
-    </section>
+    </div>
   </main>
 
   <footer class="site-footer">
-    <p>&copy; 2026 Tobias Franek</p>
+    <div class="wrap">
+      <p>&copy; 2026 Tobias Franek</p>
+    </div>
   </footer>
 
 </body>
