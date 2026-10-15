@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spanbildung & Spankammer – cuttingforce.app</title>
+<meta name="description" content="2D-Spanbildungssimulation zur Auslegung von Spankammern beim Fräsen: Scherwinkel, Spanstauchung, Lamellenspan, Spanraum und Kammerwinkel.">
+<link rel="canonical" href="https://cuttingforce.app/spanbildung/">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/vendor/katex/katex.min.css">
+<style>
+.sb main{padding-block:20px 48px}
+.sb .wrap-app{max-width:76rem;margin:0 auto;padding-inline:16px}
+.sb-grid{display:grid;grid-template-columns:minmax(0,22rem) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.sb-grid{grid-template-columns:minmax(0,1fr)}}
+.sb h1.app-titel{font:700 26px/1.1 var(--f-disp);margin:0 0 4px}
+.sb .sub{color:var(--muted);margin:0 0 16px}
+.sb .card h2{margin-bottom:.5rem}
+.sb fieldset{border:0;padding:0;margin:0 0 12px}
+.sb legend{font:600 13px/1 "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.fgrid label{display:flex;flex-direction:column;font-size:12.5px;color:var(--muted);gap:3px}
+.fgrid label.wide{grid-column:1/-1}
+.fgrid input,.fgrid select{font:15px/1.2 var(--f-body);padding:8px 9px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:100%;min-width:0}
+.fgrid .u{font-size:11px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
+.sb .btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 14px;border:1px solid var(--fg);border-radius:6px;background:var(--surface);color:var(--fg);font:600 15px/1.1 var(--f-disp);cursor:pointer;text-decoration:none}
+.sb .btn.primary{background:var(--accent);color:var(--accent-ink)}
+.note{font-size:12.5px;color:var(--muted)}
+.warn{color:#b3261e;font-size:13px;margin:6px 0 0}
+.views{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}
+.view svg{width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px}
+.view h3{font:600 16px/1.2 var(--f-disp);margin:0 0 6px}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.kv div{border:1px solid var(--line);border-radius:5px;padding:8px 10px}
+.kv .k{font-size:11.5px;color:var(--muted)}
+.kv .v{font:600 18px/1.2 "Space Grotesk",sans-serif}
+.kv .v small{font:400 11px "IBM Plex Mono",monospace;color:var(--muted);margin-left:3px}
+.kv .hl{border-color:var(--fg);border-width:2px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--fg);font-size:12px;margin-left:6px}
+.formeln .eq{overflow-x:auto;padding:2px 0}
+.formeln h3{font-size:15px;margin:16px 0 4px}
+.src li{margin-bottom:4px;font-size:13.5px}
+svg text{font-family:"IBM Plex Sans",system-ui,sans-serif}
+.s-tool{fill:#e9e9e9;stroke:#0a0a0a;stroke-width:1.2}
+.s-insert{fill:#9a9a9a;stroke:#0a0a0a;stroke-width:1.2}
+.s-work{fill:#f2efe6;stroke:#6b5e3c;stroke-width:1}
+.s-uncut{fill:#e8dfc4;stroke:none}
+.s-chip{fill:#c46a1d;stroke:#7a3d0a;stroke-width:.8}
+.s-band{stroke:#7a3d0a;stroke-width:.8;opacity:.8}
+.s-shear{stroke:#b3261e;stroke-width:1.2;stroke-dasharray:5 4;fill:none}
+.s-pocket{fill:rgba(40,110,220,.10);stroke:#1d5fc4;stroke-width:1.4}
+.s-env{fill:none;stroke:#0a0a0a;stroke-width:1;stroke-dasharray:3 3}
+.s-dim{stroke:#1d5fc4;stroke-width:.9;fill:none}
+.s-dimt{fill:#1d5fc4;font-size:12px}
+.s-lab{fill:#333;font-size:12px}
+.s-coil{fill:none;stroke:#c46a1d;stroke-linecap:round}
+@media (prefers-color-scheme:dark){.s-tool{fill:#2a2a2a;stroke:#ddd}.s-insert{fill:#666;stroke:#ddd}.s-work{fill:#2c2820;stroke:#a89870}.s-uncut{fill:#4a4230}.s-lab{fill:#ddd}.s-env{stroke:#ddd}}
+</style>
+</head>
+<body class="sb">
+<header class="top">
+  <div class="wrap wrap-breit">
+    <a href="/" class="brand-logo" style="text-decoration:none" aria-label="Zur Startseite">
+      <svg class="logo-icon" viewBox="0 0 100 100" role="img" aria-label="cuttingforce Icon"><rect x="2" y="2" width="96" height="96" rx="20" fill="#ffffff" stroke="#0a0a0a" stroke-width="4"/><rect x="13" y="13" width="74" height="74" rx="12" fill="none" stroke="#0a0a0a" stroke-width="2.5"/><text x="50" y="60" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-weight="700" font-size="28" letter-spacing="-1" fill="#0a0a0a">CFA</text></svg>
+      <span class="wordmark"><span class="wm-light">cutting</span><span class="wm-bold">force</span><span class="wm-mono">.app</span></span>
+    </a>
+    <nav class="top-nav" aria-label="Apps"><a href="/schnittkraftrechner/">Schnittkraftrechner</a><a href="/versuchsprotokoll/">Versuchsprotokoll</a></nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap-app">
+  <h1 class="app-titel">Spanbildung &amp; Spankammer</h1>
+  <p class="sub">2D-Simulation der Spanbildung beim Fräsen und Auslegung der Spankammer im Fräsergrundkörper. Modellrechnung mit Richtwerten – keine FEM.</p>
+
+  <div class="sb-grid">
+    <form class="card" id="inp" autocomplete="off" onsubmit="return false">
+      <h2>Eingaben</h2>
+      <div class="btnrow"><button type="button" class="btn primary" id="btn-import">Aus Schnittkraftrechner übernehmen</button></div>
+      <p class="note" id="import-info">Übernimmt die Fräsdaten aus dem Schnittkraftrechner auf diesem Gerät.</p>
+      <fieldset><legend>Fräsprozess</legend><div class="fgrid">
+        <label>Fräserdurchmesser Dc <span class="u">mm</span><input id="Dc" inputmode="decimal" value="63"></label>
+        <label>Zähnezahl z<input id="z" inputmode="decimal" value="5"></label>
+        <label>Schnittgeschw. vc <span class="u">m/min</span><input id="vc" inputmode="decimal" value="200"></label>
+        <label>Zahnvorschub fz <span class="u">mm</span><input id="fz" inputmode="decimal" value="0,15"></label>
+        <label>Arbeitseingriff ae <span class="u">mm</span><input id="ae" inputmode="decimal" value="40"></label>
+        <label>Anstellwinkel κr <span class="u">°</span><input id="kr" inputmode="decimal" value="90"></label>
+        <label class="wide">Fräserposition<select id="pos"><option value="gleich">Kanten fräsen – Gleichlauf</option><option value="mitte">Mittige Anordnung</option><option value="gegen">Kanten fräsen – Gegenlauf</option></select></label>
+      </div></fieldset>
+      <fieldset><legend>Werkstoff &amp; Spanbildung</legend><div class="fgrid">
+        <label class="wide">Werkstoffgruppe (ISO)<select id="iso"><option value="P">P – Stahl</option><option value="M">M – Rostfrei</option><option value="K">K – Guss</option><option value="N">N – NE-Metalle</option><option value="S">S – Hochwarmfest / Titan</option><option value="H">H – Gehärtet</option></select></label>
+        <label>Spanstauchung λ<input id="lam" inputmode="decimal" value="2"></label>
+        <label>Reibwert μ (Spanfläche)<input id="mu" inputmode="decimal" value="0,5"></label>
+        <label class="wide">Spanart<select id="spanart"><option value="auto">automatisch (aus Werkstoff)</option><option value="fliess">Fließspan</option><option value="lamellen">Lamellenspan</option><option value="reiss">Reiß-/Bröckelspan</option></select></label>
+      </div></fieldset>
+      <fieldset><legend>Wendeschneidplatte</legend><div class="fgrid">
+        <label>Plattendicke s <span class="u">mm</span><input id="s" inputmode="decimal" value="5,56"></label>
+        <label>Keilwinkel β <span class="u">°</span><input id="beta" inputmode="decimal" value="72"></label>
+        <label>Spanwinkel γ <span class="u">°</span><input id="g" inputmode="decimal" value="10"></label>
+        <label>Freiwinkel α <span class="u">° (berechnet)</span><input id="alpha" readonly tabindex="-1"></label>
+      </div></fieldset>
+      <fieldset><legend>Spankammer</legend><div class="fgrid">
+        <label>Spanraumzahl x<input id="x" inputmode="decimal" value=""></label>
+        <label>Min. Stegdicke w <span class="u">mm</span><input id="w" inputmode="decimal" value="3"></label>
+      </div><p class="note">Spanraumzahl x = Kammerfläche / Spanfläche je Zahn (leer = Vorschlag je Spanart). Der Kammerwinkel ψ wird von der Simulation gewählt.</p></fieldset>
+      <div id="warn"></div>
+    </form>
+
+    <div class="views">
+      <section class="card view"><h3>1 · Spanentstehung an der Schneide <span class="pill" id="pill-art">Fließspan</span></h3>
+        <svg id="sv-detail" viewBox="0 0 640 300" role="img" aria-label="Animation der Spanbildung an der Schneide"></svg>
+        <p class="note">Orthogonalschnitt-Modell mit der mittleren Spanungsdicke h<sub>m</sub>. Rot gestrichelt: Scherebene unter φ.</p>
+      </section>
+      <section class="card view"><h3>2 · Spankammer im Fräsergrundkörper</h3>
+        <svg id="sv-pocket" viewBox="0 0 640 460" role="img" aria-label="Bemaßte Spankammer mit Spanaufrollung"></svg>
+        <p class="note">Vorderwand parallel zur Spanfläche der Wendeplatte, Übergang mit Radius R in die Rückwand unter dem Kammerwinkel ψ. Der Span füllt die Kammer während eines Zahneingriffs.</p>
+      </section>
+      <section class="card"><h3 style="font:600 16px var(--f-disp);margin:0 0 8px">Ergebnisse</h3><div class="kv" id="res"></div></section>
+      <section class="card formeln"><h2>Berechnungsgrundlagen</h2><div id="formeln"></div>
+        <h3>Quellen</h3>
+        <ol class="src">
+          <li>Scherwinkel nach Merchant, φ = 45° + γ/2 − ρ/2: <a href="https://ocw.mit.edu/courses/2-008-design-and-manufacturing-ii-spring-2004/8e03b9cba8d4eaabd65df8e8baae93a7_07cutting_1_6_f.pdf" rel="noopener">MIT OpenCourseWare 2.008, Mechanics of Cutting</a></li>
+          <li>Spanstauchung, Segmentspan-Geometrie (Teilung p<sub>c</sub>, Segmentierfrequenz): <a href="https://repository.lboro.ac.uk/articles/Improved_analytical_prediction_of_chip_formation_in_orthogonal_cutting_of_titanium_alloy_Ti6Al4V/9572843/files/17206889.pdf" rel="noopener">Loughborough University – Improved analytical prediction of chip formation in orthogonal cutting of Ti6Al4V</a></li>
+          <li>Kontaktlänge ≈ 2 × Spandicke (Kato et al., zitiert in): <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9105213/" rel="noopener">Determination of the Tool–Chip Contact Length for the Cutting Processes, Materials 2022</a></li>
+          <li>Spanarten Fließ-, Lamellen-, Scher- und Reißspan: <a href="https://www.chemie.de/lexikon/Span.html" rel="noopener">chemie.de Lexikon „Span“</a></li>
+        </ol>
+        <p class="note">Spanraumzahl, Mindeststeg und Öffnungskriterium sind Konstruktionsannahmen dieses Werkzeugs und als Startwerte für die Auslegung gedacht.</p>
+      </section>
+    </div>
+  </div>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap wrap-breit"><p>&copy; 2026 Tobias Franek · <a href="/">cuttingforce.app</a> · <a href="/impressum/">Impressum</a> · <a href="/datenschutz/">Datenschutzerklärung</a></p></div></footer>
+
+<script src="/vendor/katex/katex.min.js" defer></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const num=v=>{const x=parseFloat(String(v??'').replace(',','.'));return Number.isFinite(x)?x:NaN;};
+const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString('de-AT',{minimumFractionDigits:d,maximumFractionDigits:d}):'–';
+const RAD=Math.PI/180;
+const ART={fliess:{n:'Fließspan',x:4},lamellen:{n:'Lamellenspan',x:3},reiss:{n:'Reiß-/Bröckelspan',x:2}};
+const ISO_ART={P:'fliess',M:'fliess',N:'fliess',K:'reiss',S:'lamellen',H:'lamellen'};
+const FIELDS=['Dc','z','vc','fz','ae','kr','pos','iso','lam','mu','spanart','s','beta','g','x','w'];
+const SKEY='cfa-spanbildung-v1';
+
+/* ---------- Übernahme aus dem Schnittkraftrechner (gleiche Domain, localStorage) ---------- */
+function importRechner(){
+  for(const k of ['cfa-rechner-v1','zv-versuchsprotokoll-v1']){
+    let st=null;try{st=JSON.parse(localStorage.getItem(k));}catch(e){}
+    const f=st&&st.forms&&st.forms.fraesen;if(!f)continue;
+    const set=(id,v)=>{if(v!=null&&String(v).trim()!=='')$(id).value=String(v);};
+    set('Dc',f.Dc);set('z',f.z);set('vc',f.vc);set('fz',f.fz);set('ae',f.ae);set('kr',f.kr);set('lam',f.lam);set('g',f.g);
+    if(['gleich','mitte','gegen'].includes(f.pos))$('pos').value=f.pos;
+    const iso=String(f.mat||'').charAt(0).toUpperCase();if('PMKNSH'.includes(iso)&&iso)$('iso').value=iso;
+    $('import-info').textContent='Übernommen aus '+(k==='cfa-rechner-v1'?'Schnittkraftrechner':'Versuchsprotokoll')+' (Fräsen).';
+    update();return true;
+  }
+  $('import-info').textContent='Keine Fräsdaten gefunden. Bitte zuerst im Schnittkraftrechner unter „Fräsen“ Werte eingeben.';
+  return false;
+}
+
+/* ---------- Modell ---------- */
+function engage(Dc,ae,pos){const r=Dc/2;if(!(Dc>0&&ae>0))return null;ae=Math.min(ae,Dc);let y1,y2;
+  if(pos==='gleich'){y2=r;y1=r-ae;}else if(pos==='gegen'){y1=-r;y2=-r+ae;}else{y1=-ae/2;y2=ae/2;}
+  const c=v=>Math.max(-1,Math.min(1,v));return {a:Math.acos(c(-y1/r)),e:Math.acos(c(-y2/r))};}
+
+function model(i){
+  const R={},w=[];
+  const E=engage(i.Dc,i.ae,i.pos);if(!E){w.push('Dc und ae eintragen.');return {R,w};}
+  const sk=Math.sin(i.kr*RAD),phs=E.e-E.a;
+  R.n=i.vc*1000/(Math.PI*i.Dc);
+  R.phs=phs;R.hm=i.fz*sk*(Math.cos(E.a)-Math.cos(E.e))/phs;
+  R.hmax=i.fz*sk*((E.a<=Math.PI/2&&E.e>=Math.PI/2)?1:Math.max(Math.sin(E.a),Math.sin(E.e)));
+  R.le=i.Dc/2*phs;
+  // Spanstauchung und Scherwinkel
+  const g=i.g*RAD;
+  R.rho=Math.atan(i.mu);
+  R.phiM=Math.PI/4+g/2-R.rho/2;                                  // Merchant
+  R.lamM=Math.cos(R.phiM-g)/Math.sin(R.phiM);
+  R.lam=i.lam>1?i.lam:R.lamM;
+  R.phi=Math.atan(Math.cos(g)/(R.lam-Math.sin(g)));              // aus λ = cos(φ−γ)/sin φ
+  R.hch=R.lam*R.hm;R.hchmax=R.lam*R.hmax;
+  R.lc=2*R.hch;                                                  // Kontaktlänge ≈ 2·Spandicke
+  R.lsp=R.le/R.lam;
+  R.gam=Math.cos(g)/(Math.sin(R.phi)*Math.cos(R.phi-g));         // Scherung im Scherband
+  R.A=R.hm*R.le;                                                 // Spanfläche je Zahn (2D) = h_ch·l_sp
+  // Spanart
+  R.art=i.spanart==='auto'?ISO_ART[i.iso]:i.spanart;
+  R.x=i.x>0?i.x:ART[R.art].x;
+  // Lamellenspan: Segmentgeometrie
+  if(R.art==='lamellen'){
+    const tu=R.hm,tc=R.hch,eta=0.6+2*tu,hl=eta*tc,H=2*tc-hl,phisaw=R.phi+30*RAD;
+    R.seg={hl,H,G:(H-hl)/H,phisaw,pc:(H-hl)*Math.sin(phisaw)/(Math.cos(R.phi-g)*Math.cos(phisaw+g-R.phi))};
+    R.seg.f=(i.vc/60*1000)/(R.lam*R.seg.pc);                     // Hz
+    if(!(R.seg.pc>0))w.push('Segmentgeometrie nicht bestimmbar – Spanstauchung prüfen.');
+  }
+  // Keil
+  R.alpha=90-i.beta-i.g;
+  if(R.alpha<=0)w.push('Freiwinkel α = 90° − β − γ ist ≤ 0°: Keilwinkel oder Spanwinkel verringern.');
+  // Spankammer
+  R.Areq=R.x*R.A;
+  R.Rk=Math.max(0.5,Math.ceil(Math.sqrt(R.Areq/Math.PI)*10)/10);   // Radius: Spanrolle mit x-facher Spanfläche
+  // Vorderwand entlang Spanfläche: mindestens R + l_c, und so lang, dass die Spanrolle mit 0,5 mm Abstand im Hüllkreis liegt
+  {const gg=i.g*RAD,rT=i.Dc/2,C=[rT*Math.cos(gg),-rT*Math.sin(gg)];let L=Math.ceil((R.Rk+Math.max(R.lc,0.5))*10)/10;
+   while(L<rT&&Math.hypot(L-C[0],R.Rk-C[1])>rT-R.Rk-0.5)L+=0.1;R.L=Math.round(L*10)/10;}
+  const P=pocketSearch(i,R);Object.assign(R,P);
+  if(!P.ok)w.push(P.msg);
+  return {R,w};
+}
+/* Kammergeometrie im lokalen System: Ursprung = Schneidecke, x entlang Spanfläche ins Werkzeug, y in die Kammer.
+   Fräsermitte C liegt unter dem Spanwinkel γ hinter der Spanfläche. */
+function pocketGeo(i,R,psi){
+  const g=i.g*RAD,rT=i.Dc/2,C=[rT*Math.cos(g),-rT*Math.sin(g)],L=R.L,Rk=R.Rk,cc=[L,Rk];
+  const db=[-Math.cos(psi),Math.sin(psi)],T2=[L+Rk*Math.sin(psi),Rk+Rk*Math.cos(psi)];
+  // Schnitt Rückwand mit Hüllkreis
+  const ox=T2[0]-C[0],oy=T2[1]-C[1],b=ox*db[0]+oy*db[1],c=ox*ox+oy*oy-rT*rT,disc=b*b-c;
+  if(disc<0)return null;const t=-b+Math.sqrt(disc);if(t<=0)return null;
+  const Ex=[T2[0]+t*db[0],T2[1]+t*db[1]];
+  // Polygon: O → T1 → Bogen → T2 → E → Hüllkreisbogen → O
+  const pts=[[0,0],[L,0]];const a0=-Math.PI/2,a1=Math.PI/2-psi;
+  for(let k=1;k<=24;k++){const a=a0+(a1-a0)*k/24;pts.push([cc[0]+Rk*Math.cos(a),cc[1]+Rk*Math.sin(a)]);}
+  pts.push(Ex);
+  const ang=p=>Math.atan2(p[1]-C[1],p[0]-C[0]);let aE=ang(Ex),aO=ang([0,0]);
+  let d=aO-aE;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;
+  for(let k=1;k<24;k++){const a=aE+d*k/24;pts.push([C[0]+rT*Math.cos(a),C[1]+rT*Math.sin(a)]);}
+  let A=0;for(let k=0;k<pts.length;k++){const p=pts[k],q=pts[(k+1)%pts.length];A+=p[0]*q[1]-q[0]*p[1];}
+  // Prüfen, dass die Spanrolle (Kreis R um cc) innerhalb des Hüllkreises liegt
+  const inside=Math.hypot(cc[0]-C[0],cc[1]-C[1])<=rT-Rk-0.45;
+  // Winkel zwischen Rückwand (nach außen) und Radialrichtung am Austritt – kleiner als 90° − ρ, damit die Spanrolle unter Fliehkraft abgleitet
+  const rh=[(Ex[0]-C[0])/rT,(Ex[1]-C[1])/rT],delta=Math.acos(Math.max(-1,Math.min(1,db[0]*rh[0]+db[1]*rh[1])));
+  return {psi,pts,A:Math.abs(A)/2,E:Ex,T2,C,cc,open:Math.hypot(Ex[0],Ex[1]),thetaE:Math.abs(d),inside,delta};
+}
+function pocketSearch(i,R){
+  const tau=2*Math.PI/i.z,need=(i.s+i.w)/(i.Dc/2),thetaMax=tau-need;
+  let best=null,last=null;
+  for(let deg=25;deg<=120;deg+=1){const G=pocketGeo(i,R,deg*RAD);if(!G)continue;last=G;
+    if(G.inside&&G.A>=R.Areq&&G.open>=2.2*R.Rk&&G.delta<=Math.PI/2-R.rho){best=G;break;}}
+  if(!best){const G=last||pocketGeo(i,R,60*RAD);return {ok:false,G,thetaMax,msg:'Keine Kammer gefunden, die Spanfläche und Öffnung erfüllt – Fräserdurchmesser zu klein für diesen Span. ae, fz oder z prüfen.'};}
+  const ok=best.thetaE<=thetaMax;
+  return {ok,G:best,thetaMax,msg:ok?'':'Kammer ragt zu weit in den nächsten Zahn (Teilung 360°/z zu eng). Weniger Zähne, kleineres fz·ae oder geringere Spanraumzahl wählen.'};
+}
+
+/* ---------- Zeichnen ---------- */
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent,text){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e;}
+const P=pts=>pts.map((p,k)=>(k?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
+let MODEL=null,INP=null,t0=performance.now();
+
+function drawDetail(ts){
+  const sv=$('sv-detail');sv.innerHTML='';const R=MODEL.R;if(!Number.isFinite(R.hm)||!Number.isFinite(R.phi))return;
+  const W=640,H=300,g=INP.g*RAD,phi=R.phi,h=R.hm,hc=R.hch;
+  const k=Math.min(70/h,150/hc);                           // px je mm
+  const ox=360,oy=210,X=(x,y)=>[ox+x*k,oy-y*k];
+  const u=[Math.sin(g),Math.cos(g)],nr=[-Math.cos(g),Math.sin(g)];   // Spanflächenrichtung, Normale in den Span
+  const at=(s,o)=>[u[0]*s+nr[0]*o,u[1]*s+nr[1]*o];
+  // Werkstück und unverformte Spanungsschicht
+  el('rect',{x:0,y:oy,width:W,height:H-oy,class:'s-work'},sv);
+  const ps=[-h/Math.tan(phi),h];
+  el('path',{d:P([X(-ox/k,h),X(ps[0],ps[1]),X(0,0),X(-ox/k,0)])+'Z',class:'s-uncut'},sv);
+  el('text',{x:16,y:oy-h*k/2+4,class:'s-lab'},sv,'h = '+fmt(h,3)+' mm');
+  // Span
+  const s0=ps[0]*u[0]+ps[1]*u[1],Lch=Math.max(s0+1e-3,(oy-15)/k/Math.max(u[1],0.3));
+  const phase=((ts-t0)/1000*0.5)%1;
+  if(R.art==='lamellen'&&R.seg&&R.seg.pc>0){
+    const pc=R.seg.pc,amp=(R.seg.H-R.seg.hl)/2,outer=[];
+    for(let sx=Lch;sx>=s0;sx-=pc/12){const q=(((sx-s0)/pc-phase)%1+1)%1,o=q<0.8?hc-amp+2*amp*q/0.8:hc+amp-2*amp*(q-0.8)/0.2;outer.push(at(sx,o));}
+    outer.push(ps);
+    el('path',{d:P([[0,0],at(Lch,0)].concat(outer).map(p=>X(p[0],p[1])))+'Z',class:'s-chip'},sv);
+    for(let j=0;j<200;j++){const sx=s0+(j+phase)*pc;if(sx>Lch)break;const a=X(...at(sx-s0,0)),b=X(...at(sx,hc));el('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],class:'s-band'},sv);}
+  }else if(R.art==='reiss'){
+    const seg=Math.max(hc*1.3,(Lch-s0)/5);
+    el('path',{d:P([[0,0],at(Math.min(seg*0.6,Lch),0),at(Math.min(seg*0.6,Lch)+s0,hc),ps].map(p=>X(p[0],p[1])))+'Z',class:'s-chip'},sv);
+    for(let j=0;j<12;j++){const sx=s0+(j+phase)*seg;if(sx>Lch)break;const s2=Math.min(Lch,sx+seg*0.7),dx=j*hc*0.35,dy=j*hc*0.1;
+      el('path',{d:P([at(sx-s0,0),at(s2-s0,0),at(s2,hc),at(sx,hc)].map(p=>X(p[0]-dx,p[1]+dy)))+'Z',class:'s-chip'},sv);}
+  }else{
+    el('path',{d:P([[0,0],at(Lch,0),at(Lch,hc),ps].map(p=>X(p[0],p[1])))+'Z',class:'s-chip'},sv);
+    for(let j=0;j<14;j++){const sx=s0+((j+phase)/14)*(Lch-s0);const a=X(...at(sx-s0,0)),b=X(...at(sx,hc));el('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],class:'s-band',opacity:.3},sv);}
+  }
+  // Schneidkeil: Spanfläche (u), Freifläche unter Freiwinkel α über der bearbeiteten Fläche
+  const fa=Math.max(R.alpha,1)*RAD,Lr=(oy+20)/k/Math.max(u[1],0.3),Lf=(W-ox+20)/k;
+  el('path',{d:P([X(0,0),X(u[0]*Lr,u[1]*Lr),[W+10,-10],[W+10,oy-Lf*Math.sin(fa)*k],X(Lf*Math.cos(fa),Lf*Math.sin(fa))])+'Z',class:'s-insert'},sv);
+  // Scherebene und Beschriftung
+  const sp=X(ps[0],ps[1]);el('line',{x1:ox,y1:oy,x2:sp[0],y2:sp[1],class:'s-shear'},sv);
+  el('text',{x:sp[0]-8,y:sp[1]+18,class:'s-lab','text-anchor':'end'},sv,'φ = '+fmt(R.phi/RAD,1)+'°');
+  const lcP=X(...at(R.lc,0));el('circle',{cx:lcP[0],cy:lcP[1],r:3.5,fill:'#1d5fc4'},sv);
+  el('text',{x:lcP[0]+10,y:lcP[1]+4,class:'s-dimt'},sv,'Ende Kontaktlänge l_c = '+fmt(R.lc,2)+' mm');
+  el('text',{x:ox+14,y:oy+20,class:'s-lab'},sv,'α = '+fmt(R.alpha,0)+'°   β = '+fmt(INP.beta,0)+'°   γ = '+fmt(INP.g,0)+'°');
+  el('text',{x:16,y:H-30,class:'s-lab'},sv,'← Schnittrichtung   v_ch = v_c / λ entlang der Spanfläche');
+  el('text',{x:16,y:H-12,class:'s-lab'},sv,'h_ch = λ·h_m = '+fmt(R.hch,3)+' mm   (λ = '+fmt(R.lam,2)+')'+(R.seg?'   Segmentteilung '+fmt(R.seg.pc*1000,0)+' µm':''));
+}
+
+function dimLine(sv,a,b,label,off){
+  const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,nx=-dy/L*off,ny=dx/L*off;
+  const a2=[a[0]+nx,a[1]+ny],b2=[b[0]+nx,b[1]+ny];
+  el('line',{x1:a[0],y1:a[1],x2:a2[0],y2:a2[1],class:'s-dim',opacity:.5},sv);el('line',{x1:b[0],y1:b[1],x2:b2[0],y2:b2[1],class:'s-dim',opacity:.5},sv);
+  el('line',{x1:a2[0],y1:a2[1],x2:b2[0],y2:b2[1],class:'s-dim','marker-start':'url(#ar)','marker-end':'url(#ar)'},sv);
+  el('text',{x:(a2[0]+b2[0])/2+nx*0.35,y:(a2[1]+b2[1])/2+ny*0.35+4,class:'s-dimt','text-anchor':'middle'},sv,label);
+}
+function drawPocket(ts){
+  const sv=$('sv-pocket');sv.innerHTML='';const R=MODEL.R;if(!R.G)return;
+  const defs=el('defs',{},sv),mk=el('marker',{id:'ar',viewBox:'0 0 10 10',refX:'5',refY:'5',markerWidth:'6',markerHeight:'6',orient:'auto-start-reverse'},defs);el('path',{d:'M0 0L10 5L0 10z',fill:'#1d5fc4'},mk);
+  const G=R.G,i=INP,W=640,H=460,g=i.g*RAD;
+  // Ausschnitt: Kammer + Platte
+  const xs=G.pts.map(p=>p[0]).concat([-i.s*1.2,G.E[0]]),ys=G.pts.map(p=>p[1]).concat([-i.s*1.6]);
+  const minx=Math.min(...xs)-1,maxx=Math.max(...xs)+1,miny=Math.min(...ys)-1,maxy=Math.max(...ys)+1.5;
+  const k=Math.min((W-80)/(maxx-minx),(H-60)/(maxy-miny));
+  // Drehung, damit die Spanfläche wie am Fräser liegt: lokales y nach oben, x nach rechts
+  const X=p=>[40+(p[0]-minx)*k,H-30-(p[1]-miny)*k];
+  // Werkzeugkörper (Hüllkreis-Ausschnitt) grau
+  const body=[];for(let a=-Math.PI;a<=Math.PI+1e-9;a+=Math.PI/90)body.push([G.C[0]+i.Dc/2*Math.cos(a),G.C[1]+i.Dc/2*Math.sin(a)]);
+  const clip=el('clipPath',{id:'cl'},defs);el('rect',{x:0,y:0,width:W,height:H},clip);
+  el('path',{d:P(body.map(X))+'Z',class:'s-tool','clip-path':'url(#cl)'},sv);
+  el('path',{d:P(body.map(X))+'Z',class:'s-env','clip-path':'url(#cl)'},sv);
+  // Kammer
+  el('path',{d:P(G.pts.map(X))+'Z',class:'s-pocket'},sv);
+  // Wendeplatte: Spanfläche auf y=0, Dicke s nach unten (y<0), Keilwinkel β an der Schneide
+  const beta=i.beta*RAD,Lp=Math.min(R.L,Math.max(i.s*1.5,R.L*0.6));
+  const insPts=[[0,0],[Lp,0],[Lp,-i.s],[i.s/Math.tan(beta),-i.s]];
+  el('path',{d:P(insPts.map(X))+'Z',class:'s-insert'},sv);
+  // Span-Aufrollung (Animation): gerade entlang Vorderwand, dann Spirale um Kammermitte
+  const T=6,fr=((ts-t0)/1000%T)/T,len=R.lsp*Math.min(1,fr*1.15),hc=R.hch,pts=[];
+  const L=R.L,cc=G.cc;let acc=0;
+  const straight=Math.min(len,L);for(let s=0;s<=straight;s+=Math.max(L/40,0.01))pts.push([s,hc/2]);
+  if(len>L){let th=-Math.PI/2;acc=L;let r=R.Rk-hc/2;while(acc<len&&r>hc){const dth=0.05;r=R.Rk-hc/2-hc*(th+Math.PI/2)/(2*Math.PI);if(r<=hc)break;pts.push([cc[0]+r*Math.cos(th),cc[1]+r*Math.sin(th)]);acc+=r*dth;th+=dth;}}
+  if(pts.length>1)el('path',{d:P(pts.map(X)),class:'s-coil','stroke-width':Math.max(2,hc*k)},sv);
+  // Bemaßung
+  const O=X([0,0]),T1=X([L,0]);
+  dimLine(sv,O,T1,'L = '+fmt(L,1),-26);
+  const ccp=X(cc),rp=X([cc[0]+R.Rk*Math.cos(-0.35),cc[1]+R.Rk*Math.sin(-0.35)]);
+  el('line',{x1:ccp[0],y1:ccp[1],x2:rp[0],y2:rp[1],class:'s-dim','marker-end':'url(#ar)'},sv);
+  el('text',{x:ccp[0]+6,y:ccp[1]-6,class:'s-dimt'},sv,'R = '+fmt(R.Rk,1));
+  const T2=X(G.T2),E=X(G.E);
+  el('line',{x1:T2[0],y1:T2[1],x2:E[0],y2:E[1],class:'s-pocket',fill:'none','stroke-width':2.2},sv);
+  // Winkel ψ zwischen Vorderwand-Richtung (−x) und Rückwand
+  const ar=40,vtx=T2,a1=Math.atan2(0,-1),dirB=[E[0]-T2[0],E[1]-T2[1]];
+  el('path',{d:`M${vtx[0]-ar} ${vtx[1]} A${ar} ${ar} 0 0 1 ${vtx[0]+ar*dirB[0]/Math.hypot(...dirB)} ${vtx[1]+ar*dirB[1]/Math.hypot(...dirB)}`,class:'s-dim'},sv);
+  el('line',{x1:vtx[0],y1:vtx[1],x2:vtx[0]-ar-14,y2:vtx[1],class:'s-dim','stroke-dasharray':'3 3'},sv);
+  el('text',{x:vtx[0]-ar-18,y:vtx[1]-8,class:'s-dimt','text-anchor':'end'},sv,'ψ = '+fmt(G.psi/RAD,0)+'°');
+  dimLine(sv,X([Lp,0]),X([Lp,-i.s]),'s = '+fmt(i.s,2),-30);
+  el('text',{x:O[0]-6,y:O[1]+16,class:'s-lab','text-anchor':'end'},sv,'Schneide');
+  {const bp=X([i.s/Math.tan(beta)*0.35+0.15,-i.s*0.22]);el('text',{x:bp[0],y:bp[1],class:'s-lab'},sv,'β = '+fmt(i.beta,0)+'°');}
+  const fill=Math.min(1,len*hc/G.A);
+  el('text',{x:W-16,y:22,class:'s-lab','text-anchor':'end'},sv,'Füllgrad '+fmt(fill*100,0)+' %  ·  Spanlänge '+fmt(len,1)+' / '+fmt(R.lsp,1)+' mm');
+  el('text',{x:W-16,y:40,class:'s-lab','text-anchor':'end'},sv,'Teilung 360°/z = '+fmt(360/i.z,1)+'°, Kammer belegt '+fmt(G.thetaE/RAD,1)+'° (max. '+fmt(R.thetaMax/RAD,1)+'°)');
+}
+
+function renderResults(){
+  const R=MODEL.R,i=INP;const kv=(k,v,u,hl)=>`<div class="${hl?'hl':''}"><div class="k">${k}</div><div class="v">${v}<small>${u||''}</small></div></div>`;
+  let h='';
+  h+=kv('Mittl. Spanungsdicke h<sub>m</sub>',fmt(R.hm,3),'mm')+kv('Max. Spanungsdicke h<sub>max</sub>',fmt(R.hmax,3),'mm');
+  h+=kv('Scherwinkel φ',fmt(R.phi/RAD,1),'°')+kv('Scherwinkel Merchant φ<sub>M</sub>',fmt(R.phiM/RAD,1),'°');
+  h+=kv('Spanstauchung λ',fmt(R.lam,2),i.lam>1?'':'(Merchant)')+kv('Spandicke h<sub>ch</sub>',fmt(R.hch,3),'mm');
+  h+=kv('Kontaktlänge l<sub>c</sub>',fmt(R.lc,2),'mm')+kv('Scherung γ<sub>s</sub>',fmt(R.gam,2),'');
+  h+=kv('Eingriffslänge l<sub>e</sub>',fmt(R.le,1),'mm')+kv('Spanlänge l<sub>sp</sub>',fmt(R.lsp,1),'mm');
+  h+=kv('Spanfläche je Zahn A<sub>sp</sub>',fmt(R.A,2),'mm²/mm')+kv('Spanraumzahl x',fmt(R.x,1),'');
+  if(R.seg){h+=kv('Segmentteilung p<sub>c</sub>',fmt(R.seg.pc*1000,0),'µm')+kv('Segmentierungsgrad G',fmt(R.seg.G*100,0),'%')+kv('Segmentierfrequenz',fmt(R.seg.f/1000,1),'kHz');}
+  if(R.G){h+=kv('Kammerwinkel ψ (gewählt)',fmt(R.G.psi/RAD,0),'°',1)+kv('Kammerradius R',fmt(R.Rk,1),'mm',1)+kv('Vorderwand L',fmt(R.L,1),'mm',1)+kv('Kammerfläche A<sub>K</sub>',fmt(R.G.A,1),'mm²',1)+kv('Erforderlich x·A<sub>sp</sub>',fmt(R.Areq,1),'mm²')+kv('Öffnung an der Hüllkurve',fmt(R.G.open,1),'mm');}
+  h+=kv('Freiwinkel α',fmt(R.alpha,0),'°');
+  $('res').innerHTML=h;
+  $('pill-art').textContent=ART[R.art].n;
+  $('alpha').value=fmt(R.alpha,0);
+  $('x').placeholder=String(ART[R.art].x).replace('.',',');
+  $('warn').innerHTML=MODEL.w.map(t=>`<p class="warn">${t}</p>`).join('');
+}
+
+/* ---------- Formeln (KaTeX) ---------- */
+const FORMELN=[
+ ['Mittlere Spanungsdicke im Fräseingriff','h_m = f_z\\,\\sin\\kappa_r\\,\\frac{\\cos\\varphi_1-\\cos\\varphi_2}{\\varphi_s}'],
+ ['Scherwinkel aus der Spanstauchung','\\lambda = \\frac{h_{ch}}{h} = \\frac{\\cos(\\phi-\\gamma)}{\\sin\\phi}\\quad\\Rightarrow\\quad \\tan\\phi = \\frac{\\cos\\gamma}{\\lambda-\\sin\\gamma}'],
+ ['Scherwinkel nach Merchant (Kontrolle)','\\phi_M = 45^{\\circ}+\\frac{\\gamma}{2}-\\frac{\\rho}{2},\\qquad \\rho=\\arctan\\mu'],
+ ['Scherung in der Scherzone','\\gamma_s = \\frac{\\cos\\gamma}{\\sin\\phi\\,\\cos(\\phi-\\gamma)}'],
+ ['Spandicke, Spanlänge, Kontaktlänge','h_{ch}=\\lambda\\,h_m,\\qquad l_{sp}=\\frac{l_e}{\\lambda},\\qquad l_c\\approx 2\\,h_{ch}'],
+ ['Lamellenspan (Segmentspan)','h_l=(0{,}6+2\\,h_m)\\,h_{ch},\\quad H=2h_{ch}-h_l,\\quad G=\\frac{H-h_l}{H}'],
+ ['Segmentteilung und Segmentierfrequenz','p_c=\\frac{(H-h_l)\\sin\\phi_{saw}}{\\cos(\\phi-\\gamma)\\,\\cos(\\phi_{saw}+\\gamma-\\phi)},\\qquad f_{seg}=\\frac{v_c}{\\lambda\\,p_c}'],
+ ['Spankammer','A_{sp}=h_m\\,l_e,\\qquad A_K\\ge x\\,A_{sp},\\qquad R=\\sqrt{\\frac{x\\,A_{sp}}{\\pi}},\\qquad L=R+l_c'],
+ ['Wahl des Kammerwinkels ψ','\\psi=\\min\\{\\psi\\ge 25^{\\circ}\\;|\\;A_K\\ge x\\,A_{sp}\\;\\wedge\\;s_{\\ddot{o}}\\ge 2{,}2\\,R\\;\\wedge\\;\\delta\\le 90^{\\circ}-\\rho\\},\\qquad \\theta_K\\le\\frac{2\\pi}{z}-\\frac{s+w}{D_c/2}'],
+ ['Keil','\\alpha = 90^{\\circ}-\\beta-\\gamma']
+];
+function renderFormeln(){
+  const box=$('formeln');box.innerHTML=FORMELN.map(([t,f],k)=>`<h3>${t}</h3><div class="eq" id="fq${k}"></div>`).join('')+
+   '<p class="note">s<sub>ö</sub>: Öffnung der Kammer an der Hüllkurve; δ: Winkel zwischen Rückwand und Radialrichtung am Kammeraustritt (Abgleiten der Spanrolle unter Fliehkraft gegen Reibung); θ<sub>K</sub>: von der Kammer belegter Teilungswinkel. φ<sub>saw</sub> = φ + 30° (Annahme); G: Segmentierungsgrad. Lamellenspan nach dem geometrischen Segmentspan-Modell der Loughborough-Studie (Quelle 2).</p>';
+  const go=()=>FORMELN.forEach(([t,f],k)=>{const e=$('fq'+k);try{katex.render(f,e,{displayMode:true,throwOnError:false});}catch(x){e.textContent=f;}});
+  if(window.katex)go();else window.addEventListener('load',()=>{if(window.katex)go();else FORMELN.forEach(([t,f],k)=>$('fq'+k).textContent=f);});
+}
+
+/* ---------- Ablauf ---------- */
+function read(){const o={};for(const k of FIELDS){const e=$(k);o[k]=e.tagName==='SELECT'?e.value:num(e.value);}return o;}
+function update(){INP=read();MODEL=model(INP);renderResults();try{localStorage.setItem(SKEY,JSON.stringify(Object.fromEntries(FIELDS.map(k=>[k,$(k).value]))));}catch(e){}}
+function loop(ts){if(MODEL){drawDetail(ts);drawPocket(ts);}requestAnimationFrame(loop);}
+(function init(){
+  let st=null;try{st=JSON.parse(localStorage.getItem(SKEY));}catch(e){}
+  if(st)for(const k of FIELDS)if(st[k]!=null&&$(k))$(k).value=st[k];
+  $('inp').addEventListener('input',update);$('inp').addEventListener('change',update);
+  $('btn-import').addEventListener('click',importRechner);
+  update();if(!st)importRechner();
+  renderFormeln();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
