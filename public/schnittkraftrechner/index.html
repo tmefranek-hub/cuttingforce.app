@@ -318,6 +318,8 @@ tr:last-child td{border-bottom:0}
 .cdoc-eq{overflow-x:auto;overflow-y:hidden;padding:2px 0;-webkit-overflow-scrolling:touch}
 .cdoc-eq .katex-display{margin:6px 0;text-align:left}
 .cdoc-tex{width:100%;min-height:340px;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto}
+
+.gate{max-width:40rem;margin:24px auto}
 </style>
 <style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
 <script>window.ZV_BLANK=true</script>
@@ -351,14 +353,19 @@ tr:last-child td{border-bottom:0}
 <script>
 /* Quellcode beim Laden festhalten (vor jeder Änderung am DOM) */
 const SRC0='<!doctype html>\n'+document.documentElement.outerHTML;
-const KEY='zv-versuchsprotokoll-v1';
+/* Eine Codebasis, zwei Apps: /schnittkraftrechner/ (Rechner) und /versuchsprotokoll/ (Versuchsdokumentation, nur angemeldet).
+   Der Worker liefert unter /versuchsprotokoll/ dieselbe Datei aus. */
+const APP=location.pathname.startsWith('/versuchsprotokoll')?'protokoll':'rechner';
+const IS_RECHNER=APP==='rechner';
+const KEY=IS_RECHNER?'cfa-rechner-v1':'zv-versuchsprotokoll-v1';
+document.title=IS_RECHNER?'Schnittkraftrechner – cuttingforce.app':'Versuchsprotokoll – cuttingforce.app';
 const PROCS=['drehen','fraesen','bohren','schaelen','blechkante','kurbelwelle'];
 const TABS=[['versuch','Versuch'],['drehen','Drehen'],['fraesen','Fräsen'],['bohren','Bohren'],['schaelen','Drehschälen'],['blechkante','Blechkantenfräsen'],['kurbelwelle','Kurbelwellenfräsen'],['bericht','Bericht'],['einstellungen','Einstellungen']];
 /* Zentrale Zugriffssteuerung je Prozess: 'public' = für alle, 'user' = nur angemeldet, 'wip' = nur Administrator (in Arbeit).
    Einzelne Prozesse können hier jederzeit auf 'user' oder 'public' umgestellt werden, sobald sie fertig sind. */
 const PROC_ACCESS={drehen:'public',fraesen:'public',bohren:'public',schaelen:'wip',blechkante:'wip',kurbelwelle:'wip'};
 /* Rolle kommt ausschließlich vom Server (GET /api/me), nie aus localStorage */
-let ROLE='guest',ROLE_EMAIL=null;
+let ROLE='guest',ROLE_EMAIL=null,ROLE_READY=false;
 const roleAllowed=k=>{const a=PROC_ACCESS[k]||'public';
  if(a==='public')return true;
  if(a==='user')return ROLE==='user'||ROLE==='admin';
@@ -644,8 +651,15 @@ let pendingDel=null,pendingNew=false,pendingSwitch=null,pendingReset=null;
 /* Prozesssperre: ein Versuch gehört zu genau einem Prozess */
 function procInUse(p){const f=S.forms[p],d=defForm(p);return S.sets.some(s=>s.proc===p)||(S.media||[]).some(m=>m.proc===p)||Object.keys(d).some(k=>String(f[k]??'')!==String(d[k]));}
 /* Gäste rechnen nur – keine Prozesssperre (die Sperre gehört zur Versuchsdokumentation) */
-function lockedProc(){if(ROLE==='guest')return null;return PROCS.find(procInUse)||null;}
+function lockedProc(){if(ROLE==='guest'||IS_RECHNER)return null;return PROCS.find(procInUse)||null;}
 function resetProc(p){if(S.edit&&S.edit.proc===p)S.edit=null;S.forms[p]=defForm(p);S.sets=S.sets.filter(s=>s.proc!==p);(S.media||[]).filter(m=>m.proc===p).forEach(m=>mDel(m.id));S.media=(S.media||[]).filter(m=>m.proc!==p);if(S.sec)S.sec[p]='tool';}
+function gateHTML(){
+ if(!ROLE_READY)return `<section class="card gate"><p class="hint" style="margin:0">Anmeldung wird geprüft …</p></section>`;
+ return `<section class="card gate"><h2>Versuchsprotokoll</h2>
+  <p class="hint">Dokumentation von Werkzeugversuchen beim Kunden: Kunden- und Maschinendaten, Werkzeug, Parametersätze, Ergebnisse, Fotos und Bericht. Die App steht angemeldeten Benutzern zur Verfügung.</p>
+  <div class="toolbar" style="margin:0"><button class="btn primary" data-auth="login">Anmelden</button><button class="btn" data-auth="register">Registrieren</button><a class="btn" href="/schnittkraftrechner/">Zum Schnittkraftrechner</a></div>
+ </section>`;
+}
 function switchPanel(){
  const from=lockedProc(),to=pendingSwitch;if(!from||!to)return '';
  const F=PROC[from].name,T=PROC[to].name;
@@ -800,7 +814,7 @@ if(!Array.isArray(VIS)||!VIS.length)VIS=[...PROCS];
    ein Versuch mit bereits vorhandenen Daten bleibt davon unabhängig immer erreichbar. */
 const procVisible=k=>(roleAllowed(k)&&VIS.includes(k))||lockedProc()===k;
 /* "Versuch" (Kunden-/Trialdaten) und "Bericht" nur für angemeldete Benutzer – Gäste dürfen nur rechnen */
-const tabAllowed=k=>{if(k==='versuch'||k==='bericht')return ROLE!=='guest';if(PROCS.includes(k))return procVisible(k);return true;};
+const tabAllowed=k=>{if(!IS_RECHNER&&ROLE==='guest')return false;if(k==='versuch'||k==='bericht')return !IS_RECHNER&&ROLE!=='guest';if(k==='stamm')return !IS_RECHNER;if(PROCS.includes(k))return procVisible(k);return true;};
 
 function toast(m){const t=document.getElementById('toast');t.textContent=tr(m);t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),1800);}
 function copyText(text,area){
@@ -812,9 +826,9 @@ function copyText(text,area){
 /* ---------- Header ---------- */
 function renderHeader(){
  const t=S.trial;
- document.getElementById('h-kunde').textContent=t.kunde||'Neuer Versuch';
- document.getElementById('h-meta').textContent=[t.vnr,t.datum&&new Date(t.datum).toLocaleDateString(LOC()),t.techniker].filter(Boolean).join(' · ');
- document.getElementById('tabs').innerHTML=TABS.filter(([k])=>tabAllowed(k)).flatMap(t=>t[0]==='einstellungen'&&ADMIN?[['stamm','Stammdaten'],t]:[t]).map(([k,l])=>{
+ document.getElementById('h-kunde').textContent=IS_RECHNER?'Schnittkraftrechner':(ROLE==='guest'?'Versuchsprotokoll':(t.kunde||'Neuer Versuch'));
+ document.getElementById('h-meta').textContent=IS_RECHNER||ROLE==='guest'?'':[t.vnr,t.datum&&new Date(t.datum).toLocaleDateString(LOC()),t.techniker].filter(Boolean).join(' · ');
+ document.getElementById('tabs').innerHTML=TABS.filter(([k])=>tabAllowed(k)).flatMap(t=>t[0]==='einstellungen'&&ADMIN&&!IS_RECHNER?[['stamm','Stammdaten'],t]:[t]).map(([k,l])=>{
   const c=PROCS.includes(k)?S.sets.filter(s=>s.proc===k).length:0;
   const lk=lockedProc(),off=PROCS.includes(k)&&lk&&lk!==k;
   return `<button class="tab${off?' off':''}" role="tab" data-tab="${k}" aria-selected="${S.tab===k}" ${off?`aria-disabled="true" title="Gesperrt: Versuch läuft im Prozess ${PROC[lk].name}"`:''}>${off?'<svg class="lock" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h1zm2 0h6V7a3 3 0 0 0-6 0v3z"/></svg>':''}${l}${c?`<span class="cnt">${c}</span>`:''}</button>`}).join('');
@@ -883,7 +897,7 @@ async function fetchRole(){
   const r=await fetch('/api/me');
   if(r.ok){const d=await r.json();ROLE=d.role||'guest';ROLE_EMAIL=d.email||null;ADMIN=ROLE==='admin';}
  }catch(e){/* kein API-Server erreichbar (z. B. reine Dateivorschau) – bleibt Gast */}
- renderHeader();render();
+ ROLE_READY=true;renderHeader();render();
 }
 document.addEventListener('click',e=>{
  const ab=e.target.closest('[data-auth]');
@@ -1003,7 +1017,7 @@ const typLong=f=>{const t=typTxt(f);return t==='Referenz'?'Referenzprodukt':t===
 const subLbl=p=>p==='schaelen'?'Kassettentyp':'Bearbeitung';
 const SECS=[['tool','Bearbeitung & Werkzeug'],['mat','Werkstoff'],['cut','Schnittdaten'],['eval','Ergebnis'],['report','Prozessbericht']];
 /* Gäste sehen nur Werkstoff und Schnittdaten */
-const secsFor=()=>isGuest()?SECS.filter(x=>x[0]==='mat'||x[0]==='cut'):SECS;
+const secsFor=()=>(isGuest()||IS_RECHNER)?SECS.filter(x=>x[0]==='mat'||x[0]==='cut'):SECS;
 const curSec=p=>{const a=secsFor(),s=(S.sec&&S.sec[p])||a[0][0];return a.some(x=>x[0]===s)?s:a[0][0];};
 function secStatus(p,k){const f=S.forms[p],m=MATS.find(x=>x.k===f.mat)||MATS[0];
  if(k==='tool')return subName(p,f.sub)+' · '+(f.platteBez||f.platteNr||'Werkzeug offen');
@@ -1013,7 +1027,7 @@ function secStatus(p,k){const f=S.forms[p],m=MATS.find(x=>x.k===f.mat)||MATS[0];
  const n=S.sets.filter(s=>s.proc===p).length;return n?`${n} ${n>1?'Parametersätze':'Parametersatz'}`:'noch keine Sätze';}
 function navHTML(p){const sec=curSec(p),f=S.forms[p];
  return secsFor().map(([k,l],i)=>(k==='tool'&&p==='schaelen'&&(l='Kassette & Werkzeug'),`<button data-sec="${k}" aria-current="${k===sec}"><span class="sn">${k==='report'?'≡':i+1}</span><span class="st"><b>${l}</b><small>${esc(secStatus(p,k))}</small></span></button>`)).join('')
-  +(isGuest()?'':`<div class="navtyp"><span class="pill ${f.typ}">${typLong(f)}</span></div>`)
+  +(isGuest()||IS_RECHNER?'':`<div class="navtyp"><span class="pill ${f.typ}">${typLong(f)}</span></div>`)
   +(procInUse(p)?`<button class="btn sm danger navreset" data-preset="${p}">${pendingReset===p?'Wirklich alles löschen?':'Prozessdaten zurücksetzen'}</button>`:'');}
 function renderNav(p){const n=document.getElementById(p+'-nav');if(n)n.innerHTML=navHTML(p);}
 function guestMatHTML(p,f){
@@ -1059,7 +1073,7 @@ function renderProc(p){
    ${m.iso==='X'?'':`<label class="fld wide"><span class="lbl">Werkstoffgruppe ISO ${m.iso} – ${ISO_NAME[m.iso]}</span><span class="inp"><select id="${p}-mat" data-k="mat">${matOptions(f.mat)}</select></span></label>
    <div class="matinfo wide"><div><span class="lbl">Beispielwerkstoffe</span><b>${esc(m.ex)}</b></div><div><span class="lbl">Härte</span><b>${esc(m.h)}</b></div><div><span class="lbl">Zugfestigkeit Rm</span><b>${m.rm?fmt(m.rm)+' N/mm²':'–'}</b></div><div><span class="lbl">Dichte ρ</span><b>${m.rho?fmt(m.rho,2)+' g/cm³':'–'}</b></div><div><span class="lbl">Richtwert kc1.1 / mc</span><b>${fmt(m.kc)} N/mm² / ${fmt(m.mc,2)}</b></div></div>`}
    ${m.iso==='X'?'<p class="note wide" style="margin:0">Eigener Werkstoff: kc1.1 und mc bitte manuell eintragen.</p>':''}
-   ${field(p,'matKunde','Werkstoffbezeichnung lt. Kunde',{ph:'z. B. 42CrMo4+QT'})}${field(p,'haerte','Härte / Festigkeit',{ph:'z. B. 280 HB'})}
+   ${IS_RECHNER?'':field(p,'matKunde','Werkstoffbezeichnung lt. Kunde',{ph:'z. B. 42CrMo4+QT'})+field(p,'haerte','Härte / Festigkeit',{ph:'z. B. 280 HB'})}
    ${field(p,'kc','Spez. Schnittkraft kc1.1',{num:1,u:'N/mm²'})}${field(p,'mc','Anstiegswert mc',{num:1})}${p==='schaelen'?field(p,'rho','Dichte ρ',{num:1,u:'g/cm³'}):''}
   </div></section>`,
  cut:`<section class="card"><h2>Schnittdaten</h2><p class="hint">Der Rechner rechts aktualisiert sich bei jeder Eingabe.</p>
@@ -1083,10 +1097,10 @@ function renderProc(p){
  <aside class="side">
   <section class="readout" lang="de"><h2>Schnittkraftrechner</h2><div id="${p}-out"></div>
    ${S.edit&&S.edit.proc===p&&S.sets.some(x=>x.id===S.edit.id)?`<div class="edbar"><span>Bearbeitung: <b>${esc((S.sets.find(x=>x.id===S.edit.id)||{}).label)}</b></span><span class="toolbar" style="margin:0"><button class="btn primary" data-apply="${S.edit.id}">Übernehmen</button><button class="btn" data-edcancel="${S.edit.id}">Abbrechen</button></span></div>`:''}
-   ${isGuest()?'':`<div class="savebox"><span class="inp"><input id="${p}-newlabel" placeholder="Name, z. B. vc erhöht" aria-label="Name des Parametersatzes"></span>
+   ${isGuest()||IS_RECHNER?'':`<div class="savebox"><span class="inp"><input id="${p}-newlabel" placeholder="Name, z. B. vc erhöht" aria-label="Name des Parametersatzes"></span>
    <button class="btn ${S.edit&&S.edit.proc===p?'':'primary'}" data-save="${p}">${S.edit&&S.edit.proc===p?'Als neuen Satz speichern':'Parametersatz speichern'}</button></div>`}
   </section>
-  ${isGuest()?`<section class="card"><h2>Mehr Funktionen</h2><p class="hint" style="margin:0">Mit Anmeldung: Werkzeugdaten, alle Werkstoffgruppen, Parametersätze, Versuchsdokumentation, Bericht und Berechnungsprotokoll.</p></section>`:`<section class="card"><h2>Gespeicherte Parametersätze</h2><div class="sets" id="${p}-sets"></div></section>`}
+  ${isGuest()?`<section class="card"><h2>Mehr Funktionen</h2><p class="hint" style="margin:0">Mit Anmeldung: alle Werkstoffgruppen und das Berechnungsprotokoll. Versuche dokumentieren Sie in der App <a href="/versuchsprotokoll/">Versuchsprotokoll</a>.</p></section>`:IS_RECHNER?`<section class="card"><h2>Versuch dokumentieren?</h2><p class="hint">Werkzeugdaten, Parametersätze, Ergebnisse und Bericht gibt es in der App Versuchsprotokoll.</p><a class="btn" href="/versuchsprotokoll/">Zum Versuchsprotokoll →</a></section>`:`<section class="card"><h2>Gespeicherte Parametersätze</h2><div class="sets" id="${p}-sets"></div></section>`}
  </aside>
  </div>${isGuest()?'':calcDocHTML(p)}`;
 }
@@ -1098,7 +1112,7 @@ function renderOut(p){
  const bad=['h','kc','Pc'].some(k=>!Number.isFinite(r[k]));
  const T=S.trial,PL=num(T.mLeistung),MD=num(T.mDrehmoment),uP=r.Pm/PL*100,uM=r.Mc/MD*100;
  const bar=(lab,u,val,max,unit)=>Number.isFinite(u)?`<div class="util ${u>100?'over':u>80?'high':''}"><div class="util-l"><span>${lab}</span><b>${fmt(u,0)} %</b></div><div class="util-t"><i style="width:${Math.min(u,100)}%"></i></div><div class="util-s">${val} von ${fmt(max,max<100?1:0)} ${unit}${u>100?' – überschritten':u>80?' – hoch':''}</div></div>`:'';
- const util=(Number.isFinite(PL)&&PL>0)||(Number.isFinite(MD)&&MD>0)?`<div class="utilbox"><div class="lbl">Maschinenauslastung</div>${bar('Leistung',uP,fmt(r.Pm,1)+' kW',PL,'kW')}${bar('Drehmoment',uM,fmt(r.Mc,0)+' Nm',MD,'Nm')}</div>`:'<p class="note" style="margin:0 0 10px">Spindelleistung und Drehmoment im Reiter Versuch eintragen, um die Maschinenauslastung zu sehen.</p>';
+ const util=(Number.isFinite(PL)&&PL>0)||(Number.isFinite(MD)&&MD>0)?`<div class="utilbox"><div class="lbl">Maschinenauslastung</div>${bar('Leistung',uP,fmt(r.Pm,1)+' kW',PL,'kW')}${bar('Drehmoment',uM,fmt(r.Mc,0)+' Nm',MD,'Nm')}</div>`:(IS_RECHNER?'':'<p class="note" style="margin:0 0 10px">Spindelleistung und Drehmoment im Reiter Versuch eintragen, um die Maschinenauslastung zu sehen.</p>');
  const edgeTbl=r.edges?`<div class="edgebox"><div class="lbl">Aufteilung auf die Schneiden (je Kassette)</div>${r.err?`<p class="warn" style="margin:4px 0 0">${r.err}</p>`:''}<div class="tbl-wrap"><table><thead><tr><th>Schneide</th><th>κr °</th><th>ap mm</th><th>hm mm</th><th>kc N/mm²</th><th>Pc kW</th></tr></thead><tbody>${r.edges.map(e=>`<tr><td>${e.label}</td><td class="n">${fmt(e.kr,0)}</td><td class="n">${fmt(e.ap,2)}</td><td class="n">${fmt(e.h,3)}</td><td class="n">${fmt(e.kc,0)}</td><td class="n">${fmt(e.P,2)}</td></tr>`).join('')}</tbody></table></div><p class="note" style="margin:4px 0 0">Pc je Schneide bereits × Anzahl Kassetten. Summe = Schnittleistung.</p></div>`:'';
  el.innerHTML=`<div class="keys">${keys}</div>${edgeTbl}${util}${bad&&!(r.edges&&r.err)?'<div class="warn">Bitte alle Schnittdaten sowie kc1.1 und mc mit Werten größer 0 ausfüllen.</div>':''}`;
 }
@@ -1324,6 +1338,7 @@ function renderStamm(){
  return `<div class="proc3 stamm"><nav class="secnav" aria-label="Stammdaten">${nav}<div class="navtyp"><span class="pill eigen">Administratormodus</span></div></nav><div class="mid">${mid}</div></div>`;
 }
 function renderAdmin(){
+ if(IS_RECHNER)return '';
  /* Administratormodus wird ausschließlich über die Anmeldung (ADMIN_EMAIL am Server) vergeben, kein lokaler Schalter mehr */
  if(!ADMIN)return '';
  return `<section class="card admin"><h2>Administratormodus</h2><p class="hint">Angemeldet als Administrator (${esc(ROLE_EMAIL||'')}). Der Reiter „Stammdaten“ ist in der Reiterleiste eingeblendet, zusätzlich sind alle „in Arbeit“-Prozesse zum Testen sichtbar.</p><div class="toolbar" style="margin:0"><button class="btn primary" data-gostamm="1">Zu den Stammdaten</button></div></section>`;
@@ -1542,6 +1557,7 @@ function render(){
  const main=document.getElementById('main');
  const banner=S.example?`<div class="banner"><span>Beispieldaten zur Ansicht. Alle Werte sind erfunden.</span><button class="btn sm" id="btn-clear-example">Leeren und eigenen Versuch beginnen</button></div>`:'';
  let html='';
+ if(!IS_RECHNER&&ROLE==='guest'){main.innerHTML=gateHTML();return;}
  if(S.tab==='versuch')html=renderVersuch();
  else if(S.tab==='bericht')html=renderBericht();
  else if(S.tab==='einstellungen')html=renderEinstellungen();

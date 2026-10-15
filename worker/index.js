@@ -4,8 +4,9 @@
  *   und werden NICHT von diesem Script ausgeliefert – Cloudflare prüft bei jeder Anfrage zuerst,
  *   ob eine passende Datei existiert, und ruft diesen Worker nur auf, wenn das nicht der Fall ist
  *   (also für /api/* und für Adressen, die es als Datei nicht mehr gibt, z. B. die alte App-Adresse).
- * - Hier werden nur zwei Dinge behandelt: die Anmeldungs-API unter /api/* und der 301-Redirect
- *   der alten Versuchsprotokoll-Adresse auf die neue /schnittkraftrechner/-Adresse.
+ * - Hier werden behandelt: die Anmeldungs-API unter /api/*, der 301-Redirect der alten Adresse
+ *   /versuchsprotokoll-zerspanung/ auf /versuchsprotokoll/ und die Auslieferung von /versuchsprotokoll/
+ *   (dieselbe App-Datei wie /schnittkraftrechner/, Modus wird in der App anhand der Adresse gewählt).
  */
 
 const SESSION_COOKIE = 'sid';
@@ -15,7 +16,10 @@ const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 
 const OLD_PATH_PREFIX = '/versuchsprotokoll-zerspanung';
-const NEW_PATH = '/schnittkraftrechner/';
+const NEW_PATH = '/versuchsprotokoll/';
+// Das Versuchsprotokoll nutzt dieselbe App-Datei wie der Schnittkraftrechner (Modus per Adresse)
+const PROTOKOLL_PATH = '/versuchsprotokoll';
+const APP_FILE = '/schnittkraftrechner/';
 
 export default {
   async fetch(request, env) {
@@ -28,6 +32,14 @@ export default {
     // 1) Dauerhafter Redirect der alten Adresse auf die neue
     if (path === OLD_PATH_PREFIX || path === OLD_PATH_PREFIX + '/' || path.startsWith(OLD_PATH_PREFIX + '/')) {
       return Response.redirect(new URL(NEW_PATH, url.origin), 301);
+    }
+
+    // 1b) Versuchsprotokoll: gleiche App-Datei ausliefern, die App schaltet anhand der Adresse in den Protokoll-Modus
+    if (path === PROTOKOLL_PATH) {
+      return Response.redirect(new URL(PROTOKOLL_PATH + '/', url.origin), 301);
+    }
+    if (path.startsWith(PROTOKOLL_PATH + '/')) {
+      return env.ASSETS.fetch(new Request(new URL(APP_FILE, url.origin), request));
     }
 
     // 2) API-Routen

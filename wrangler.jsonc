@@ -6,7 +6,9 @@
   // Worker-Script: läuft nur für Adressen, zu denen keine Datei unter public/ passt (siehe worker/index.js)
   "main": "worker/index.js",
   "assets": {
-    "directory": "./public"
+    "directory": "./public",
+    // Zugriff des Workers auf die statischen Dateien (für /versuchsprotokoll/ -> App-Datei)
+    "binding": "ASSETS"
   },
   // D1-Datenbank für Benutzerkonten/Sitzungen
   "d1_databases": [
