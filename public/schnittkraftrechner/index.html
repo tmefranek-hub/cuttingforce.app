@@ -763,6 +763,8 @@ if(!Array.isArray(VIS)||!VIS.length)VIS=[...PROCS];
 /* Ein Prozess ist sichtbar, wenn die Rolle ihn erlaubt UND das Gerät ihn nicht ausgeblendet hat –
    ein Versuch mit bereits vorhandenen Daten bleibt davon unabhängig immer erreichbar. */
 const procVisible=k=>(roleAllowed(k)&&VIS.includes(k))||lockedProc()===k;
+/* "Versuch" (Kunden-/Trialdaten) und "Bericht" nur für angemeldete Benutzer – Gäste dürfen nur rechnen */
+const tabAllowed=k=>{if(k==='versuch'||k==='bericht')return ROLE!=='guest';if(PROCS.includes(k))return procVisible(k);return true;};
 
 function toast(m){const t=document.getElementById('toast');t.textContent=tr(m);t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),1800);}
 function copyText(text,area){
@@ -776,7 +778,7 @@ function renderHeader(){
  const t=S.trial;
  document.getElementById('h-kunde').textContent=t.kunde||'Neuer Versuch';
  document.getElementById('h-meta').textContent=[t.vnr,t.datum&&new Date(t.datum).toLocaleDateString(LOC()),t.techniker].filter(Boolean).join(' · ');
- document.getElementById('tabs').innerHTML=TABS.filter(([k])=>!PROCS.includes(k)||procVisible(k)).flatMap(t=>t[0]==='einstellungen'&&ADMIN?[['stamm','Stammdaten'],t]:[t]).map(([k,l])=>{
+ document.getElementById('tabs').innerHTML=TABS.filter(([k])=>tabAllowed(k)).flatMap(t=>t[0]==='einstellungen'&&ADMIN?[['stamm','Stammdaten'],t]:[t]).map(([k,l])=>{
   const c=PROCS.includes(k)?S.sets.filter(s=>s.proc===k).length:0;
   const lk=lockedProc(),off=PROCS.includes(k)&&lk&&lk!==k;
   return `<button class="tab${off?' off':''}" role="tab" data-tab="${k}" aria-selected="${S.tab===k}" ${off?`aria-disabled="true" title="Gesperrt: Versuch läuft im Prozess ${PROC[lk].name}"`:''}>${off?'<svg class="lock" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h1zm2 0h6V7a3 3 0 0 0-6 0v3z"/></svg>':''}${l}${c?`<span class="cnt">${c}</span>`:''}</button>`}).join('');
@@ -1351,7 +1353,7 @@ function keepVisible(bar,sel,prevX){
  else if(r>bar.scrollLeft+bar.clientWidth-pad)bar.scrollLeft=r-bar.clientWidth+pad;
 }
 function render(){
- if(PROCS.includes(S.tab)&&!procVisible(S.tab))S.tab='versuch';
+ if(!tabAllowed(S.tab)){const firstProc=PROCS.find(p=>procVisible(p));S.tab=firstProc||'drehen';}
  if(S.tab==='stamm'&&!ADMIN)S.tab='einstellungen';
  {const lk=lockedProc();if(PROCS.includes(S.tab)&&lk&&lk!==S.tab)S.tab=lk;}
  const tabsBar=document.getElementById('tabs'),tabsX=tabsBar.scrollLeft;
