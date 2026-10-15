@@ -365,17 +365,6 @@ a {
   padding-block: 20px 32px;
 }
 
-.m-start h2 {
-  font: 700 30px/1.1 var(--f-disp);
-  margin: 0 0 8px;
-}
-
-.m-start p {
-  color: var(--muted);
-  font-size: 16px;
-  margin-bottom: 16px;
-}
-
 .ansicht-mobil .btn-cta {
   width: 100%;
   min-height: 52px;
@@ -383,71 +372,74 @@ a {
   padding-block: 15px;
 }
 
-.m-liste {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.m-liste a {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 56px;
-  padding: 14px 44px 14px 16px;
-  color: var(--fg);
-  text-decoration: none;
-  border-top: 1px solid var(--line);
-  position: relative;
-}
-
-.m-liste a:first-child {
-  border-top: 0;
-}
-
-.m-liste a::after {
-  content: "›";
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 24px;
-  color: var(--muted);
-}
-
-.m-liste a:active {
-  background: var(--surface-2);
-}
-
-.m-liste b {
-  font: 600 18px/1.2 var(--f-disp);
-}
-
-.m-liste span {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.btn-zweit {
-  display: block;
-  text-align: center;
-  min-height: 48px;
-  padding: 13px 16px;
-  border: 1px solid var(--fg);
-  border-radius: 6px;
-  color: var(--fg);
-  text-decoration: none;
-  font: 600 17px/1.2 var(--f-disp);
-}
-
-.ansicht-mobil .platzhalter {
-  display: block;
-  margin-top: 4px;
-}
-
 .ansicht-mobil .site-footer .wrap {
   padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Mobil: App-Raster (8 Kacheln) */
+.m-titel {
+  font: 700 24px/1.1 var(--f-disp);
+  margin: 0;
+}
+
+.app-raster {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.app-kachel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--fg);
+  text-decoration: none;
+}
+
+a.app-kachel {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+a.app-kachel:active {
+  opacity: 0.85;
+}
+
+.app-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: auto;
+  border-radius: 10px;
+  border: 1.5px solid currentColor;
+  font: 700 18px/1 "Space Grotesk", sans-serif;
+}
+
+.app-icon sub {
+  font-size: 11px;
+}
+
+.app-name {
+  font: 600 18px/1.15 var(--f-disp);
+  margin-top: 12px;
+  hyphens: manual;
+}
+
+.app-status {
+  font-size: 12.5px;
+  line-height: 1.3;
+  opacity: 0.75;
+}
+
+.app-leer {
+  border-style: dashed;
+  color: var(--muted);
 }
