@@ -7,12 +7,12 @@
   "assets": {
     "directory": "./public"
   },
-  // D1-Datenbank für Benutzerkonten/Sitzungen. database_id erst nach "npx wrangler d1 create cuttingforce-db" eintragen.
+  // D1-Datenbank für Benutzerkonten/Sitzungen
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "cuttingforce-db",
-      "database_id": "BITTE-NACH-WRANGLER-D1-CREATE-HIER-EINTRAGEN"
+      "database_id": "98d2cc2b-7b99-4beb-bc47-8f774805dce4"
     }
   ]
 }
