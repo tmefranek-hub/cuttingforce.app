@@ -305,6 +305,19 @@ tr:last-child td{border-bottom:0}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:4px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
+
+.cdoc{margin-top:16px}
+.cdoc .seg{margin-bottom:4px}
+.cdoc-body{margin-top:14px}
+.cdoc-body h3{font-size:15px;margin:16px 0 8px}
+.cdoc-inp{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px 16px}
+.cdoc-inp div{display:flex;flex-direction:column}
+.cdoc-inp small{color:var(--muted);font-size:12px}
+.cdoc-steps{margin:0;padding-left:1.4em}
+.cdoc-steps li{margin:0 0 12px}
+.cdoc-eq{overflow-x:auto;overflow-y:hidden;padding:2px 0;-webkit-overflow-scrolling:touch}
+.cdoc-eq .katex-display{margin:6px 0;text-align:left}
+.cdoc-tex{width:100%;min-height:340px;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto}
 </style>
 <style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
 <script>window.ZV_BLANK=true</script>
@@ -351,6 +364,24 @@ const roleAllowed=k=>{const a=PROC_ACCESS[k]||'public';
  if(a==='user')return ROLE==='user'||ROLE==='admin';
  if(a==='wip')return ROLE==='admin';
  return false;};
+const isGuest=()=>ROLE==='guest';
+/* Gäste sehen statt der Werkstoffgruppen repräsentative Werkstoffe; Kennwerte = Richtwerte der zugeordneten Gruppe (base) */
+const REP_MATS=[
+ ['s235','S235JR','Baustahl','P1'],['s355','S355J2','Baustahl','P2'],['c45','C45E','Vergütungsstahl, normalgeglüht','P2'],['c45qt','C45E+QT','Vergütungsstahl, vergütet','P3'],
+ ['11smnpb30','11SMnPb30','Automatenstahl','P6'],['16mncr5','16MnCr5','Einsatzstahl, geglüht','P7'],['42crmo4','42CrMo4+QT','Vergütungsstahl, vergütet','P8'],['12343','X37CrMoV5-1 (1.2343)','Warmarbeitsstahl, geglüht','P11'],
+ ['14301','X5CrNi18-10 (1.4301)','Austenitischer nichtrostender Stahl','M1'],['14404','X2CrNiMo17-12-2 (1.4404)','Austenitischer nichtrostender Stahl','M1'],['14462','X2CrNiMoN22-5-3 (1.4462)','Duplex','M3'],
+ ['gjl250','EN-GJL-250','Grauguss','K2'],['gjs400','EN-GJS-400-15','Gusseisen mit Kugelgraphit, ferritisch','K3'],['gjs600','EN-GJS-600-3','Gusseisen mit Kugelgraphit, perlitisch','K4'],
+ ['aw6082','EN AW-6082 T6','Aluminium-Knetlegierung','N2'],['alsi7mg','EN AC-AlSi7Mg0,3 T6','Aluminium-Guss','N4'],['cuzn39pb3','CuZn39Pb3','Messing','N8'],
+ ['in718','Inconel 718','Nickelbasislegierung','S4'],['ti64','Ti6Al4V','Titanlegierung','S10'],
+ ['42crmo4h','42CrMo4 gehärtet (≈ 45 HRC)','Gehärteter Stahl','H1'],['100cr6h','100Cr6 gehärtet (≈ 60 HRC)','Gehärteter Stahl','H3']
+].map(([k,n,d,base])=>({k,n,d,base}));
+const repBase=r=>MATS_DEF.find(x=>x.k===r.base);
+const repIso=r=>repBase(r).iso;
+function repOf(f){return REP_MATS.find(x=>x.k===f.matRep&&x.base===f.mat)||REP_MATS.find(x=>x.base===f.mat)||REP_MATS[0];}
+function applyRep(p,k){const r=REP_MATS.find(x=>x.k===k);if(!r)return;const m=repBase(r),f=S.forms[p];
+ f.mat=m.k;f.matRep=r.k;f.kc=String(m.kc);f.mc=String(m.mc).replace('.',',');f.haerte=m.h;f.rho=String(m.rho).replace('.',',');}
+/* Gast: Werkstoff an einen repräsentativen Werkstoff binden, falls noch keiner gewählt ist */
+function ensureRep(p){const f=S.forms[p];if(!f)return;const r=REP_MATS.find(x=>x.k===f.matRep);if(!r||r.base!==f.mat)applyRep(p,repOf(f).k);}
 
 /* Werkstoffgruppen nach VDI 3323 / ISO 513 (Hauptgruppe + Untergruppe).
    kc1.1 [N/mm²] und mc sind allgemeine Richtwerte, bitte durch firmeneigene Werte ersetzen. */
@@ -611,7 +642,8 @@ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 let pendingDel=null,pendingNew=false,pendingSwitch=null,pendingReset=null;
 /* Prozesssperre: ein Versuch gehört zu genau einem Prozess */
 function procInUse(p){const f=S.forms[p],d=defForm(p);return S.sets.some(s=>s.proc===p)||(S.media||[]).some(m=>m.proc===p)||Object.keys(d).some(k=>String(f[k]??'')!==String(d[k]));}
-function lockedProc(){return PROCS.find(procInUse)||null;}
+/* Gäste rechnen nur – keine Prozesssperre (die Sperre gehört zur Versuchsdokumentation) */
+function lockedProc(){if(ROLE==='guest')return null;return PROCS.find(procInUse)||null;}
 function resetProc(p){if(S.edit&&S.edit.proc===p)S.edit=null;S.forms[p]=defForm(p);S.sets=S.sets.filter(s=>s.proc!==p);(S.media||[]).filter(m=>m.proc===p).forEach(m=>mDel(m.id));S.media=(S.media||[]).filter(m=>m.proc!==p);if(S.sec)S.sec[p]='tool';}
 function switchPanel(){
  const from=lockedProc(),to=pendingSwitch;if(!from||!to)return '';
@@ -646,7 +678,7 @@ function renderEinstellungen(){
   <div class="seg" role="group" aria-label="Sprache" data-notr>${[['de','Deutsch'],['en','English'],['it','Italiano']].map(([k,l])=>`<button data-lang="${k}" aria-pressed="${LANG===k}">${l}</button>`).join('')}</div>
  </section>
  <section class="card"><h2>Sichtbare Prozesse</h2><p class="hint">Nur die gewählten Prozesse erscheinen als Reiter. Ein Prozess mit laufendem Versuch bleibt immer sichtbar.</p>
-  <div class="chips" role="group" aria-label="Prozesse" style="margin-bottom:0">${PROCS.map(q=>`<button class="chip-btn" data-vis="${q}" aria-pressed="${VIS.includes(q)}">${PROC[q].name}</button>`).join('')}</div>
+  <div class="chips" role="group" aria-label="Prozesse" style="margin-bottom:0">${PROCS.filter(roleAllowed).map(q=>`<button class="chip-btn" data-vis="${q}" aria-pressed="${VIS.includes(q)}">${PROC[q].name}</button>`).join('')}</div>
  </section>
  <section class="card"><h2>Bedienung am Handy</h2><p class="hint">Am gewählten Bildschirmrand bleibt ein Streifen ohne Eingabefelder frei. Dort scrollen Sie mit dem Daumen, ohne versehentlich in ein Feld zu tippen. Wirkt nur auf schmalen Bildschirmen.</p>
   <div class="setrow"><span class="lbl">Händigkeit</span><div class="seg" role="group" aria-label="Händigkeit">${segBtns('hand',HAND,[['rechts','Rechtshänder'],['links','Linkshänder'],['aus','Kein Streifen']])}</div></div>
@@ -969,20 +1001,35 @@ const typTxt=f=>{const ps=typParts(f);return ps.every(x=>x[1]===ps[0][1])?(ps[0]
 const typLong=f=>{const t=typTxt(f);return t==='Referenz'?'Referenzprodukt':t==='Eigen'?'Eigenes Werkzeug':t;};
 const subLbl=p=>p==='schaelen'?'Kassettentyp':'Bearbeitung';
 const SECS=[['tool','Bearbeitung & Werkzeug'],['mat','Werkstoff'],['cut','Schnittdaten'],['eval','Ergebnis'],['report','Prozessbericht']];
+/* Gäste sehen nur Werkstoff und Schnittdaten */
+const secsFor=()=>isGuest()?SECS.filter(x=>x[0]==='mat'||x[0]==='cut'):SECS;
+const curSec=p=>{const a=secsFor(),s=(S.sec&&S.sec[p])||a[0][0];return a.some(x=>x[0]===s)?s:a[0][0];};
 function secStatus(p,k){const f=S.forms[p],m=MATS.find(x=>x.k===f.mat)||MATS[0];
  if(k==='tool')return subName(p,f.sub)+' · '+(f.platteBez||f.platteNr||'Werkzeug offen');
- if(k==='mat')return f.matKunde||m.n;
+ if(k==='mat')return isGuest()?repOf(f).n:(f.matKunde||m.n);
  if(k==='cut')return PROC[p].short.map(([q,l])=>`${l} ${f[q]||'–'}`).join(' · ');
  if(k==='eval')return f.stueck?`${f.stueck} Stk.${f.verschl?' · '+f.verschl:''}`:'noch offen';
  const n=S.sets.filter(s=>s.proc===p).length;return n?`${n} ${n>1?'Parametersätze':'Parametersatz'}`:'noch keine Sätze';}
-function navHTML(p){const sec=(S.sec&&S.sec[p])||'tool',f=S.forms[p];
- return SECS.map(([k,l],i)=>(k==='tool'&&p==='schaelen'&&(l='Kassette & Werkzeug'),`<button data-sec="${k}" aria-current="${k===sec}"><span class="sn">${k==='report'?'≡':i+1}</span><span class="st"><b>${l}</b><small>${esc(secStatus(p,k))}</small></span></button>`)).join('')
-  +`<div class="navtyp"><span class="pill ${f.typ}">${typLong(f)}</span></div>`
+function navHTML(p){const sec=curSec(p),f=S.forms[p];
+ return secsFor().map(([k,l],i)=>(k==='tool'&&p==='schaelen'&&(l='Kassette & Werkzeug'),`<button data-sec="${k}" aria-current="${k===sec}"><span class="sn">${k==='report'?'≡':i+1}</span><span class="st"><b>${l}</b><small>${esc(secStatus(p,k))}</small></span></button>`)).join('')
+  +(isGuest()?'':`<div class="navtyp"><span class="pill ${f.typ}">${typLong(f)}</span></div>`)
   +(procInUse(p)?`<button class="btn sm danger navreset" data-preset="${p}">${pendingReset===p?'Wirklich alles löschen?':'Prozessdaten zurücksetzen'}</button>`:'');}
 function renderNav(p){const n=document.getElementById(p+'-nav');if(n)n.innerHTML=navHTML(p);}
+function guestMatHTML(p,f){
+ const r=repOf(f),m=repBase(r),iso=m.iso;
+ return `<section class="card"><h2>Werkstoff</h2>
+  <div class="isorow" role="group" aria-label="ISO-Hauptgruppe">${['P','M','K','N','S','H'].map(i=>`<button class="isobtn" data-repiso="${i}" aria-pressed="${iso===i}" style="--c:${isoColor(i)}" title="${ISO_NAME[i]}"><span class="iso" style="background:${isoColor(i)}">${i}</span><span class="isoname">${ISO_NAME[i]}</span></button>`).join('')}</div>
+  <div class="fields">
+   <label class="fld wide"><span class="lbl">Werkstoff</span><span class="inp"><select id="${p}-matRep" data-k="matRep">${REP_MATS.filter(x=>repIso(x)===iso).map(x=>`<option value="${x.k}" ${x.k===r.k?'selected':''}>${esc(x.n)} – ${esc(x.d)}</option>`).join('')}</select></span></label>
+   <div class="matinfo wide"><div><span class="lbl">Werkstoff</span><b>${esc(r.n)}</b></div><div><span class="lbl">Härte</span><b>${esc(m.h)}</b></div><div><span class="lbl">Zugfestigkeit Rm</span><b>${m.rm?fmt(m.rm)+' N/mm²':'–'}</b></div><div><span class="lbl">Richtwert kc1.1 / mc</span><b>${fmt(m.kc)} N/mm² / ${fmt(m.mc,2)}</b></div></div>
+   <p class="note wide" style="margin:0">Richtwerte der Werkstoffgruppe nach VDI 3323. Nach der Anmeldung stehen alle Werkstoffgruppen zur Auswahl.</p>
+   ${field(p,'kc','Spez. Schnittkraft kc1.1',{num:1,u:'N/mm²'})}${field(p,'mc','Anstiegswert mc',{num:1})}
+  </div></section>`;
+}
 function renderProc(p){
- const c=PROC[p],f=S.forms[p],m=MATS.find(x=>x.k===f.mat)||MATS[0],sec=(S.sec&&S.sec[p])||'tool';
- const idx=SECS.findIndex(x=>x[0]===sec),next=SECS[idx+1];
+ if(isGuest())ensureRep(p);
+ const c=PROC[p],f=S.forms[p],m=MATS.find(x=>x.k===f.mat)||MATS[0],sec=curSec(p);
+ const SX=secsFor(),idx=SX.findIndex(x=>x[0]===sec),next=SX[idx+1];
  const B={
  tool:`<section class="card"><h2>${subLbl(p)} und Werkzeug</h2>
   <span class="lbl">${subLbl(p)}</span>
@@ -1005,7 +1052,7 @@ function renderProc(p){
    ${p==='schaelen'?nkField(p,f):''}
    ${MILL.includes(p)?field(p,'ftyp','Fräserbauform',{opts:FTYP}):''}
   </div></section>`,
- mat:`<section class="card"><h2>Werkstoff</h2>
+ mat:isGuest()?guestMatHTML(p,f):`<section class="card"><h2>Werkstoff</h2>
   <div class="isorow" role="group" aria-label="ISO-Hauptgruppe">${['P','M','K','N','S','H','X'].map(i=>`<button class="isobtn" data-iso="${i}" aria-pressed="${m.iso===i}" style="--c:${isoColor(i)}" title="${ISO_NAME[i]}"><span class="iso" style="background:${isoColor(i)}">${i==='X'?'?':i}</span><span class="isoname">${ISO_NAME[i]}</span></button>`).join('')}</div>
   <div class="fields">
    ${m.iso==='X'?'':`<label class="fld wide"><span class="lbl">Werkstoffgruppe ISO ${m.iso} – ${ISO_NAME[m.iso]}</span><span class="inp"><select id="${p}-mat" data-k="mat">${matOptions(f.mat)}</select></span></label>
@@ -1035,12 +1082,12 @@ function renderProc(p){
  <aside class="side">
   <section class="readout" lang="de"><h2>Schnittkraftrechner</h2><div id="${p}-out"></div>
    ${S.edit&&S.edit.proc===p&&S.sets.some(x=>x.id===S.edit.id)?`<div class="edbar"><span>Bearbeitung: <b>${esc((S.sets.find(x=>x.id===S.edit.id)||{}).label)}</b></span><span class="toolbar" style="margin:0"><button class="btn primary" data-apply="${S.edit.id}">Übernehmen</button><button class="btn" data-edcancel="${S.edit.id}">Abbrechen</button></span></div>`:''}
-   <div class="savebox"><span class="inp"><input id="${p}-newlabel" placeholder="Name, z. B. vc erhöht" aria-label="Name des Parametersatzes"></span>
-   <button class="btn ${S.edit&&S.edit.proc===p?'':'primary'}" data-save="${p}">${S.edit&&S.edit.proc===p?'Als neuen Satz speichern':'Parametersatz speichern'}</button></div>
+   ${isGuest()?'':`<div class="savebox"><span class="inp"><input id="${p}-newlabel" placeholder="Name, z. B. vc erhöht" aria-label="Name des Parametersatzes"></span>
+   <button class="btn ${S.edit&&S.edit.proc===p?'':'primary'}" data-save="${p}">${S.edit&&S.edit.proc===p?'Als neuen Satz speichern':'Parametersatz speichern'}</button></div>`}
   </section>
-  <section class="card"><h2>Gespeicherte Parametersätze</h2><div class="sets" id="${p}-sets"></div></section>
+  ${isGuest()?`<section class="card"><h2>Mehr Funktionen</h2><p class="hint" style="margin:0">Mit Anmeldung: Werkzeugdaten, alle Werkstoffgruppen, Parametersätze, Versuchsdokumentation, Bericht und Berechnungsprotokoll.</p></section>`:`<section class="card"><h2>Gespeicherte Parametersätze</h2><div class="sets" id="${p}-sets"></div></section>`}
  </aside>
- </div>`;
+ </div>${isGuest()?'':calcDocHTML(p)}`;
 }
 function renderOut(p){
  const f=S.forms[p],r=PROC[p].calc(f),el=document.getElementById(p+'-out');if(!el)return;
@@ -1282,6 +1329,109 @@ function renderAdmin(){
 }
 async function dlFile(name,data){if(!DL){toast('Speichern ist in dieser Ansicht nicht verfügbar');return;}try{await DL.save({filename:name,data});}catch(e){if(!(e&&e.code==='declined'))toast('Die Datei konnte nicht gespeichert werden');}}
 
+
+/* ---------- Berechnungsgrundlagen: repräsentatives Beispiel als Protokoll (KaTeX) und LaTeX-Code ---------- */
+const CDOC_EX={
+ drehen:{op:'Längsdrehen',mat:'42CrMo4+QT',grp:'P8',v:{D:60,vc:200,f:0.3,ap:2,kr:95,g:6,l:100,eta:0.8}},
+ fraesen:{op:'Planfräsen, mittige Anordnung',mat:'42CrMo4+QT',grp:'P8',v:{Dc:63,z:5,vc:200,fz:0.15,ap:2,ae:40,kr:45,g:6,lam:2,l:300,eta:0.8}},
+ bohren:{op:'Vollbohren',mat:'42CrMo4+QT',grp:'P8',v:{Dc:20,vc:100,fn:0.2,sig:140,g:6,l:60,eta:0.8}}};
+let CDOC={};
+const TX=(v,d)=>Number.isFinite(v)?v.toFixed(d).replace('.','{,}'):'?';
+const U={n:'\\mathrm{min^{-1}}',mmmin:'\\mathrm{mm/min}',mm:'\\mathrm{mm}',kc:'\\mathrm{N/mm^2}',N:'\\mathrm{N}',Nm:'\\mathrm{Nm}',Q:'\\mathrm{cm^3/min}',kW:'\\mathrm{kW}',min:'\\mathrm{min}',deg:'^{\\circ}',rad:'\\mathrm{rad}'};
+function calcDoc(p){
+ const ex=CDOC_EX[p];if(!ex)return null;
+ const g=MATS_DEF.find(x=>x.k===ex.grp),kc11=g.kc,mc=g.mc,v=ex.v,st=[],R=Math.PI/180;
+ const add=(t,f,sub,val,d,u)=>st.push({t,tex:f+' = '+sub+' = '+TX(val,d)+'\\,'+u,f,val,d,u});
+ const inp=[];const I=(sym,val,d,u,t)=>inp.push({sym,val,d,u,t});
+ I('k_{c1.1}',kc11,0,U.kc,'Spezifische Schnittkraft für h = 1 mm');I('m_c',mc,2,'','Anstiegswert');I('\\gamma_0',v.g,0,U.deg,'Spanwinkel');
+ const kcT=h=>kc11*Math.pow(h,-mc)*(1-v.g/100);
+ if(p==='drehen'){
+  I('D',v.D,0,U.mm,'Werkstückdurchmesser');I('v_c',v.vc,0,'\\mathrm{m/min}','Schnittgeschwindigkeit');I('f',v.f,2,'\\mathrm{mm/U}','Vorschub');I('a_p',v.ap,1,U.mm,'Schnitttiefe');I('\\kappa_r',v.kr,0,U.deg,'Einstellwinkel');I('l',v.l,0,U.mm,'Bearbeitungslänge');I('\\eta',v.eta,2,'','Wirkungsgrad');
+  const n=v.vc*1000/(Math.PI*v.D),vf=v.f*n,h=v.f*Math.sin(v.kr*R),kc=kcT(h),Fc=v.ap*v.f*kc,Mc=Fc*v.D/2000,Q=v.vc*v.ap*v.f,Pc=Q*kc/60000,Pm=Pc/v.eta,th=v.l/vf;
+  add('Drehzahl','n','\\frac{v_c\\cdot 1000}{\\pi\\cdot D}'.replace(/.*/,s=>s)+' = \\frac{'+TX(v.vc,0)+'\\cdot 1000}{\\pi\\cdot '+TX(v.D,0)+'}',n,0,U.n);
+  st[st.length-1].tex='n = \\frac{v_c\\cdot 1000}{\\pi\\cdot D} = \\frac{'+TX(v.vc,0)+'\\cdot 1000}{\\pi\\cdot '+TX(v.D,0)+'} = '+TX(n,0)+'\\,'+U.n;
+  add('Vorschubgeschwindigkeit','v_f = f\\cdot n',TX(v.f,2)+'\\cdot '+TX(n,1),vf,0,U.mmmin);
+  add('Spanungsdicke','h = f\\cdot\\sin\\kappa_r',TX(v.f,2)+'\\cdot\\sin '+TX(v.kr,0)+'^{\\circ}',h,3,U.mm);
+  add('Spezifische Schnittkraft (Kienzle)','k_c = k_{c1.1}\\cdot h^{-m_c}\\cdot\\left(1-\\frac{\\gamma_0}{100}\\right)',TX(kc11,0)+'\\cdot '+TX(h,3)+'^{-'+TX(mc,2)+'}\\cdot\\left(1-\\frac{'+TX(v.g,0)+'}{100}\\right)',kc,0,U.kc);
+  add('Schnittkraft','F_c = a_p\\cdot f\\cdot k_c',TX(v.ap,1)+'\\cdot '+TX(v.f,2)+'\\cdot '+TX(kc,0),Fc,0,U.N);
+  add('Drehmoment','M_c = \\frac{F_c\\cdot D}{2000}','\\frac{'+TX(Fc,0)+'\\cdot '+TX(v.D,0)+'}{2000}',Mc,1,U.Nm);
+  add('Zeitspanvolumen','Q = v_c\\cdot a_p\\cdot f',TX(v.vc,0)+'\\cdot '+TX(v.ap,1)+'\\cdot '+TX(v.f,2),Q,1,U.Q);
+  add('Schnittleistung','P_c = \\frac{Q\\cdot k_c}{60\\,000}','\\frac{'+TX(Q,1)+'\\cdot '+TX(kc,0)+'}{60\\,000}',Pc,2,U.kW);
+  add('Antriebsleistung','P_{mot} = \\frac{P_c}{\\eta}','\\frac{'+TX(Pc,2)+'}{'+TX(v.eta,2)+'}',Pm,2,U.kW);
+  add('Hauptzeit','t_h = \\frac{l}{v_f}','\\frac{'+TX(v.l,0)+'}{'+TX(vf,0)+'}',th,2,U.min);
+ }
+ if(p==='fraesen'){
+  I('D_c',v.Dc,0,U.mm,'Fräserdurchmesser');I('z',v.z,0,'','Zähnezahl');I('v_c',v.vc,0,'\\mathrm{m/min}','Schnittgeschwindigkeit');I('f_z',v.fz,2,'\\mathrm{mm/Z}','Zahnvorschub');I('a_p',v.ap,1,U.mm,'Schnitttiefe');I('a_e',v.ae,0,U.mm,'Arbeitseingriff');I('\\kappa_r',v.kr,0,U.deg,'Anstellwinkel');I('\\lambda',v.lam,1,'','Spanstauchungsfaktor');I('l',v.l,0,U.mm,'Fräsweg');I('\\eta',v.eta,2,'','Wirkungsgrad');
+  const n=v.vc*1000/(Math.PI*v.Dc),vf=v.fz*v.z*n,p1=Math.acos(v.ae/v.Dc),p2=Math.acos(-v.ae/v.Dc),ps=p2-p1,sk=Math.sin(v.kr*R);
+  const hm=v.fz*sk*(Math.cos(p1)-Math.cos(p2))/ps,hin=v.fz*sk*Math.sin(p1),hout=v.fz*sk*Math.sin(p2),le=v.Dc/2*ps,lsp=le/v.lam,kc=kcT(hm);
+  const Q=v.ap*v.ae*vf/1000,Pc=v.ap*v.ae*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/v.Dc,Pm=Pc/v.eta,th=v.l/vf;
+  add('Drehzahl','n = \\frac{v_c\\cdot 1000}{\\pi\\cdot D_c}','\\frac{'+TX(v.vc,0)+'\\cdot 1000}{\\pi\\cdot '+TX(v.Dc,0)+'}',n,0,U.n);
+  add('Vorschubgeschwindigkeit','v_f = f_z\\cdot z\\cdot n',TX(v.fz,2)+'\\cdot '+TX(v.z,0)+'\\cdot '+TX(n,1),vf,0,U.mmmin);
+  add('Eintrittswinkel','\\varphi_1 = \\arccos\\frac{a_e}{D_c}','\\arccos\\frac{'+TX(v.ae,0)+'}{'+TX(v.Dc,0)+'}',p1/R,1,U.deg);
+  add('Austrittswinkel','\\varphi_2 = \\arccos\\left(-\\frac{a_e}{D_c}\\right)','\\arccos\\left(-\\frac{'+TX(v.ae,0)+'}{'+TX(v.Dc,0)+'}\\right)',p2/R,1,U.deg);
+  add('Eingriffswinkel','\\varphi_s = \\varphi_2-\\varphi_1',TX(p2/R,1)+'^{\\circ}-'+TX(p1/R,1)+'^{\\circ}',ps/R,1,U.deg+' = '+TX(ps,4)+'\\,'+U.rad);
+  add('Mittlere Spanungsdicke','h_m = f_z\\cdot\\sin\\kappa_r\\cdot\\frac{\\cos\\varphi_1-\\cos\\varphi_2}{\\varphi_s}',TX(v.fz,2)+'\\cdot\\sin '+TX(v.kr,0)+'^{\\circ}\\cdot\\frac{\\cos '+TX(p1/R,1)+'^{\\circ}-\\cos '+TX(p2/R,1)+'^{\\circ}}{'+TX(ps,4)+'}',hm,3,U.mm);
+  add('Spanungsdicke Eintritt','h_{ein} = f_z\\cdot\\sin\\kappa_r\\cdot\\sin\\varphi_1',TX(v.fz,2)+'\\cdot\\sin '+TX(v.kr,0)+'^{\\circ}\\cdot\\sin '+TX(p1/R,1)+'^{\\circ}',hin,3,U.mm);
+  add('Spanungsdicke Austritt','h_{aus} = f_z\\cdot\\sin\\kappa_r\\cdot\\sin\\varphi_2',TX(v.fz,2)+'\\cdot\\sin '+TX(v.kr,0)+'^{\\circ}\\cdot\\sin '+TX(p2/R,1)+'^{\\circ}',hout,3,U.mm);
+  add('Eingriffslänge','l_e = \\frac{D_c}{2}\\cdot\\varphi_s','\\frac{'+TX(v.Dc,0)+'}{2}\\cdot '+TX(ps,4),le,1,U.mm);
+  add('Spanlänge','l_{sp} = \\frac{l_e}{\\lambda}','\\frac{'+TX(le,1)+'}{'+TX(v.lam,1)+'}',lsp,1,U.mm);
+  add('Spezifische Schnittkraft (Kienzle)','k_c = k_{c1.1}\\cdot h_m^{-m_c}\\cdot\\left(1-\\frac{\\gamma_0}{100}\\right)',TX(kc11,0)+'\\cdot '+TX(hm,3)+'^{-'+TX(mc,2)+'}\\cdot\\left(1-\\frac{'+TX(v.g,0)+'}{100}\\right)',kc,0,U.kc);
+  add('Zeitspanvolumen','Q = \\frac{a_p\\cdot a_e\\cdot v_f}{1000}','\\frac{'+TX(v.ap,1)+'\\cdot '+TX(v.ae,0)+'\\cdot '+TX(vf,0)+'}{1000}',Q,1,U.Q);
+  add('Schnittleistung','P_c = \\frac{a_p\\cdot a_e\\cdot v_f\\cdot k_c}{60\\cdot 10^{6}}','\\frac{'+TX(v.ap,1)+'\\cdot '+TX(v.ae,0)+'\\cdot '+TX(vf,0)+'\\cdot '+TX(kc,0)+'}{60\\cdot 10^{6}}',Pc,2,U.kW);
+  add('Drehmoment','M_c = \\frac{P_c\\cdot 30\\,000}{\\pi\\cdot n}','\\frac{'+TX(Pc,2)+'\\cdot 30\\,000}{\\pi\\cdot '+TX(n,0)+'}',Mc,1,U.Nm);
+  add('Mittlere Umfangskraft','F_c = \\frac{2000\\cdot M_c}{D_c}','\\frac{2000\\cdot '+TX(Mc,1)+'}{'+TX(v.Dc,0)+'}',Fc,0,U.N);
+  add('Antriebsleistung','P_{mot} = \\frac{P_c}{\\eta}','\\frac{'+TX(Pc,2)+'}{'+TX(v.eta,2)+'}',Pm,2,U.kW);
+  add('Hauptzeit','t_h = \\frac{l}{v_f}','\\frac{'+TX(v.l,0)+'}{'+TX(vf,0)+'}',th,2,U.min);
+ }
+ if(p==='bohren'){
+  I('D_c',v.Dc,0,U.mm,'Bohrerdurchmesser');I('v_c',v.vc,0,'\\mathrm{m/min}','Schnittgeschwindigkeit');I('f_n',v.fn,2,'\\mathrm{mm/U}','Vorschub');I('\\sigma',v.sig,0,U.deg,'Spitzenwinkel');I('l',v.l,0,U.mm,'Bohrtiefe');I('\\eta',v.eta,2,'','Wirkungsgrad');
+  const n=v.vc*1000/(Math.PI*v.Dc),vf=v.fn*n,ss=Math.sin(v.sig/2*R),h=v.fn/2*ss,kc=kcT(h),Q=v.vc*v.Dc*v.fn/4,Pc=v.fn*v.vc*v.Dc*kc/240000,Mc=Pc*30000/(Math.PI*n),Ff=0.5*kc*(v.Dc/2)*v.fn*ss,Pm=Pc/v.eta,th=v.l/vf;
+  add('Drehzahl','n = \\frac{v_c\\cdot 1000}{\\pi\\cdot D_c}','\\frac{'+TX(v.vc,0)+'\\cdot 1000}{\\pi\\cdot '+TX(v.Dc,0)+'}',n,0,U.n);
+  add('Vorschubgeschwindigkeit','v_f = f_n\\cdot n',TX(v.fn,2)+'\\cdot '+TX(n,1),vf,0,U.mmmin);
+  add('Spanungsdicke','h = \\frac{f_n}{2}\\cdot\\sin\\frac{\\sigma}{2}','\\frac{'+TX(v.fn,2)+'}{2}\\cdot\\sin '+TX(v.sig/2,0)+'^{\\circ}',h,3,U.mm);
+  add('Spezifische Schnittkraft (Kienzle)','k_c = k_{c1.1}\\cdot h^{-m_c}\\cdot\\left(1-\\frac{\\gamma_0}{100}\\right)',TX(kc11,0)+'\\cdot '+TX(h,3)+'^{-'+TX(mc,2)+'}\\cdot\\left(1-\\frac{'+TX(v.g,0)+'}{100}\\right)',kc,0,U.kc);
+  add('Zeitspanvolumen','Q = \\frac{v_c\\cdot D_c\\cdot f_n}{4}','\\frac{'+TX(v.vc,0)+'\\cdot '+TX(v.Dc,0)+'\\cdot '+TX(v.fn,2)+'}{4}',Q,1,U.Q);
+  add('Schnittleistung','P_c = \\frac{f_n\\cdot v_c\\cdot D_c\\cdot k_c}{240\\,000}','\\frac{'+TX(v.fn,2)+'\\cdot '+TX(v.vc,0)+'\\cdot '+TX(v.Dc,0)+'\\cdot '+TX(kc,0)+'}{240\\,000}',Pc,2,U.kW);
+  add('Drehmoment','M_c = \\frac{P_c\\cdot 30\\,000}{\\pi\\cdot n}','\\frac{'+TX(Pc,2)+'\\cdot 30\\,000}{\\pi\\cdot '+TX(n,0)+'}',Mc,1,U.Nm);
+  add('Vorschubkraft','F_f \\approx 0{,}5\\cdot k_c\\cdot\\frac{D_c}{2}\\cdot f_n\\cdot\\sin\\frac{\\sigma}{2}','0{,}5\\cdot '+TX(kc,0)+'\\cdot\\frac{'+TX(v.Dc,0)+'}{2}\\cdot '+TX(v.fn,2)+'\\cdot\\sin '+TX(v.sig/2,0)+'^{\\circ}',Ff,0,U.N);
+  add('Antriebsleistung','P_{mot} = \\frac{P_c}{\\eta}','\\frac{'+TX(Pc,2)+'}{'+TX(v.eta,2)+'}',Pm,2,U.kW);
+  add('Hauptzeit','t_h = \\frac{l}{v_f}','\\frac{'+TX(v.l,0)+'}{'+TX(vf,0)+'}',th,2,U.min);
+ }
+ return {ex,g,inp,st};
+}
+function calcDocTex(p){
+ const d=calcDoc(p);if(!d)return '';const {ex,g,inp,st}=d;
+ return ['% Berechnungsprotokoll – erzeugt mit cuttingforce.app','\\documentclass[a4paper,11pt]{article}','\\usepackage[T1]{fontenc}','\\usepackage[utf8]{inputenc}','\\usepackage[ngerman]{babel}','\\usepackage{amsmath}','\\usepackage{booktabs}','\\usepackage[margin=2.2cm]{geometry}',
+  '\\title{Berechnungsprotokoll: '+PROC[p].name+'}','\\author{cuttingforce.app}','\\date{\\today}','\\begin{document}','\\maketitle',
+  '\\section*{Beispiel}',ex.op+', Werkstoff '+ex.mat+' (Werkstoffgruppe '+g.k+' nach VDI~3323, Richtwerte).','',
+  '\\section*{Eingangsdaten}','\\begin{tabular}{llr}','\\toprule','Größe & Bezeichnung & Wert\\\\','\\midrule',
+  ...inp.map(i=>'$'+i.sym+'$ & '+i.t+' & $'+TX(i.val,i.d)+(i.u?'\\,'+i.u:'')+'$\\\\'),'\\bottomrule','\\end{tabular}','',
+  '\\section*{Berechnung}','\\begin{align*}',...st.map((x,i)=>'\\intertext{'+(i+1)+'. '+x.t+'}'+'\n'+x.tex.replace(' = ',' &= ')+(i<st.length-1?'\\\\':'')),'\\end{align*}','',
+  '\\section*{Hinweis}','Kienzle-Modell mit Spanwinkelkorrektur $(1-\\gamma_0/100)$. Die Werte sind Richtwerte und ersetzen nicht die Angaben der Werkzeug- und Maschinenhersteller.','\\end{document}',''].join('\n');
+}
+let KATEX_P=null;
+function loadKatex(){if(window.katex)return Promise.resolve();if(KATEX_P)return KATEX_P;
+ KATEX_P=new Promise((ok,err)=>{const l=document.createElement('link');l.rel='stylesheet';l.href='/vendor/katex/katex.min.css';document.head.appendChild(l);
+  const sc=document.createElement('script');sc.src='/vendor/katex/katex.min.js';sc.onload=ok;sc.onerror=err;document.head.appendChild(sc);});return KATEX_P;}
+function typesetDoc(root){loadKatex().then(()=>{root.querySelectorAll('[data-tex]').forEach(el=>{try{katex.render(el.dataset.tex,el,{displayMode:el.dataset.disp==='1',throwOnError:false});}catch(e){el.textContent=el.dataset.tex;}});}).catch(()=>{root.querySelectorAll('[data-tex]').forEach(el=>{el.textContent=el.dataset.tex;});});}
+function calcDocHTML(p){
+ const d=calcDoc(p),view=CDOC[p]||'';
+ if(!d)return `<section class="card cdoc"><h2>Berechnungsgrundlagen</h2><p class="hint" style="margin:0">Für diesen Prozess folgt das Berechnungsprotokoll, sobald er fertiggestellt ist.</p></section>`;
+ const {ex,g,inp,st}=d,ea=s=>esc(s);
+ let body='';
+ if(view==='proto')body=`<div class="cdoc-body" data-notr>
+  <p class="note">Beispiel: ${ea(ex.op)}, ${ea(ex.mat)} (Gruppe ${g.k}, Richtwerte kc1.1 = ${fmt(g.kc)} N/mm², mc = ${fmt(g.mc,2)})</p>
+  <h3>Eingangsdaten</h3><div class="cdoc-inp">${inp.map(i=>`<div><span data-tex="${ea(i.sym+' = '+TX(i.val,i.d)+(i.u?'\\,'+i.u:''))}"></span><small>${ea(i.t)}</small></div>`).join('')}</div>
+  <h3>Berechnung</h3><ol class="cdoc-steps">${st.map(x=>`<li><b>${ea(x.t)}</b><div class="cdoc-eq" data-disp="1" data-tex="${ea(x.tex)}"></div></li>`).join('')}</ol>
+  <p class="note">Kienzle-Modell mit Spanwinkelkorrektur. Richtwerte – sie ersetzen nicht die Angaben der Werkzeug- und Maschinenhersteller.</p></div>`;
+ if(view==='tex')body=`<div class="cdoc-body"><textarea class="cdoc-tex" readonly spellcheck="false" id="${p}-cdoc-tex">${ea(calcDocTex(p))}</textarea>
+  <div class="toolbar" style="margin:8px 0 0"><button class="btn" data-cdoccopy="${p}">LaTeX-Code kopieren</button><button class="btn need-dl" data-cdocdl="${p}" hidden>Als .tex-Datei speichern</button></div></div>`;
+ return `<section class="card cdoc" id="${p}-cdoc"><h2>Berechnungsgrundlagen</h2>
+  <p class="hint">Repräsentative Berechnung für ${ea(PROC[p].name)} mit allen verwendeten Formeln – als Berechnungsprotokoll oder als LaTeX-Code.</p>
+  <div class="seg" role="group" aria-label="Berechnungsgrundlagen"><button data-cdoc="${p}:proto" aria-pressed="${view==='proto'}">Berechnungsprotokoll</button><button data-cdoc="${p}:tex" aria-pressed="${view==='tex'}">LaTeX-Code</button></div>
+  ${body}</section>`;
+}
+
 /* ---------- Bericht ---------- */
 const pct=(a,b)=>Number.isFinite(a)&&Number.isFinite(b)&&b>0?(a/b-1)*100:NaN;
 function compare(p){
@@ -1396,7 +1546,7 @@ function render(){
  else if(S.tab==='stamm')html=renderStamm();
  else html=renderProc(S.tab);
  main.innerHTML=switchPanel()+banner+html;
- if(PROCS.includes(S.tab)){renderOut(S.tab);renderDerived(S.tab);renderSets(S.tab);}
+ if(PROCS.includes(S.tab)){renderOut(S.tab);renderDerived(S.tab);renderSets(S.tab);const cd=document.getElementById(S.tab+'-cdoc');if(cd&&cd.querySelector('[data-tex]'))typesetDoc(cd);}
  const fz=document.getElementById('trial-__fazit');if(fz)fz.value=S.fazit||'';
  if(DL!==undefined)applyDL();
  hydrateMedia(main);
@@ -1426,6 +1576,7 @@ main.addEventListener('input',e=>{
  const p=S.tab;if(!PROCS.includes(p))return;
  S.forms[p][k]=el.value;
  if(k==='mat'){applyMat(p,el.value);save();render();return;}
+ if(k==='matRep'){applyRep(p,el.value);save();render();return;}
  if(/^geo/.test(k)){save();render();return;}
  if(el.dataset.cat&&catApply(p,el)){syncAlt(p,S.forms[p]);save();render();toast('Aus Stammdaten übernommen');return;}
  syncAlt(p,S.forms[p]);{const nh=document.getElementById(p+'-nkhint');if(nh)nh.textContent=nkHint(S.forms[p]);}renderOut(p);renderDerived(p);renderPos(p);renderNav(p);save();renderHeader();
@@ -1462,6 +1613,10 @@ main.addEventListener('click',e=>{
   syncAlt(p,f);save();render();
   const inp=document.getElementById(`${p}-${v==='n'?'nIn':v==='vf'?'vfIn':m==='vcMode'?'vc':ALT[p].f}`);if(inp)inp.focus({preventScroll:true});
   toast(v==='n'?'Eingabe als Drehzahl n – vc wird berechnet':v==='vf'?'Eingabe als Vorschubgeschwindigkeit vf – '+ALT[p].fl+' wird berechnet':'Eingabe als '+(m==='vcMode'?'Schnittgeschwindigkeit vc':ALT[p].fl));return;}
+ if(b.dataset.cdoc){const [pp,v]=b.dataset.cdoc.split(':');CDOC[pp]=CDOC[pp]===v?'':v;render();const el=document.getElementById(pp+'-cdoc');if(el)el.scrollIntoView({block:'start'});return;}
+ if(b.dataset.cdoccopy){const pp=b.dataset.cdoccopy;copyText(calcDocTex(pp),document.getElementById(pp+'-cdoc-tex'));return;}
+ if(b.dataset.cdocdl){const pp=b.dataset.cdocdl;dlFile(`Berechnungsprotokoll_${PROC[pp].name}.tex`,calcDocTex(pp));return;}
+ if(b.dataset.repiso){const r=REP_MATS.find(x=>repIso(x)===b.dataset.repiso);if(r)applyRep(p,r.k);save();render();renderHeader();return;}
  if(b.dataset.iso){const first=MATS.find(x=>x.iso===b.dataset.iso);applyMat(p,first.k);save();render();renderHeader();return;}
  if(b.dataset.preset){const q=b.dataset.preset;if(pendingReset===q){resetProc(q);pendingReset=null;save();render();toast(`${PROC[q].name}-Daten zurückgesetzt`);}else{pendingReset=q;renderNav(q);}return;}
  if(b.dataset.swcancel){pendingSwitch=null;pendingReset=null;render();return;}
