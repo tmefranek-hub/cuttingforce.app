@@ -6,6 +6,19 @@
   <title>cuttingforce.app – Schnittkraftrechner für Drehen, Fräsen &amp; Bohren</title>
   <meta name="description" content="cuttingforce.app: Schnittkraftrechner nach Kienzle für Drehen, Fräsen und Bohren, von Tobias Franek (Maschinenbau, Montanuniversität Leoben).">
   <link rel="canonical" href="https://cuttingforce.app/">
+  <!-- Eigene Mobil-Version unter /m/ (Google: getrennte URLs für Mobilgeräte) -->
+  <link rel="alternate" media="only screen and (max-width: 640px)" href="https://cuttingforce.app/m/">
+
+  <!-- Geräteweiche: schmale Bildschirme -> /m/, außer der Besucher hat die Desktop-Version gewählt -->
+  <script>
+    (function () {
+      var wahl = null;
+      try { wahl = localStorage.getItem('cfa-ansicht'); } catch (e) {}
+      if (wahl !== 'desktop' && window.matchMedia('(max-width: 640px)').matches) {
+        location.replace('/m/' + location.hash);
+      }
+    })();
+  </script>
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
@@ -16,12 +29,12 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="ansicht-desktop">
 
   <header class="top">
-    <div class="wrap">
+    <div class="wrap wrap-breit">
       <h1 class="brand-logo">
         <svg class="logo-icon" viewBox="0 0 100 100" role="img" aria-label="cuttingforce Icon">
           <rect x="2" y="2" width="96" height="96" rx="20" fill="#ffffff" stroke="#0a0a0a" stroke-width="4"/>
@@ -30,35 +43,69 @@
         </svg>
         <span class="wordmark"><span class="wm-light">cutting</span><span class="wm-bold">force</span><span class="wm-mono">.app</span></span>
       </h1>
+      <nav class="top-nav" aria-label="Hauptnavigation">
+        <a href="/schnittkraftrechner/">Schnittkraftrechner</a>
+        <a href="#kontakt">Kontakt</a>
+      </nav>
     </div>
   </header>
 
-  <main class="wrap">
-    <div class="stack">
+  <main class="wrap wrap-breit">
 
-      <section class="card" id="schnittkraftrechner" aria-labelledby="skr-titel">
-        <h2 id="skr-titel">Schnittkraftrechner</h2>
-        <p>Kostenloser Schnittkraftrechner nach Kienzle für Drehen, Fräsen und Bohren – inklusive Versuchsdokumentation und Bericht.</p>
+    <section class="hero" id="schnittkraftrechner" aria-labelledby="skr-titel">
+      <div class="hero-text">
+        <p class="eyebrow">Zerspanungstechnik</p>
+        <h2 id="skr-titel">Schnittkraftrechner nach Kienzle</h2>
+        <p class="lead">Kostenloser Schnittkraftrechner für Drehen, Fräsen und Bohren – inklusive Versuchsdokumentation und Bericht.</p>
         <p><a class="btn-cta" href="/schnittkraftrechner/">Schnittkraftrechner öffnen →</a></p>
-      </section>
+      </div>
+      <div class="hero-formel" aria-label="Kienzle-Formel">
+        <p class="formel-label">Spezifische Schnittkraft</p>
+        <p class="formel">k<sub>c</sub> = k<sub>c1.1</sub> · h<sup>−m<sub>c</sub></sup></p>
+        <p class="formel-label">Schnittkraft</p>
+        <p class="formel">F<sub>c</sub> = k<sub>c</sub> · b · h</p>
+      </div>
+    </section>
 
-      <section class="card" id="kontakt" aria-labelledby="kontakt-titel">
-        <h2 id="kontakt-titel">Kontakt</h2>
-        <p>
-          E-Mail: <a href="mailto:kontakt@cuttingforce.app">kontakt@cuttingforce.app</a><br>
-          <!-- PLATZHALTER: LinkedIn-Link später eintragen -->
-          LinkedIn: <span class="platzhalter">[PLATZHALTER: Link zu deinem LinkedIn-Profil]</span>
-        </p>
-      </section>
+    <section class="prozesse" aria-label="Verfahren">
+      <a class="prozess" href="/schnittkraftrechner/">
+        <span class="prozess-name">Drehen</span>
+        <span class="prozess-text">Längs-, Plan-, Innen- und Kopierdrehen, Einstechen, Gewinde</span>
+      </a>
+      <a class="prozess" href="/schnittkraftrechner/">
+        <span class="prozess-name">Fräsen</span>
+        <span class="prozess-text">Plan-, Eck-, Hochvorschub-, Nut- und Taschenfräsen u. a.</span>
+      </a>
+      <a class="prozess" href="/schnittkraftrechner/">
+        <span class="prozess-name">Bohren</span>
+        <span class="prozess-text">Vollbohren, Aufbohren, Tieflochbohren</span>
+      </a>
+    </section>
 
-    </div>
+    <section class="card" id="kontakt" aria-labelledby="kontakt-titel">
+      <h2 id="kontakt-titel">Kontakt</h2>
+      <p>
+        E-Mail: <a href="mailto:kontakt@cuttingforce.app">kontakt@cuttingforce.app</a><br>
+        <!-- PLATZHALTER: LinkedIn-Link später eintragen -->
+        LinkedIn: <span class="platzhalter">[PLATZHALTER: Link zu deinem LinkedIn-Profil]</span>
+      </p>
+    </section>
+
   </main>
 
   <footer class="site-footer">
-    <div class="wrap">
-      <p>&copy; 2026 Tobias Franek · <a href="/impressum/">Impressum</a> · <a href="/datenschutz/">Datenschutzerklärung</a></p>
+    <div class="wrap wrap-breit">
+      <p>&copy; 2026 Tobias Franek · <a href="/impressum/">Impressum</a> · <a href="/datenschutz/">Datenschutzerklärung</a> · <a href="/m/" data-ansicht="mobil">Mobile Ansicht</a></p>
     </div>
   </footer>
 
+  <script>
+    // Manuelle Umschaltung merken, damit die Geräteweiche nicht zurückspringt
+    document.querySelectorAll('[data-ansicht]').forEach(function (a) {
+      a.addEventListener('click', function () {
+        try { localStorage.setItem('cfa-ansicht', a.dataset.ansicht); } catch (e) {}
+      });
+    });
+  </script>
 </body>
 </html>

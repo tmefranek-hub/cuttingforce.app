@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>cuttingforce.app – Schnittkraftrechner für Drehen, Fräsen &amp; Bohren</title>
+  <meta name="description" content="cuttingforce.app: Schnittkraftrechner nach Kienzle für Drehen, Fräsen und Bohren, von Tobias Franek (Maschinenbau, Montanuniversität Leoben).">
+  <!-- Mobil-Version: Hauptadresse für Suchmaschinen bleibt die Desktop-Seite -->
+  <link rel="canonical" href="https://cuttingforce.app/">
+  <meta name="theme-color" content="#000000">
+
+  <!-- Geräteweiche: breite Bildschirme -> /, außer der Besucher hat die mobile Ansicht gewählt -->
+  <script>
+    (function () {
+      var wahl = null;
+      try { wahl = localStorage.getItem('cfa-ansicht'); } catch (e) {}
+      if (wahl !== 'mobil' && window.matchMedia('(min-width: 641px)').matches) {
+        location.replace('/' + location.hash);
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="ansicht-mobil">
+
+  <header class="top">
+    <div class="wrap">
+      <h1 class="brand-logo">
+        <svg class="logo-icon" viewBox="0 0 100 100" role="img" aria-label="cuttingforce Icon">
+          <rect x="2" y="2" width="96" height="96" rx="20" fill="#ffffff" stroke="#0a0a0a" stroke-width="4"/>
+          <rect x="13" y="13" width="74" height="74" rx="12" fill="none" stroke="#0a0a0a" stroke-width="2.5"/>
+          <text x="50" y="60" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-weight="700" font-size="28" letter-spacing="-1" fill="#0a0a0a">CFA</text>
+        </svg>
+        <span class="wordmark"><span class="wm-light">cutting</span><span class="wm-bold">force</span><span class="wm-mono">.app</span></span>
+      </h1>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <h2 class="m-titel">Apps</h2>
+
+    <nav class="app-raster" aria-label="Apps">
+      <a class="app-kachel" href="/schnittkraftrechner/">
+        <span class="app-icon" aria-hidden="true">F<sub>c</sub></span>
+        <span class="app-name">Schnittkraft&shy;rechner</span>
+        <span class="app-status">Drehen · Fräsen · Bohren</span>
+      </a>
+      <span class="app-kachel app-leer" aria-disabled="true">
+        <span class="app-icon" aria-hidden="true">2</span>
+        <span class="app-name">App 2</span>
+        <span class="app-status">in Vorbereitung</span>
+      </span>
+      <span class="app-kachel app-leer" aria-disabled="true">
+        <span class="app-icon" aria-hidden="true">3</span>
+        <span class="app-name">App 3</span>
+        <span class="app-status">in Vorbereitung</span>
+      </span>
+      <span class="app-kachel app-leer" aria-disabled="true">
+        <span class="app-icon" aria-hidden="true">4</span>
+        <span class="app-name">App 4</span>
+        <span class="app-status">in Vorbereitung</span>
+      </span>
+      <span class="app-kachel app-leer" aria-disabled="true">
+        <span class="app-icon" aria-hidden="true">5</span>
+        <span class="app-name">App 5</span>
+        <span class="app-status">in Vorbereitung</span>
+      </span>
+      <span class="app-kachel app-leer" aria-disabled="true">
+        <span class="app-icon" aria-hidden="true">6</span>
+        <span class="app-name">App 6</span>
+        <span class="app-status">in Vorbereitung</span>
+      </span>
+      <span class="app-kachel app-leer" aria-disabled="true">
+        <span class="app-icon" aria-hidden="true">7</span>
+        <span class="app-name">App 7</span>
+        <span class="app-status">in Vorbereitung</span>
+      </span>
+      <span class="app-kachel app-leer" aria-disabled="true">
+        <span class="app-icon" aria-hidden="true">8</span>
+        <span class="app-name">App 8</span>
+        <span class="app-status">in Vorbereitung</span>
+      </span>
+    </nav>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>&copy; 2026 Tobias Franek<br>
+        <a href="/impressum/">Impressum</a> · <a href="/datenschutz/">Datenschutz</a> · <a href="/" data-ansicht="desktop">Desktop-Ansicht</a></p>
+    </div>
+  </footer>
+
+  <script>
+    // Manuelle Umschaltung merken, damit die Geräteweiche nicht zurückspringt
+    document.querySelectorAll('[data-ansicht]').forEach(function (a) {
+      a.addEventListener('click', function () {
+        try { localStorage.setItem('cfa-ansicht', a.dataset.ansicht); } catch (e) {}
+      });
+    });
+  </script>
+</body>
+</html>
