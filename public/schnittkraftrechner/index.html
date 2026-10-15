@@ -502,12 +502,13 @@ const PROC={
    const Q=ap*ae*vf/1000,Pc=ap*ae*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/Dc;
    return {n,vf,phs,le,h,hin,hout,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
  bohren:{name:'Bohren',t1:'Wendeschneidplatte / Bohrkopf',t2:'Grundkörper / Halter',ph1:'z. B. Bohrkopf Ø12,0',ph2:'z. B. Grundkörper 3×D',
-  params:[['Dc','Bohrerdurchmesser Dc','mm'],['vc','Schnittgeschwindigkeit vc','m/min'],['fn','Vorschub fn','mm/U'],['sig','Spitzenwinkel σ','°'],['g','Spanwinkel γ₀','°'],['l','Bohrtiefe l','mm'],['eta','Wirkungsgrad Maschine η','']],
+  params:[['Dc','Bohrerdurchmesser Dc','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc','m/min'],['fn','Vorschub fn','mm/U'],['sig','Spitzenwinkel σ','°'],['g','Spanwinkel γ₀','°'],['l','Bohrtiefe l','mm'],['eta','Wirkungsgrad Maschine η','']],
   short:[['vc','vc'],['fn','fn']], keys:['Pc','Mc','Ff'],
-  formula:'hm = fn/2·sin(σ/2) · Pc = fn·vc·Dc·kc / 240 000 · Ff ≈ 0,5·kc·Dc/2·fn·sin(σ/2)',
-  calc(f){const Dc=num(f.Dc),vc=num(f.vc),fn=num(f.fn),s=Math.sin(rad(num(f.sig)/2)),eta=num(f.eta)||1,l=num(f.l);
-   const n=vc*1000/(Math.PI*Dc),vf=fn*n,h=fn/2*s,kc=kcOf(f,h),Q=vc*Dc*fn/4,Pc=fn*vc*Dc*kc/240000,Mc=Pc*30000/(Math.PI*n),Ff=0.5*kc*(Dc/2)*fn*s;
-   return {n,vf,h,kc,Ff,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
+  formula:'fz = fn/z · h = fz·sin(σ/2) · Pc = fn·vc·Dc·kc / 240 000 · Ff ≈ 0,5·kc·Dc/2·fn·sin(σ/2)',
+  calc(f){const Dc=num(f.Dc),vc=num(f.vc),fn=num(f.fn),s=Math.sin(rad(num(f.sig)/2)),eta=num(f.eta)||1,l=num(f.l),z=num(f.z)||2;
+   /* Vorschub je Schneide fz = fn/z (ohne Angabe: z = 2) */
+   const n=vc*1000/(Math.PI*Dc),vf=fn*n,fzn=fn/z,h=fzn*s,kc=kcOf(f,h),Q=vc*Dc*fn/4,Pc=fn*vc*Dc*kc/240000,Mc=Pc*30000/(Math.PI*n),Ff=0.5*kc*(Dc/2)*fn*s;
+   return {n,vf,fzn,h,kc,Ff,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
  schaelen:{name:'Drehschälen',t1:'Schälplatte (Wendeschneidplatte)',t2:'Schälkopf',ph1:'z. B. Schruppplatte',ph2:'z. B. Schälkopf für 6 Kassetten',
   params:[['D','Stabdurchmesser vor dem Schälen D','mm'],['ap','Schälzugabe ap (radial)','mm'],['vc','Schnittgeschwindigkeit vc','m/min'],['f','Vorschub je Umdrehung f','mm/U'],['g','Spanwinkel γ₀','°'],['l','Stablänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
   short:[['vc','vc'],['f','f'],['ap','ap'],['nk','nK']], keys:['Pc','vfm','tph'],
@@ -547,9 +548,9 @@ function bkGeom(f){const t=num(f.t),c=num(f.c)||0,a=rad(num(f.alpha));
  if(f.sub==='besaeumen_b'){const ae=num(f.aeB);return {A:t*ae,fb:ae};}
  const hf=t-(f.sub==='v'?0:c);return {A:hf*hf*Math.tan(a)/2,fb:hf/Math.cos(a)};}
 function posForm(p,f){return p==='blechkante'?{...f,ae:String(bkGeom(f).fb)}:f;}
-const RES={zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
+const RES={fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
  Fc:['Schnittkraft','N',0,'Fc'],Ff:['Vorschubkraft','N',0,'Ff'],Mc:['Drehmoment','Nm',1,'Mc'],Q:['Zeitspanvolumen','cm³/min',1,'Q'],Pc:['Schnittleistung','kW',2,'Pc'],Pm:['Antriebsleistung','kW',2,'Pmot'],th:['Hauptzeit','min',2,'th']};
-const RES_ORDER={drehen:['n','vf','h','kc','Fc','Mc','Q','Pc','Pm','th'],fraesen:['n','vf','phs','le','h','hin','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],bohren:['n','vf','h','kc','Ff','Mc','Q','Pc','Pm','th'],schaelen:['n','vf','vfm','zs','fzc','h','kc','Fc','Mc','Q','Pc','Pm','tph','th'],blechkante:['n','vf','vfm','fb','A','phs','le','h','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],kurbelwelle:['n','vf','nw','phs','le','h','hmax','lsp','kc','Fc','Mc','Q','Pc','Pm','th']};
+const RES_ORDER={drehen:['n','vf','h','kc','Fc','Mc','Q','Pc','Pm','th'],fraesen:['n','vf','phs','le','h','hin','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],bohren:['n','vf','fzn','h','kc','Ff','Mc','Q','Pc','Pm','th'],schaelen:['n','vf','vfm','zs','fzc','h','kc','Fc','Mc','Q','Pc','Pm','tph','th'],blechkante:['n','vf','vfm','fb','A','phs','le','h','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],kurbelwelle:['n','vf','nw','phs','le','h','hmax','lsp','kc','Fc','Mc','Q','Pc','Pm','th']};
 const RES_FC_LABEL={fraesen:'Mittl. Umfangskraft',blechkante:'Mittl. Umfangskraft',kurbelwelle:'Mittl. Umfangskraft'};
 /* ---------- Fräserposition / Eingriffswinkel (Boehlerit-Katalog: Berechnung des Eingriffswinkels φs) ---------- */
 const POSN={mitte:'Mittige Anordnung',gleich:'Kanten fräsen – Gleichlauf',gegen:'Kanten fräsen – Gegenlauf',versetzt:'Versetzt fräsen'};
@@ -613,7 +614,7 @@ const TOOL0={sub:'',ftyp:'',typ:'eigen',typH:'eigen',typK:'eigen',hersteller:'',
 function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='drehen')Object.assign(b,{D:'80',vc:'220',f:'0,25',ap:'2',kr:'95',g:'6',l:'120',eta:'0,8'});
  if(p==='fraesen')Object.assign(b,{Dc:'63',z:'5',vc:'200',fz:'0,15',ap:'3',pos:'gleich',aue:'5',ae:'40',kr:'90',g:'10',lam:'2',l:'300',eta:'0,8'});
- if(p==='bohren')Object.assign(b,{Dc:'12',vc:'90',fn:'0,2',sig:'140',g:'30',l:'40',eta:'0,8'});
+ if(p==='bohren')Object.assign(b,{Dc:'12',z:'2',vc:'90',fn:'0,2',sig:'140',g:'30',l:'40',eta:'0,8'});
  if(p==='blechkante')b.pos='gleich';
  if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
  return b;}
@@ -1334,7 +1335,7 @@ async function dlFile(name,data){if(!DL){toast('Speichern ist in dieser Ansicht 
 const CDOC_EX={
  drehen:{op:'Längsdrehen',mat:'42CrMo4+QT',grp:'P8',v:{D:60,vc:200,f:0.3,ap:2,kr:95,g:6,l:100,eta:0.8}},
  fraesen:{op:'Planfräsen, mittige Anordnung',mat:'42CrMo4+QT',grp:'P8',v:{Dc:63,z:5,vc:200,fz:0.15,ap:2,ae:40,kr:45,g:6,lam:2,l:300,eta:0.8}},
- bohren:{op:'Vollbohren',mat:'42CrMo4+QT',grp:'P8',v:{Dc:20,vc:100,fn:0.2,sig:140,g:6,l:60,eta:0.8}}};
+ bohren:{op:'Vollbohren',mat:'42CrMo4+QT',grp:'P8',v:{Dc:20,z:2,vc:100,fn:0.2,sig:140,g:6,l:60,eta:0.8}}};
 let CDOC={};
 const TX=(v,d)=>Number.isFinite(v)?v.toFixed(d).replace('.','{,}'):'?';
 const U={n:'\\mathrm{min^{-1}}',mmmin:'\\mathrm{mm/min}',mm:'\\mathrm{mm}',kc:'\\mathrm{N/mm^2}',N:'\\mathrm{N}',Nm:'\\mathrm{Nm}',Q:'\\mathrm{cm^3/min}',kW:'\\mathrm{kW}',min:'\\mathrm{min}',deg:'^{\\circ}',rad:'\\mathrm{rad}'};
@@ -1384,11 +1385,12 @@ function calcDoc(p){
   add('Hauptzeit','t_h = \\frac{l}{v_f}','\\frac{'+TX(v.l,0)+'}{'+TX(vf,0)+'}',th,2,U.min);
  }
  if(p==='bohren'){
-  I('D_c',v.Dc,0,U.mm,'Bohrerdurchmesser');I('v_c',v.vc,0,'\\mathrm{m/min}','Schnittgeschwindigkeit');I('f_n',v.fn,2,'\\mathrm{mm/U}','Vorschub');I('\\sigma',v.sig,0,U.deg,'Spitzenwinkel');I('l',v.l,0,U.mm,'Bohrtiefe');I('\\eta',v.eta,2,'','Wirkungsgrad');
-  const n=v.vc*1000/(Math.PI*v.Dc),vf=v.fn*n,ss=Math.sin(v.sig/2*R),h=v.fn/2*ss,kc=kcT(h),Q=v.vc*v.Dc*v.fn/4,Pc=v.fn*v.vc*v.Dc*kc/240000,Mc=Pc*30000/(Math.PI*n),Ff=0.5*kc*(v.Dc/2)*v.fn*ss,Pm=Pc/v.eta,th=v.l/vf;
+  I('D_c',v.Dc,0,U.mm,'Bohrerdurchmesser');I('z',v.z,0,'','Zähnezahl');I('v_c',v.vc,0,'\\mathrm{m/min}','Schnittgeschwindigkeit');I('f_n',v.fn,2,'\\mathrm{mm/U}','Vorschub');I('\\sigma',v.sig,0,U.deg,'Spitzenwinkel');I('l',v.l,0,U.mm,'Bohrtiefe');I('\\eta',v.eta,2,'','Wirkungsgrad');
+  const n=v.vc*1000/(Math.PI*v.Dc),vf=v.fn*n,ss=Math.sin(v.sig/2*R),fzn=v.fn/v.z,h=fzn*ss,kc=kcT(h),Q=v.vc*v.Dc*v.fn/4,Pc=v.fn*v.vc*v.Dc*kc/240000,Mc=Pc*30000/(Math.PI*n),Ff=0.5*kc*(v.Dc/2)*v.fn*ss,Pm=Pc/v.eta,th=v.l/vf;
   add('Drehzahl','n = \\frac{v_c\\cdot 1000}{\\pi\\cdot D_c}','\\frac{'+TX(v.vc,0)+'\\cdot 1000}{\\pi\\cdot '+TX(v.Dc,0)+'}',n,0,U.n);
   add('Vorschubgeschwindigkeit','v_f = f_n\\cdot n',TX(v.fn,2)+'\\cdot '+TX(n,1),vf,0,U.mmmin);
-  add('Spanungsdicke','h = \\frac{f_n}{2}\\cdot\\sin\\frac{\\sigma}{2}','\\frac{'+TX(v.fn,2)+'}{2}\\cdot\\sin '+TX(v.sig/2,0)+'^{\\circ}',h,3,U.mm);
+  add('Vorschub je Schneide','f_z = \\frac{f_n}{z}','\\frac{'+TX(v.fn,2)+'}{'+TX(v.z,0)+'}',fzn,3,U.mm);
+  add('Spanungsdicke','h = f_z\\cdot\\sin\\frac{\\sigma}{2}',TX(fzn,3)+'\\cdot\\sin '+TX(v.sig/2,0)+'^{\\circ}',h,3,U.mm);
   add('Spezifische Schnittkraft (Kienzle)','k_c = k_{c1.1}\\cdot h^{-m_c}\\cdot\\left(1-\\frac{\\gamma_0}{100}\\right)',TX(kc11,0)+'\\cdot '+TX(h,3)+'^{-'+TX(mc,2)+'}\\cdot\\left(1-\\frac{'+TX(v.g,0)+'}{100}\\right)',kc,0,U.kc);
   add('Zeitspanvolumen','Q = \\frac{v_c\\cdot D_c\\cdot f_n}{4}','\\frac{'+TX(v.vc,0)+'\\cdot '+TX(v.Dc,0)+'\\cdot '+TX(v.fn,2)+'}{4}',Q,1,U.Q);
   add('Schnittleistung','P_c = \\frac{f_n\\cdot v_c\\cdot D_c\\cdot k_c}{240\\,000}','\\frac{'+TX(v.fn,2)+'\\cdot '+TX(v.vc,0)+'\\cdot '+TX(v.Dc,0)+'\\cdot '+TX(kc,0)+'}{240\\,000}',Pc,2,U.kW);
