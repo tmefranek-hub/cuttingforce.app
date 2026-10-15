@@ -1234,13 +1234,31 @@ function catCard(kind,p){
   <div data-cattbl="${id}"></div>
  </section>`;
 }
-function stammSecs(){return [...PROCS.filter(q=>VIS.includes(q)).map(q=>[q,PROC[q].name]),['mat','Werkstoffe'],['io','Datenaustausch']];}
+function stammSecs(){return [['users','Benutzer'],...PROCS.filter(q=>VIS.includes(q)).map(q=>[q,PROC[q].name]),['mat','Werkstoffe'],['io','Datenaustausch']];}
+/* Offene Registrierungen für den Administrator */
+let PENDING_USERS=null,PENDING_USERS_LOADING=false;
+async function loadPendingUsers(){
+ try{const r=await fetch('/api/admin/pending-users');PENDING_USERS=r.ok?((await r.json()).users||[]):[];}catch(e){PENDING_USERS=[];}
+ PENDING_USERS_LOADING=false;render();
+}
+async function approveUser(id){await fetch('/api/admin/approve-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:id})});PENDING_USERS=null;render();toast('Konto freigegeben');}
+async function rejectUser(id){await fetch('/api/admin/reject-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:id})});PENDING_USERS=null;render();toast('Registrierung abgelehnt');}
+function renderUserAdmin(){
+ if(PENDING_USERS===null){if(!PENDING_USERS_LOADING){PENDING_USERS_LOADING=true;loadPendingUsers();}return `<section class="card"><h2>Benutzer</h2><p class="hint">Lade offene Registrierungen …</p></section>`;}
+ if(!PENDING_USERS.length)return `<section class="card"><h2>Benutzer</h2><p class="hint">Neue Registrierungen warten hier auf Freigabe.</p><div class="empty">Aktuell keine offenen Registrierungen.</div></section>`;
+ return `<section class="card"><h2>Benutzer</h2><p class="hint">Neue Registrierungen warten auf Freigabe, bevor sie sich anmelden können.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>E-Mail</th><th>Registriert</th><th></th></tr></thead><tbody>
+  ${PENDING_USERS.map(u=>`<tr><td>${esc(u.email)}</td><td>${esc(new Date(u.created_at).toLocaleString(LOC()))}</td><td style="white-space:nowrap"><button class="btn sm primary" data-approve="${u.id}">Freigeben</button> <button class="btn sm danger" data-reject="${u.id}">Ablehnen</button></td></tr>`).join('')}
+  </tbody></table></div>
+ </section>`;
+}
 function renderStamm(){
  const secs=stammSecs();let sec=S.stammSec;if(!secs.some(x=>x[0]===sec))sec=secs[0][0];
- const cnt=k=>k==='mat'?CAT.mat.length:k==='io'?'':CAT.wsp.filter(catFilter('wsp',k)).length+CAT.tr.filter(catFilter('tr',k)).length;
- const nav=secs.map(([k,l],i)=>`<button data-stsec="${k}" aria-current="${k===sec}"><span class="sn">${k==='io'?'⇅':k==='mat'?'M':i+1}</span><span class="st"><b>${l}</b><small>${k==='io'?'CSV, JSON, Quellcode':cnt(k)+(cnt(k)===1?' Eintrag':' Einträge')}</small></span></button>`).join('');
+ const cnt=k=>k==='mat'?CAT.mat.length:k==='io'?'':k==='users'?(PENDING_USERS?PENDING_USERS.length:'…'):CAT.wsp.filter(catFilter('wsp',k)).length+CAT.tr.filter(catFilter('tr',k)).length;
+ const nav=secs.map(([k,l],i)=>`<button data-stsec="${k}" aria-current="${k===sec}"><span class="sn">${k==='io'?'⇅':k==='mat'?'M':k==='users'?'U':i}</span><span class="st"><b>${l}</b><small>${k==='io'?'CSV, JSON, Quellcode':cnt(k)+(cnt(k)===1?' Eintrag':' Einträge')}</small></span></button>`).join('');
  let mid;
- if(PROCS.includes(sec))mid=`<div class="stack">${renderMan(sec)}${catCard('wsp',sec)}${catCard('tr',sec)}</div>`;
+ if(sec==='users')mid=`<div class="stack">${renderUserAdmin()}</div>`;
+ else if(PROCS.includes(sec))mid=`<div class="stack">${renderMan(sec)}${catCard('wsp',sec)}${catCard('tr',sec)}</div>`;
  else if(sec==='mat')mid=`<div class="stack">${renderMatMan()}${catCard('mat','all')}</div>`;
  else mid=`<div class="stack"><section class="card"><h2>Datenaustausch</h2>
    <p class="hint">Stammdaten werden auf diesem Gerät gespeichert. Zum Verteilen an Kollegen „Alle Stammdaten speichern“ und die Datei dort laden. Excel-CSV mit Semikolon wird erkannt.</p>
@@ -1448,6 +1466,8 @@ main.addEventListener('click',e=>{
  if(b.dataset.mdmat){const err=matSave();if(err){toast(err);return;}render();toast('Werkstoff übernommen');return;}
  if(b.dataset.mdclear){const pp=b.dataset.mdclear;CATD[pp]={sub:md(pp).sub,iso:md(pp).iso};render();return;}
  if(b.dataset.mdsave){const n=mdSave(b.dataset.mdsave);if(!n){toast('Bitte mindestens eine Materialnummer oder Bezeichnung eintragen');return;}render();toast(`${n} ${n===1?'Eintrag':'Einträge'} übernommen`);return;}
+ if(b.dataset.approve){approveUser(Number(b.dataset.approve));return;}
+ if(b.dataset.reject){rejectUser(Number(b.dataset.reject));return;}
  if(b.dataset.gostamm){S.tab='stamm';save();render();window.scrollTo(0,0);return;}
  if(b.dataset.stsec){S.stammSec=b.dataset.stsec;pendingCatClear=null;save();render();window.scrollTo(0,0);return;}
  if(b.dataset.cattab){catTab=b.dataset.cattab;pendingCatClear=null;render();return;}

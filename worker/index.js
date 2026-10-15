@@ -43,6 +43,15 @@ export default {
     if (path === '/api/logout' && request.method === 'POST') {
       return handleLogout(request, env, secure);
     }
+    if (path === '/api/admin/pending-users' && request.method === 'GET') {
+      return handlePendingUsers(request, env);
+    }
+    if (path === '/api/admin/approve-user' && request.method === 'POST') {
+      return handleApproveUser(request, env);
+    }
+    if (path === '/api/admin/reject-user' && request.method === 'POST') {
+      return handleRejectUser(request, env);
+    }
 
     // Alles andere: hier landen wir nur, wenn weder eine statische Datei noch eine der Routen oben
     // gepasst hat (z. B. Tippfehler in der Adresse) – einfache 404-Antwort.
@@ -129,13 +138,32 @@ function isAdminEmail(email, env) {
   return !!admin && email.trim().toLowerCase() === admin;
 }
 
+/** Das Administrator-Konto ist immer freigegeben, unabhängig von der gespeicherten approved-Spalte. */
+function isApproved(user, env) {
+  return user.approved === 1 || isAdminEmail(user.email, env);
+}
+
+/** Antwort für ein Konto, das auf die Admin-Freigabe wartet (gleiche Form wie andere Formularfehler). */
+function pendingResponse() {
+  return json(
+    { error: 'Dein Konto wurde angelegt und wartet noch auf Freigabe durch den Administrator.', pending: true },
+    403
+  );
+}
+
+async function requireAdmin(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session || !isAdminEmail(session.email, env)) return null;
+  return session;
+}
+
 /** Liest die aktuelle Session (falls vorhanden und gültig) samt zugehörigem Benutzer. */
 async function getSessionUser(request, env) {
   const cookies = parseCookies(request);
   const sid = cookies[SESSION_COOKIE];
   if (!sid) return null;
   const row = await env.DB.prepare(
-    `SELECT s.id as session_id, s.expires_at, u.id as user_id, u.email
+    `SELECT s.id as session_id, s.expires_at, u.id as user_id, u.email, u.approved
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.id = ?`
   )
@@ -144,6 +172,11 @@ async function getSessionUser(request, env) {
   if (!row) return null;
   if (new Date(row.expires_at).getTime() < Date.now()) {
     // abgelaufene Session gleich aufräumen
+    await env.DB.prepare(`DELETE FROM sessions WHERE id = ?`).bind(sid).run();
+    return null;
+  }
+  if (!isApproved(row, env)) {
+    // Falls die Freigabe nachträglich entzogen wurde: Sitzung ungültig machen
     await env.DB.prepare(`DELETE FROM sessions WHERE id = ?`).bind(sid).run();
     return null;
   }
@@ -178,13 +211,16 @@ async function handleRegister(request, env, secure) {
   const salt = randomHex(16);
   const hash = await hashPassword(password, salt);
   const created = nowIso();
+  const autoApproved = isAdminEmail(email, env) ? 1 : 0;
 
   const result = await env.DB.prepare(
-    `INSERT INTO users (email, password_hash, password_salt, iterations, created_at, failed_attempts)
-     VALUES (?, ?, ?, ?, ?, 0)`
+    `INSERT INTO users (email, password_hash, password_salt, iterations, created_at, failed_attempts, approved)
+     VALUES (?, ?, ?, ?, ?, 0, ?)`
   )
-    .bind(email, hash, salt, PBKDF2_ITERATIONS, created)
+    .bind(email, hash, salt, PBKDF2_ITERATIONS, created, autoApproved)
     .run();
+
+  if (!autoApproved) return pendingResponse();
 
   const userId = result.meta.last_row_id;
   return startSession(env, userId, email, secure);
@@ -204,7 +240,7 @@ async function handleLogin(request, env, secure) {
   if (!isValidEmail(email) || !password) return json({ error: genericError }, 401);
 
   const user = await env.DB.prepare(
-    `SELECT id, email, password_hash, password_salt, iterations, failed_attempts, locked_until FROM users WHERE email = ?`
+    `SELECT id, email, password_hash, password_salt, iterations, failed_attempts, locked_until, approved FROM users WHERE email = ?`
   )
     .bind(email)
     .first();
@@ -233,7 +269,56 @@ async function handleLogin(request, env, secure) {
     .bind(nowIso(), user.id)
     .run();
 
+  if (!isApproved(user, env)) return pendingResponse();
+
   return startSession(env, user.id, user.email, secure);
+}
+
+/* ---------- Administrator: Freigabe neuer Konten ---------- */
+
+async function handlePendingUsers(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'Nicht erlaubt' }, 403);
+  // Das Administrator-Konto selbst gilt immer als freigegeben und gehört nie in diese Liste,
+  // auch wenn die gespeicherte approved-Spalte (z. B. nach einer Migration) noch 0 ist.
+  const adminEmail = (env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const rows = await env.DB.prepare(
+    `SELECT id, email, created_at FROM users WHERE approved = 0 AND lower(email) != ? ORDER BY created_at ASC`
+  )
+    .bind(adminEmail)
+    .all();
+  return json({ users: rows.results || [] });
+}
+
+async function handleApproveUser(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'Nicht erlaubt' }, 403);
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({ error: 'Ungültige Anfrage' }, 400);
+  }
+  const userId = Number(body.userId);
+  if (!Number.isInteger(userId)) return json({ error: 'Ungültige Benutzer-ID' }, 400);
+  await env.DB.prepare(`UPDATE users SET approved = 1 WHERE id = ?`).bind(userId).run();
+  return json({ ok: true });
+}
+
+async function handleRejectUser(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'Nicht erlaubt' }, 403);
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({ error: 'Ungültige Anfrage' }, 400);
+  }
+  const userId = Number(body.userId);
+  if (!Number.isInteger(userId)) return json({ error: 'Ungültige Benutzer-ID' }, 400);
+  await env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM users WHERE id = ? AND approved = 0`).bind(userId).run();
+  return json({ ok: true });
 }
 
 async function handleLogout(request, env, secure) {

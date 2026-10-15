@@ -11,7 +11,10 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL,
   last_login_at TEXT,
   failed_attempts INTEGER NOT NULL DEFAULT 0,
-  locked_until TEXT
+  locked_until TEXT,
+  -- 0 = wartet auf Freigabe durch den Administrator, 1 = freigegeben (kann sich anmelden).
+  -- Das Konto mit der E-Mail aus ADMIN_EMAIL ist davon unabhängig immer zugelassen.
+  approved INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
