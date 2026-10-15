@@ -1,6 +1,7 @@
 {
   // Konfiguration für Cloudflare Workers (statische Dateien + kleiner Worker für /api/*, kein Build-Schritt)
-  "name": "meine-homepage",
+  // Name muss zum bereits bestehenden, mit GitHub verbundenen Worker-Projekt passen
+  "name": "cuttingforce-app",
   "compatibility_date": "2026-10-14",
   // Worker-Script: läuft nur für Adressen, zu denen keine Datei unter public/ passt (siehe worker/index.js)
   "main": "worker/index.js",
