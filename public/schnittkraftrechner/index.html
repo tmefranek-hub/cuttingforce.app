@@ -185,6 +185,9 @@ tr:last-child td{border-bottom:0}
 .authbox{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 22px;width:min(380px,100%)}
 .authbox h2{margin:0 0 4px}
 .autherr{color:var(--bad);font-size:13px;margin:10px 0 0;min-height:1.2em}
+.pw-toggle{border:0;background:transparent;cursor:pointer;padding:0 10px;font-size:15px;line-height:1;color:var(--muted);flex:none}
+.pw-toggle:hover{color:var(--fg)}
+.pw-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .app-footer{color:var(--muted);font-size:13px;padding-block:20px 40px;text-align:center}
 .app-footer a{color:var(--muted)}
 /* Scrollstreifen für Links-/Rechtshänder (nur Handy) */
@@ -793,6 +796,7 @@ function renderAuthBox(){
   :`<span class="auth-email">${esc(ROLE_EMAIL||'')}${ROLE==='admin'?' · Admin':''}</span><button class="btn sm hdr-btn" data-auth="logout">Abmelden</button>`;
 }
 let AUTH_MODE='login',AUTH_ERR='';
+const pwField=(id,label,autocomplete)=>`<label class="fld wide"><span class="lbl">${label}</span><span class="inp"><input type="password" id="${id}" required minlength="8" autocomplete="${autocomplete}"><button type="button" class="pw-toggle" data-pwtoggle="${id}" aria-label="Passwort anzeigen" aria-pressed="false">👁</button></span></label>`;
 function authModalHTML(){
  const isReg=AUTH_MODE==='register';
  return `<div class="authmodal" id="auth-overlay"><div class="authbox" role="dialog" aria-modal="true" aria-labelledby="auth-title">
@@ -805,8 +809,8 @@ function authModalHTML(){
   <form id="auth-form" novalidate>
    <div class="fields">
     <label class="fld wide"><span class="lbl">E-Mail</span><span class="inp"><input type="email" id="auth-email-in" required autocomplete="email"></span></label>
-    <label class="fld wide"><span class="lbl">Passwort</span><span class="inp"><input type="password" id="auth-pass-in" required minlength="8" autocomplete="${isReg?'new-password':'current-password'}"></span></label>
-    ${isReg?`<label class="fld wide"><span class="lbl">Passwort wiederholen</span><span class="inp"><input type="password" id="auth-pass2-in" required minlength="8" autocomplete="new-password"></span></label>`:''}
+    ${pwField('auth-pass-in','Passwort',isReg?'new-password':'current-password')}
+    ${isReg?pwField('auth-pass2-in','Passwort wiederholen','new-password'):''}
    </div>
    <p class="autherr" id="auth-err">${esc(AUTH_ERR)}</p>
    <div class="toolbar">
@@ -853,6 +857,8 @@ document.addEventListener('click',e=>{
  if(ab){const m=ab.dataset.auth;if(m==='logout')doLogout();else openAuthModal(m);return;}
  const am=e.target.closest('[data-authmode]');
  if(am){openAuthModal(am.dataset.authmode);return;}
+ const pt=e.target.closest('[data-pwtoggle]');
+ if(pt){const inp=document.getElementById(pt.dataset.pwtoggle);if(inp){const show=inp.type==='password';inp.type=show?'text':'password';pt.textContent=show?'🙈':'👁';pt.setAttribute('aria-label',show?'Passwort verbergen':'Passwort anzeigen');pt.setAttribute('aria-pressed',show?'true':'false');}return;}
  if(e.target.id==='auth-overlay'||e.target.closest('[data-authclose]')){closeAuthModal();return;}
 });
 document.addEventListener('submit',e=>{if(e.target.id==='auth-form')submitAuth(e);});
