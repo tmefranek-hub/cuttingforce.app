@@ -92,6 +92,8 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif}
         <label class="wide">Werkstoffgruppe (ISO)<select id="iso"><option value="P">P – Stahl</option><option value="M">M – Rostfrei</option><option value="K">K – Guss</option><option value="N">N – NE-Metalle</option><option value="S">S – Hochwarmfest / Titan</option><option value="H">H – Gehärtet</option></select></label>
         <label>Spanstauchung λ<input id="lam" inputmode="decimal" value="2"></label>
         <label>Reibwert μ (Spanfläche)<input id="mu" inputmode="decimal" value="0,5"></label>
+        <label>Krümmungsfaktor c<sub>r</sub><input id="cr" inputmode="decimal" value="10"></label>
+        <label>Bruchdehnung Span ε<sub>B</sub> <span class="u">%</span><input id="epsB" inputmode="decimal" value=""></label>
         <label class="wide">Spanart<select id="spanart"><option value="auto">automatisch (aus Werkstoff)</option><option value="fliess">Fließspan</option><option value="lamellen">Lamellenspan</option><option value="reiss">Reiß-/Bröckelspan</option></select></label>
       </div></fieldset>
       <fieldset><legend>Wendeschneidplatte</legend><div class="fgrid">
@@ -142,7 +144,8 @@ const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString('de-AT',{minimumFractionD
 const RAD=Math.PI/180;
 const ART={fliess:{n:'Fließspan',x:4},lamellen:{n:'Lamellenspan',x:3},reiss:{n:'Reiß-/Bröckelspan',x:2}};
 const ISO_ART={P:'fliess',M:'fliess',N:'fliess',K:'reiss',S:'lamellen',H:'lamellen'};
-const FIELDS=['Dc','z','vc','fz','ae','kr','pos','iso','lam','mu','spanart','s','beta','g','x','w'];
+const FIELDS=['Dc','z','vc','fz','ae','kr','pos','iso','lam','mu','cr','epsB','spanart','s','beta','g','x','w'];
+const EPSB={P:4,M:6,K:1,N:8,S:3,H:1.5};   // Richtwerte Bruchdehnung des Spans in % (Annahme, anpassbar)
 const SKEY='cfa-spanbildung-v1';
 
 /* ---------- Übernahme aus dem Schnittkraftrechner (gleiche Domain, localStorage) ---------- */
@@ -183,6 +186,9 @@ function model(i){
   R.phi=Math.atan(Math.cos(g)/(R.lam-Math.sin(g)));              // aus λ = cos(φ−γ)/sin φ
   R.hch=R.lam*R.hm;R.hchmax=R.lam*R.hmax;
   R.lc=2*R.hch;                                                  // Kontaktlänge ≈ 2·Spandicke
+  R.E=E;R.sk=sk;R.fz=i.fz;
+  R.rmin=(i.cr>0?i.cr:10)*2*R.hchmax;                            // Krümmungsradius bei h_max: r_min = c_r · l_c(h_max)
+  R.epsB=(i.epsB>0?i.epsB:EPSB[i.iso])/100;
   R.lsp=R.le/R.lam;
   R.gam=Math.cos(g)/(Math.sin(R.phi)*Math.cos(R.phi-g));         // Scherung im Scherband
   R.A=R.hm*R.le;                                                 // Spanfläche je Zahn (2D) = h_ch·l_sp
@@ -206,6 +212,8 @@ function model(i){
   {const gg=i.g*RAD,rT=i.Dc/2,C=[rT*Math.cos(gg),-rT*Math.sin(gg)];let L=Math.ceil((R.Rk+Math.max(R.lc,0.5))*10)/10;
    while(L<rT&&Math.hypot(L-C[0],R.Rk-C[1])>rT-R.Rk-0.5)L+=0.1;R.L=Math.round(L*10)/10;}
   const P=pocketSearch(i,R);Object.assign(R,P);
+  if(R.G){R.full=chipShape(i,R,R.lsp);R.chipFits=chipFits(R.full,R.G);
+    if(R.full.hit){R.eps=R.full.eps;R.bruch=R.eps>=R.epsB;}}
   if(!P.ok)w.push(P.msg);
   return {R,w};
 }
@@ -232,11 +240,43 @@ function pocketGeo(i,R,psi){
   const rh=[(Ex[0]-C[0])/rT,(Ex[1]-C[1])/rT],delta=Math.acos(Math.max(-1,Math.min(1,db[0]*rh[0]+db[1]*rh[1])));
   return {psi,pts,A:Math.abs(A)/2,E:Ex,T2,C,cc,open:Math.hypot(Ex[0],Ex[1]),thetaE:Math.abs(d),inside,delta};
 }
+/* C-förmiger Span: Element an Position d (ab Schneide) wurde beim Formationsanteil p = (len−d)/l_sp gebildet.
+   Spandicke h_ch(p) = λ·f_z·sinκ_r·sin(φ1+(φ2−φ1)p); Krümmung κ = h_ch/(h_ch,max·r_min) – nimmt mit der Spandicke ab.
+   Nach l_c löst sich der Span von der Spanfläche. Trifft er außerhalb des Hüllkreises auf das Werkstück, wird er entlang
+   der Werkstückoberfläche umgelenkt (Zusatzbiegung → Bruchdehnung nach Nakayama ε = h_ch/2·Δκ). */
+function chipShape(i,R,len){
+  const g=i.g*RAD,rT=i.Dc/2,C=[rT*Math.cos(g),-rT*Math.sin(g)],E=R.E;
+  const hAt=p=>R.lam*R.fz*R.sk*Math.sin(E.a+(E.e-E.a)*Math.max(0,Math.min(1,p)));
+  const N=Math.max(80,Math.ceil(len/0.04)),dd=len/N,inner=[[0,0]],outer=[],th=[];
+  let x=0,y=0,t=0,hit=null,eps=0,area=0;
+  for(let k=0;k<=N;k++){const d=k*dd,p=(len-d)/R.lsp,hc=hAt(p);area+=hc*dd;
+    const nx=-Math.sin(t),ny=Math.cos(t);outer.push([x+nx*hc,y+ny*hc]);th.push(hc);
+    if(k===N)break;
+    const kap=d<R.lc?0:hc/(R.hchmax*R.rmin);
+    let t2=t+kap*dd,x2=x+Math.cos(t2)*dd,y2=y+Math.sin(t2)*dd;
+    const rr=Math.hypot(x2-C[0],y2-C[1]);
+    if(d>R.lc&&rr>rT){                                           // Auftreffen am Werkstück: entlang der Oberfläche führen
+      const ax=C[0]+(x2-C[0])*rT/rr,ay=C[1]+(y2-C[1])*rT/rr;
+      const tn=Math.atan2(ay-y,ax-x);
+      if(!hit)hit={pt:[ax,ay],d,len};
+      eps=Math.max(eps,hc/2*Math.abs(kap-1/rT));                // Span wird an der Werkstückoberfläche (r_W ≈ D_c/2) aufgebogen
+      t2=tn;x2=ax;y2=ay;}
+    x=x2;y=y2;t=t2;inner.push([x,y]);}
+  return {inner,outer,hit,eps,area,len};
+}
+function inPoly(pt,poly){let c=false;for(let a=0,b=poly.length-1;a<poly.length;b=a++){const [xa,ya]=poly[a],[xb,yb]=poly[b];
+  if(((ya>pt[1])!==(yb>pt[1]))&&(pt[0]<(xb-xa)*(pt[1]-ya)/(yb-ya)+xa))c=!c;}return c;}
+function chipFits(sh,G){const rT=Math.hypot(G.C[0],G.C[1]);
+  for(const q of sh.inner.concat(sh.outer)){if(q[1]<0.02)continue;if(Math.hypot(q[0]-G.C[0],q[1]-G.C[1])>=rT-0.02)continue;if(!inPoly(q,G.pts))return false;}return true;}
 function pocketSearch(i,R){
   const tau=2*Math.PI/i.z,need=(i.s+i.w)/(i.Dc/2),thetaMax=tau-need;
-  let best=null,last=null;
-  for(let deg=25;deg<=120;deg+=1){const G=pocketGeo(i,R,deg*RAD);if(!G)continue;last=G;
-    if(G.inside&&G.A>=R.Areq&&G.open>=2.2*R.Rk&&G.delta<=Math.PI/2-R.rho){best=G;break;}}
+  let best=null,last=null;const full=chipShape(i,R,R.lsp),R0=R.Rk;
+  /* Radius schrittweise vergrößern, je Radius den kleinsten Kammerwinkel suchen, bei dem der C-Span in die Kammer passt */
+  outer:for(let f=1;f<=3.001;f+=0.25){R.Rk=Math.round(R0*f*10)/10;
+    {const gg=i.g*RAD,rT=i.Dc/2,C=[rT*Math.cos(gg),-rT*Math.sin(gg)];let L=Math.ceil((R.Rk+Math.max(R.lc,0.5))*10)/10;
+     while(L<rT&&Math.hypot(L-C[0],R.Rk-C[1])>rT-R.Rk-0.5)L+=0.1;R.L=Math.round(L*10)/10;}
+    for(let deg=25;deg<=120;deg+=1){const G=pocketGeo(i,R,deg*RAD);if(!G)continue;last=G;
+      if(G.inside&&G.A>=R.Areq&&G.open>=2.2*R.Rk&&G.delta<=Math.PI/2-R.rho&&chipFits(full,G)){best=G;break outer;}}}
   if(!best){const G=last||pocketGeo(i,R,60*RAD);return {ok:false,G,thetaMax,msg:'Keine Kammer gefunden, die Spanfläche und Öffnung erfüllt – Fräserdurchmesser zu klein für diesen Span. ae, fz oder z prüfen.'};}
   const ok=best.thetaE<=thetaMax;
   return {ok,G:best,thetaMax,msg:ok?'':'Kammer ragt zu weit in den nächsten Zahn (Teilung 360°/z zu eng). Weniger Zähne, kleineres fz·ae oder geringere Spanraumzahl wählen.'};
@@ -251,10 +291,14 @@ let MODEL=null,INP=null,t0=performance.now();
 function drawDetail(ts){
   const sv=$('sv-detail');sv.innerHTML='';const R=MODEL.R;if(!Number.isFinite(R.hm)||!Number.isFinite(R.phi))return;
   const W=640,H=300,g=INP.g*RAD,phi=R.phi,h=R.hm,hc=R.hch;
-  const k=Math.min(70/h,150/hc);                           // px je mm
+  const k=Math.min(70/h,150/hc,175/(3*R.lc));               // px je mm – mindestens 3·l_c sichtbar, damit das Abheben zu sehen ist
   const ox=360,oy=210,X=(x,y)=>[ox+x*k,oy-y*k];
   const u=[Math.sin(g),Math.cos(g)],nr=[-Math.cos(g),Math.sin(g)];   // Spanflächenrichtung, Normale in den Span
-  const at=(s,o)=>[u[0]*s+nr[0]*o,u[1]*s+nr[1]*o];
+  // Span löst sich nach l_c von der Spanfläche und krümmt sich mit r = r_min·h_ch,max/h_ch (C-Form)
+  const rc=R.rmin*R.hchmax/Math.max(R.hch,1e-6);
+  const at=(s,o)=>{if(s<=R.lc)return [u[0]*s+nr[0]*o,u[1]*s+nr[1]*o];
+    const th=(s-R.lc)/rc,c0=[u[0]*R.lc+nr[0]*rc,u[1]*R.lc+nr[1]*rc],nx=nr[0]*Math.cos(th)-u[0]*Math.sin(th),ny=nr[1]*Math.cos(th)-u[1]*Math.sin(th);
+    return [c0[0]-nx*rc+nx*o,c0[1]-ny*rc+ny*o];};
   // Werkstück und unverformte Spanungsschicht
   el('rect',{x:0,y:oy,width:W,height:H-oy,class:'s-work'},sv);
   const ps=[-h/Math.tan(phi),h];
@@ -285,7 +329,7 @@ function drawDetail(ts){
   const sp=X(ps[0],ps[1]);el('line',{x1:ox,y1:oy,x2:sp[0],y2:sp[1],class:'s-shear'},sv);
   el('text',{x:sp[0]-8,y:sp[1]+18,class:'s-lab','text-anchor':'end'},sv,'φ = '+fmt(R.phi/RAD,1)+'°');
   const lcP=X(...at(R.lc,0));el('circle',{cx:lcP[0],cy:lcP[1],r:3.5,fill:'#1d5fc4'},sv);
-  el('text',{x:lcP[0]+10,y:lcP[1]+4,class:'s-dimt'},sv,'Ende Kontaktlänge l_c = '+fmt(R.lc,2)+' mm');
+  el('text',{x:lcP[0]+10,y:lcP[1]+4,class:'s-dimt'},sv,'Span hebt ab: l_c = '+fmt(R.lc,2)+' mm, r = '+fmt(rc,1)+' mm');
   el('text',{x:ox+14,y:oy+20,class:'s-lab'},sv,'α = '+fmt(R.alpha,0)+'°   β = '+fmt(INP.beta,0)+'°   γ = '+fmt(INP.g,0)+'°');
   el('text',{x:16,y:H-30,class:'s-lab'},sv,'← Schnittrichtung   v_ch = v_c / λ entlang der Spanfläche');
   el('text',{x:16,y:H-12,class:'s-lab'},sv,'h_ch = λ·h_m = '+fmt(R.hch,3)+' mm   (λ = '+fmt(R.lam,2)+')'+(R.seg?'   Segmentteilung '+fmt(R.seg.pc*1000,0)+' µm':''));
@@ -319,12 +363,12 @@ function drawPocket(ts){
   const beta=i.beta*RAD,Lp=Math.min(R.L,Math.max(i.s*1.5,R.L*0.6));
   const insPts=[[0,0],[Lp,0],[Lp,-i.s],[i.s/Math.tan(beta),-i.s]];
   el('path',{d:P(insPts.map(X))+'Z',class:'s-insert'},sv);
-  // Span-Aufrollung (Animation): gerade entlang Vorderwand, dann Spirale um Kammermitte
-  const T=6,fr=((ts-t0)/1000%T)/T,len=R.lsp*Math.min(1,fr*1.15),hc=R.hch,pts=[];
-  const L=R.L,cc=G.cc;let acc=0;
-  const straight=Math.min(len,L);for(let s=0;s<=straight;s+=Math.max(L/40,0.01))pts.push([s,hc/2]);
-  if(len>L){let th=-Math.PI/2;acc=L;let r=R.Rk-hc/2;while(acc<len&&r>hc){const dth=0.05;r=R.Rk-hc/2-hc*(th+Math.PI/2)/(2*Math.PI);if(r<=hc)break;pts.push([cc[0]+r*Math.cos(th),cc[1]+r*Math.sin(th)]);acc+=r*dth;th+=dth;}}
-  if(pts.length>1)el('path',{d:P(pts.map(X)),class:'s-coil','stroke-width':Math.max(2,hc*k)},sv);
+  // Spanbildung (Animation): C-förmiger Span mit abnehmender Krümmung, ggf. Auftreffen am Werkstück
+  const T=6,fr=((ts-t0)/1000%T)/T,len=Math.max(0.05,R.lsp*Math.min(1,fr*1.15)),L=R.L,cc=G.cc;
+  const sh=chipShape(i,R,len);
+  el('path',{d:P(sh.inner.map(X))+' '+P(sh.outer.slice().reverse().map(X)).replace(/^M/,'L')+'Z',class:'s-chip'},sv);
+  if(sh.hit){const hp=X(sh.hit.pt);el('circle',{cx:hp[0],cy:hp[1],r:6,fill:'none',stroke:'#b3261e','stroke-width':2},sv);
+    el('text',{x:hp[0]-10,y:hp[1]-10,class:'s-lab','text-anchor':'end',fill:'#b3261e'},sv,'Auftreffen am Werkstück');}
   // Bemaßung
   const O=X([0,0]),T1=X([L,0]);
   dimLine(sv,O,T1,'L = '+fmt(L,1),-26);
@@ -341,7 +385,7 @@ function drawPocket(ts){
   dimLine(sv,X([Lp,0]),X([Lp,-i.s]),'s = '+fmt(i.s,2),-30);
   el('text',{x:O[0]-6,y:O[1]+16,class:'s-lab','text-anchor':'end'},sv,'Schneide');
   {const bp=X([i.s/Math.tan(beta)*0.35+0.15,-i.s*0.22]);el('text',{x:bp[0],y:bp[1],class:'s-lab'},sv,'β = '+fmt(i.beta,0)+'°');}
-  const fill=Math.min(1,len*hc/G.A);
+  const fill=Math.min(1,sh.area/G.A);
   el('text',{x:W-16,y:22,class:'s-lab','text-anchor':'end'},sv,'Füllgrad '+fmt(fill*100,0)+' %  ·  Spanlänge '+fmt(len,1)+' / '+fmt(R.lsp,1)+' mm');
   el('text',{x:W-16,y:40,class:'s-lab','text-anchor':'end'},sv,'Teilung 360°/z = '+fmt(360/i.z,1)+'°, Kammer belegt '+fmt(G.thetaE/RAD,1)+'° (max. '+fmt(R.thetaMax/RAD,1)+'°)');
 }
@@ -357,11 +401,16 @@ function renderResults(){
   h+=kv('Spanfläche je Zahn A<sub>sp</sub>',fmt(R.A,2),'mm²/mm')+kv('Spanraumzahl x',fmt(R.x,1),'');
   if(R.seg){h+=kv('Segmentteilung p<sub>c</sub>',fmt(R.seg.pc*1000,0),'µm')+kv('Segmentierungsgrad G',fmt(R.seg.G*100,0),'%')+kv('Segmentierfrequenz',fmt(R.seg.f/1000,1),'kHz');}
   if(R.G){h+=kv('Kammerwinkel ψ (gewählt)',fmt(R.G.psi/RAD,0),'°',1)+kv('Kammerradius R',fmt(R.Rk,1),'mm',1)+kv('Vorderwand L',fmt(R.L,1),'mm',1)+kv('Kammerfläche A<sub>K</sub>',fmt(R.G.A,1),'mm²',1)+kv('Erforderlich x·A<sub>sp</sub>',fmt(R.Areq,1),'mm²')+kv('Öffnung an der Hüllkurve',fmt(R.G.open,1),'mm');}
+  h+=kv('Krümmungsradius bei h<sub>max</sub>',fmt(R.rmin,1),'mm')+(()=>{const re=R.rmin*R.hchmax/Math.max(1e-9,R.lam*R.fz*R.sk*Math.sin(R.E.e));return kv('Krümmungsradius am Spanende',re>1000?'∞':fmt(re,1),re>1000?'(gerade, h → 0)':'mm');})();
+  if(R.full)h+=kv('Span passt in Kammer',R.chipFits?'ja':'nein','',!R.chipFits);
+  if(R.full&&R.full.hit)h+=kv('Auftreffen am Werkstück bei',fmt(R.full.hit.d,1),'mm ab Schneide')+kv('Zusatzdehnung ε (Nakayama)',fmt(R.eps*100,1),'% / ε<sub>B</sub> '+fmt(R.epsB*100,1)+' %',R.bruch)+kv('Spanbruch',R.bruch?'wahrscheinlich':'unwahrscheinlich','');
+  else if(R.full)h+=kv('Auftreffen am Werkstück','nein','');
   h+=kv('Freiwinkel α',fmt(R.alpha,0),'°');
   $('res').innerHTML=h;
   $('pill-art').textContent=ART[R.art].n;
   $('alpha').value=fmt(R.alpha,0);
   $('x').placeholder=String(ART[R.art].x).replace('.',',');
+  $('epsB').placeholder=String(EPSB[i.iso]).replace('.',',');
   $('warn').innerHTML=MODEL.w.map(t=>`<p class="warn">${t}</p>`).join('');
 }
 
@@ -374,6 +423,8 @@ const FORMELN=[
  ['Spandicke, Spanlänge, Kontaktlänge','h_{ch}=\\lambda\\,h_m,\\qquad l_{sp}=\\frac{l_e}{\\lambda},\\qquad l_c\\approx 2\\,h_{ch}'],
  ['Lamellenspan (Segmentspan)','h_l=(0{,}6+2\\,h_m)\\,h_{ch},\\quad H=2h_{ch}-h_l,\\quad G=\\frac{H-h_l}{H}'],
  ['Segmentteilung und Segmentierfrequenz','p_c=\\frac{(H-h_l)\\sin\\phi_{saw}}{\\cos(\\phi-\\gamma)\\,\\cos(\\phi_{saw}+\\gamma-\\phi)},\\qquad f_{seg}=\\frac{v_c}{\\lambda\\,p_c}'],
+ ['C-förmige Spankrümmung','\\kappa(p)=\\frac{1}{r(p)}=\\frac{h_{ch}(p)}{h_{ch,max}\\,r_{min}},\\qquad h_{ch}(p)=\\lambda f_z\\sin\\kappa_r\\sin\\bigl(\\varphi_1+p\\,\\varphi_s\\bigr),\\qquad r_{min}=c_r\\,l_c(h_{max})'],
+ ['Auftreffen am Werkstück – Zusatzbiegung (Nakayama)','\\varepsilon=\\frac{h_{ch}}{2}\\left|\\frac{1}{r}-\\frac{1}{r_{W}}\\right|\\;\\ge\\;\\varepsilon_B\\;\\Rightarrow\\;\\text{Spanbruch},\\qquad r_W\\approx D_c/2'],
  ['Spankammer','A_{sp}=h_m\\,l_e,\\qquad A_K\\ge x\\,A_{sp},\\qquad R=\\sqrt{\\frac{x\\,A_{sp}}{\\pi}},\\qquad L=R+l_c'],
  ['Wahl des Kammerwinkels ψ','\\psi=\\min\\{\\psi\\ge 25^{\\circ}\\;|\\;A_K\\ge x\\,A_{sp}\\;\\wedge\\;s_{\\ddot{o}}\\ge 2{,}2\\,R\\;\\wedge\\;\\delta\\le 90^{\\circ}-\\rho\\},\\qquad \\theta_K\\le\\frac{2\\pi}{z}-\\frac{s+w}{D_c/2}'],
  ['Keil','\\alpha = 90^{\\circ}-\\beta-\\gamma']
