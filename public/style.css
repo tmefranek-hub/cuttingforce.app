@@ -443,3 +443,53 @@ a.app-kachel:active {
   border-style: dashed;
   color: var(--muted);
 }
+
+/* Startseite Desktop: Karte für App 2 (Versuchsprotokoll) */
+.app-karte {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.app-karte h2 {
+  font: 700 26px/1.1 var(--f-disp);
+  margin: 0 0 8px;
+}
+
+.app-karte p {
+  max-width: 40rem;
+}
+
+.app-karte .eyebrow {
+  margin-bottom: 8px;
+}
+
+.btn-cta-hell {
+  background: var(--surface);
+  color: var(--fg);
+  border-color: var(--fg);
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .app-karte {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Mobil: zweite App-Kachel (aktiv, hell) */
+a.app-kachel.app-zweit {
+  background: var(--surface);
+  color: var(--fg);
+  border-color: var(--fg);
+}
+
+.app-zweit .app-icon {
+  font-size: 15px;
+}
