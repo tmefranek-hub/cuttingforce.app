@@ -460,10 +460,10 @@ const SUBS={
  bohren:[['voll','Vollbohren',{}],['wechsel','Vollbohren mit Wechselkopf',{}],['auf','Aufbohren',{}],['tiefloch','Tieflochbohren',{}]],
  schaelen:[['trio','Trio',{}],['duo','Duo',{}],['single','Single',{}]],
  blechkante:[['v','V-Naht-Fase',{}],['y','Y-Naht-Fase (mit Steg)',{}],['x','X-Naht-Fase',{}],['ju','J-/U-Naht',{}],['besaeumen_b','Besäumen',{}]],
- laengsnaht:[['u','U-Nut (Wurzel ausfräsen)',{}],['vn','V-Nut ausfräsen',{}],['ueb','Nahtüberhöhung abfräsen',{}]],
+ laengsnaht:[['profil','V-Profil mit Spitzenradius',{}]],
  kurbelwelle:[['hl','Außenfräsen Hauptlager',{}],['hub','Außenfräsen Hublager',{}],['innen','Innenfräsen',{}]]
 };
-const SUB_DEF={drehen:'laengs',fraesen:'eck',bohren:'voll',schaelen:'trio',blechkante:'v',laengsnaht:'u',kurbelwelle:'hl'};
+const SUB_DEF={drehen:'laengs',fraesen:'eck',bohren:'voll',schaelen:'trio',blechkante:'v',laengsnaht:'profil',kurbelwelle:'hl'};
 const SUB_HINT={u:'U-Nut: Nutgrund mit Radius R, Flanken unter dem Flankenwinkel β tangential angeschlossen. Nuttiefe tN von der Blechoberfläche.',vn:'V-Nut: Nuttiefe tN und Öffnungswinkel αN (gesamt), Spanquerschnitt als Dreieck.',ueb:'Nahtüberhöhung: Querschnitt als Parabelsegment angenähert, A = 2/3·hü·bü. Bündig zur Blechoberfläche.',x:'X-Naht: Werte gelten je Fase. Ober- und Unterseite getrennt rechnen.',ju:'J-/U-Naht: Querschnitt als Dreieck angenähert. Für genaue Werte den Spanquerschnitt aus der Zeichnung verwenden.',v:'V-Naht: Fase über die ganze Blechdicke, Steghöhe c = 0.',besaeumen_b:'Besäumen: gerade Kante, Spanquerschnitt = Blechdicke × Besäumzugabe.',innen:'Innenfräsen: Dc ist der Innendurchmesser (Schneidenkreis) des Innenfräsers und muss größer als dw sein.',plan:'Bei Plandrehen den größten Durchmesser D eintragen.',hfc:'Kleiner Einstellwinkel dünnt den Span aus: hm sinkt, kc steigt. Zahnvorschub entsprechend hoch wählen.',nut:'Vollnut: ae wird auf Dc gesetzt.',kopier:'Bei Rundplatten hängt der wirksame Einstellwinkel von ap ab; κr als Mittelwert eintragen.',gewinde:'Für Gewindedrehen ist die Schnittkraftrechnung nur ein grober Anhalt.',trochoidal:'Kleiner Arbeitseingriff ae, hohe Schnitttiefe ap eintragen.',besaeumen:'Geringer Arbeitseingriff ae: hm wird automatisch ausgedünnt.',tiefloch:'Bei Tieflochbohren Bohrtiefe l als Gesamttiefe eintragen.'};
 const subName=(p,k)=>{const x=(SUBS[p]||[]).find(a=>a[0]===(k||SUB_DEF[p]));return x?x[1]:'';};
 const FTYP=['','Schaftfräser (E)','Aufsteckfräser (F)','Einschraubfräser (S)','Vollhartmetallfräser','Sonderform (X)'];
@@ -540,17 +540,16 @@ const PROC={
    const phs=E.ok?(E.e-E.a)*180/Math.PI:NaN,le=E.ok?Dc/2*(E.e-E.a):NaN,lsp=le/num(f.lam),hout=fz*sk*Math.sin(E.e);
    const Q=G.A*vf/1000,Pc=G.A*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/Dc;
    return {n,vf,vfm:vf/1000,fb:G.fb,A:G.A,phs,le,h,hout,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
- laengsnaht:{name:'Längsnahtfräsen',t1:'Wendeschneidplatte',t2:'Nahtfräser (Scheiben-/Profilfräser)',ph1:'z. B. Radiusplatte R6',ph2:'z. B. Längsnahtfräser Ø250, z = 16',
-  params:[['Dc','Durchmesser des Fräsers Dc','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc','m/min'],['fz','Zahnvorschub fz','mm/Z'],['tN','Nuttiefe tN','mm'],['RN','Nutradius R','mm'],['betaN','Flankenwinkel β (je Seite)','°'],['alphaN','Öffnungswinkel αN (gesamt)','°'],['hU','Nahtüberhöhung hü','mm'],['bU','Nahtbreite bü','mm'],['kr','Anstellwinkel κr','°'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['l','Nahtlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
-  vis(k,f){const u=f.sub==='u'||!f.sub,v=f.sub==='vn',o=f.sub==='ueb';if(k==='tN')return !o;if(k==='RN'||k==='betaN')return u;if(k==='alphaN')return v;if(k==='hU'||k==='bU')return o;return true;},
-  short:[['vc','vc'],['fz','fz'],['tN','tN'],['l','l']], keys:['Pc','Q','vfm'],
-  formula:'U-Nut: A = ∫ b(y) dy mit Radius R und Flanken β · V-Nut: A = tN²·tan(αN/2) · Überhöhung: A = 2/3·hü·bü · cos φs = 1 − 2·tN/Dc · Q = A·vf · Pc = A·vf·kc / 60·10⁶',
-  calc(f){const Dc=num(f.Dc),z=num(f.z),vc=num(f.vc),fz=num(f.fz),eta=num(f.eta)||1,l=num(f.l),sk=Math.sin(rad(num(f.kr)));
-   const n=vc*1000/(Math.PI*Dc),vf=fz*z*n,G=lnGeom(f),E=engage(posForm('laengsnaht',f));
-   const h=E.ok?fz*sk*(Math.cos(E.a)-Math.cos(E.e))/(E.e-E.a):NaN,kc=kcOf(f,h);
-   const phs=E.ok?(E.e-E.a)*180/Math.PI:NaN,le=E.ok?Dc/2*(E.e-E.a):NaN,lsp=le/num(f.lam),hout=fz*sk*Math.sin(E.e);
-   const Q=G.A*vf/1000,Pc=G.A*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/Dc;
-   return {n,vf,vfm:vf/1000,bn:G.b,A:G.A,phs,le,h,hout,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
+ laengsnaht:{name:'Längsnahtfräsen',t1:'Radius- und Flankenplatten',t2:'Längsnahtfräser (Profilscheibenfräser)',ph1:'z. B. Radiusplatte R8',ph2:'z. B. Längsnahtfräser Ø1000',
+  params:[['Dc','Durchmesser des Fräsers Dc','mm'],['DS','Flugkreis Profilspitze (Radiusplatten) DS','mm'],['rR','Radius der Radiusplatten rR','mm'],['ap','Schnitttiefe ap (max. Eintauchtiefe des Profils)','mm'],['alphaN','Öffnungswinkel des V αV (gesamt)','°'],['lF','Schneidenlänge Flankenplatte im Einsatz lF','mm'],['uF','Mindestüberlappung der Flankenplatten ü','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc (an DS)','m/min'],['fz','Zahnvorschub fz','mm/Z'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['l','Nahtlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
+  short:[['ap','ap'],['rR','rR'],['vc','vc'],['fz','fz']], keys:['Pc','Q','nF'],
+  formula:'Profil: V mit Öffnungswinkel αV, Spitzenradius rR · Tangentenpunkt yt = rR·(1−sin(αV/2)) · Flankenlänge LF = (ap−yt)/cos(αV/2) · Flankenplatten je Seite nF = ⌈(LF−ü)/(lF−ü)⌉ · A = ∫ b(y) dy · cos φs = 1 − 2·ap/DS · vorläufig: Pc = A·vf·kc / 60·10⁶',
+  calc(f){const DS=num(f.DS),z=num(f.z),vc=num(f.vc),fz=num(f.fz),eta=num(f.eta)||1,l=num(f.l);
+   const G=lnGeom(f),n=vc*1000/(Math.PI*DS),vf=fz*z*n,E=engage(posForm('laengsnaht',f));
+   const h=E.ok?fz*(Math.cos(E.a)-Math.cos(E.e))/(E.e-E.a):NaN,kc=kcOf(f,h);
+   const phs=E.ok?(E.e-E.a)*180/Math.PI:NaN,le=E.ok?DS/2*(E.e-E.a):NaN,lsp=le/num(f.lam);
+   const Q=G.A*vf/1000,Pc=G.A*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/DS;
+   return {n,vf,vfm:vf/1000,bn:G.b,A:G.A,LF:G.LF,nF:G.nF,nFg:G.nF*2+2,phs,le,h,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
  kurbelwelle:{name:'Kurbelwellenfräsen',t1:'Wendeschneidplatte',t2:'Scheibenfräser / Innenfräser',ph1:'z. B. Tangentialplatte',ph2:'z. B. Außenfräser Ø700',
   params:[['dw','Lagerdurchmesser vor Bearbeitung dw','mm'],['ap','Aufmaß radial ap','mm'],['b','Lagerbreite b','mm'],['Dc','Fräserdurchmesser Dc','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc','m/min'],['fz','Zahnvorschub fz (am Lagerumfang)','mm/Z'],['kr','Anstellwinkel κr','°'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['umd','Werkstückumdrehungen je Lager',''],['eta','Wirkungsgrad Maschine η','']],
   short:[['vc','vc'],['fz','fz'],['ap','ap'],['dw','dw']], keys:['Pc','Mc','nw'],
@@ -566,20 +565,27 @@ const PROC={
 function bkGeom(f){const t=num(f.t),c=num(f.c)||0,a=rad(num(f.alpha));
  if(f.sub==='besaeumen_b'){const ae=num(f.aeB);return {A:t*ae,fb:ae};}
  const hf=t-(f.sub==='v'?0:c);return {A:hf*hf*Math.tan(a)/2,fb:hf/Math.cos(a)};}
-/* Längsnaht: Nutquerschnitt A, Nutbreite b an der Oberfläche, radiale Eingriffstiefe t (= ae des Scheibenfräsers) */
+/* Längsnaht-Profil (Achsschnitt): V mit Öffnungswinkel αV und Spitzenradius rR.
+   y = Höhe über der Profilspitze (0 … ap), x = axiale Lage (0 = Profilmitte).
+   Radiusplatten: links und rechts je eine Hälfte des Spitzenradius bis zum Tangentenpunkt.
+   Flankenplatten: entlang jeder Flanke vom Tangentenpunkt bis zur Profilhöhe ap, gleichmäßig verteilt mit Überlappung ≥ ü. */
 function lnGeom(f){
- if(f.sub==='ueb'){const hu=num(f.hU),bu=num(f.bU);return {A:2/3*hu*bu,b:bu,t:hu};}
- const t=num(f.tN);
- if(f.sub==='vn'){const ta=Math.tan(rad(num(f.alphaN)/2));return {A:t*t*ta,b:2*t*ta,t};}
- const Rr=num(f.RN),be=rad(num(f.betaN)||0),y0=Rr*(1-Math.sin(be)),w0=2*Rr*Math.cos(be);
- const w=y=>y<=y0?2*Math.sqrt(Math.max(0,Rr*Rr-(Rr-y)*(Rr-y))):w0+2*(y-y0)*Math.tan(be);
- if(!(t>0&&Rr>0))return {A:NaN,b:NaN,t};
- let A=0;const N=200;for(let k=0;k<N;k++)A+=w(t*(k+.5)/N)*t/N;
- return {A,b:w(t),t};}
+ const r=num(f.rR),ap=num(f.ap),be=rad(num(f.alphaN)/2),lF=num(f.lF),uF=Math.max(0,num(f.uF)||0);
+ const bad={A:NaN,b:NaN,t:ap,LF:NaN,nF:NaN,segs:[],ok:false};
+ if(!(r>0&&ap>0&&be>=0&&be<Math.PI/2))return bad;
+ const yt=r*(1-Math.sin(be)),xt=r*Math.cos(be);
+ const w=y=>y<=yt?Math.sqrt(Math.max(0,r*r-(r-y)*(r-y))):xt+(y-yt)*Math.tan(be);  // halbe Breite
+ let A=0;const N=400;for(let k=0;k<N;k++)A+=2*w(ap*(k+.5)/N)*ap/N;
+ const LF=Math.max(0,(ap-yt)/Math.cos(be));
+ let nF=0,segs=[],ov=NaN,err='';
+ if(LF>0){if(!(lF>uF)){err='Die Schneidenlänge lF muss größer als die Überlappung ü sein.';nF=NaN;}
+  else{nF=LF<=lF?1:Math.ceil((LF-uF)/(lF-uF)-1e-9);const pitch=nF>1?(LF-lF)/(nF-1):0;ov=nF>1?lF-pitch:NaN;
+   for(let i=0;i<nF;i++){const s0=i*pitch;segs.push([s0,Math.min(LF,s0+lF)]);}}}
+ return {A,b:2*w(ap),t:ap,yt,xt,r,be,ap,LF,nF,segs,ov,w,err,ok:!err,tipOnly:ap<=yt};}
 function posForm(p,f){return p==='blechkante'?{...f,ae:String(bkGeom(f).fb)}:p==='laengsnaht'?{...f,pos:'gleich',ae:String(lnGeom(f).t)}:f;}
-const RES={bn:['Nutbreite','mm',1,'b'],fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
+const RES={bn:['Nutbreite an der Oberfläche','mm',1,'b'],LF:['Flankenlänge je Seite','mm',1,'LF'],nF:['Flankenplatten je Seite','',0,'nF'],nFg:['Platten im Profil (2 Radius + Flanken)','',0,'n'],fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
  Fc:['Schnittkraft','N',0,'Fc'],Ff:['Vorschubkraft','N',0,'Ff'],Mc:['Drehmoment','Nm',1,'Mc'],Q:['Zeitspanvolumen','cm³/min',1,'Q'],Pc:['Schnittleistung','kW',2,'Pc'],Pm:['Antriebsleistung','kW',2,'Pmot'],th:['Hauptzeit','min',2,'th']};
-const RES_ORDER={drehen:['n','vf','h','kc','Fc','Mc','Q','Pc','Pm','th'],fraesen:['n','vf','phs','le','h','hin','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],bohren:['n','vf','fzn','h','kc','Ff','Mc','Q','Pc','Pm','th'],schaelen:['n','vf','vfm','zs','fzc','h','kc','Fc','Mc','Q','Pc','Pm','tph','th'],blechkante:['n','vf','vfm','fb','A','phs','le','h','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],laengsnaht:['n','vf','vfm','bn','A','phs','le','h','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],kurbelwelle:['n','vf','nw','phs','le','h','hmax','lsp','kc','Fc','Mc','Q','Pc','Pm','th']};
+const RES_ORDER={drehen:['n','vf','h','kc','Fc','Mc','Q','Pc','Pm','th'],fraesen:['n','vf','phs','le','h','hin','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],bohren:['n','vf','fzn','h','kc','Ff','Mc','Q','Pc','Pm','th'],schaelen:['n','vf','vfm','zs','fzc','h','kc','Fc','Mc','Q','Pc','Pm','tph','th'],blechkante:['n','vf','vfm','fb','A','phs','le','h','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],laengsnaht:['nF','nFg','LF','bn','A','n','vf','vfm','phs','le','h','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],kurbelwelle:['n','vf','nw','phs','le','h','hmax','lsp','kc','Fc','Mc','Q','Pc','Pm','th']};
 const RES_FC_LABEL={fraesen:'Mittl. Umfangskraft',blechkante:'Mittl. Umfangskraft',laengsnaht:'Mittl. Umfangskraft',kurbelwelle:'Mittl. Umfangskraft'};
 /* ---------- Fräserposition / Eingriffswinkel (Boehlerit-Katalog: Berechnung des Eingriffswinkels φs) ---------- */
 const POSN={mitte:'Mittige Anordnung',gleich:'Kanten fräsen – Gleichlauf',gegen:'Kanten fräsen – Gegenlauf',versetzt:'Versetzt fräsen'};
@@ -637,6 +643,44 @@ function posBlock(p){
   <div class="posgrid"><div class="possvgwrap" id="${p}-possvg">${posSvg(posForm(p,f))}</div><p class="note posformel">${POSHINT[pos]}</p></div>
  </div>${pos==='versetzt'?field(p,'aue','Überstand aüe (Gleichlaufseite)',{num:1,u:'mm'}):''}`;
 }
+/* Längsnaht: Profilzeichnung mit Radius- und Flankenplatten */
+function lnProfHTML(f){
+ const G=lnGeom(f);
+ if(!G.ok&&!G.err)return `<p class="note">Profil: Radius rR, Schnitttiefe ap und Öffnungswinkel αV eintragen.</p>`;
+ if(G.err)return `<p class="warn">${G.err}</p>`;
+ const W=560,H=380,pad=34,ap=G.ap,bw=G.b/2+Math.max(4,ap*0.18),k=Math.min((W/2-pad)/bw,(H-2*pad)/(ap*1.18));
+ const cx=W/2,y0=pad+ap*0.12*k,X=x=>cx+x*k,Y=y=>y0+(ap-y)*k;   // Oberfläche oben (y = ap), Spitze unten (y = 0)
+ const pts=[];for(let i=0;i<=80;i++){const y=ap*i/80;pts.push([G.w(y),y]);}
+ const prof=pts.slice().reverse().map(([x,y])=>[-x,y]).concat(pts.slice(1));
+ const P=a=>a.map((q,i)=>(i?'L':'M')+X(q[0]).toFixed(1)+' '+Y(q[1]).toFixed(1)).join(' ');
+ let g='';
+ // Werkstück mit Nut
+ g+=`<path d="M${pad/2} ${Y(ap)} ${P(prof).replace('M','L')} L${W-pad/2} ${Y(ap)} L${W-pad/2} ${H-6} L${pad/2} ${H-6}Z" fill="var(--surface-2)" stroke="none"/>`;
+ g+=`<path d="${P(prof)}" fill="none" stroke="var(--fg)" stroke-width="1"/>`;
+ g+=`<line x1="${pad/2}" y1="${Y(ap)}" x2="${W-pad/2}" y2="${Y(ap)}" stroke="var(--fg)" stroke-width="1"/>`;
+ // Radiusplatten (je eine Hälfte), leicht nach außen versetzt gezeichnet
+ const off=3,arc=(sg)=>{const a=[];for(let i=0;i<=30;i++){const t=(Math.PI/2-G.be)*i/30,x=sg*G.r*Math.sin(t),y=G.r*(1-Math.cos(t));a.push([X(x)-sg*off*Math.sin(t),Y(y)-off*Math.cos(t)]);}return a.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');};
+ const top=Math.min(G.yt,ap);
+ if(!G.tipOnly){g+=`<path d="${arc(-1)}" fill="none" stroke="#b3261e" stroke-width="5" stroke-linecap="round"/><path d="${arc(1)}" fill="none" stroke="#1d5fc4" stroke-width="5" stroke-linecap="round"/>`;}
+ // Flankenplatten
+ const cb=Math.cos(G.be),sb=Math.sin(G.be);
+ G.segs.forEach(([a,b],i)=>{[-1,1].forEach(sg=>{const o=off+(i%2)*5,nx=-sg*cb,ny=-sb;
+  const p1=[sg*(G.xt+a*sb),G.yt+a*cb],p2=[sg*(G.xt+b*sb),G.yt+b*cb];
+  g+=`<line x1="${(X(p1[0])+nx*o).toFixed(1)}" y1="${(Y(p1[1])+ny*o).toFixed(1)}" x2="${(X(p2[0])+nx*o).toFixed(1)}" y2="${(Y(p2[1])+ny*o).toFixed(1)}" stroke="${i%2?'#7a5a00':'#2e7d32'}" stroke-width="5" stroke-linecap="butt"/>`;
+  if(sg>0)g+=`<text x="${(X(p1[0]+(p2[0]-p1[0])/2)-nx*8).toFixed(1)}" y="${(Y((p1[1]+p2[1])/2)+4).toFixed(1)}" font-size="11" fill="var(--fg)" class="ln-lab">F${i+1}</text>`;});});
+ // Bemaßung
+ const dim=(x1,y1,x2,y2,t,dx,dy,anc)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#1d5fc4" stroke-width=".9" marker-start="url(#lnar)" marker-end="url(#lnar)"/><text x="${(x1+x2)/2+dx}" y="${(y1+y2)/2+dy}" font-size="12" fill="#1d5fc4" text-anchor="${anc||'middle'}">${t}</text>`;
+ const xr=X(G.b/2)+26;g+=`<line x1="${X(G.b/2)}" y1="${Y(0)}" x2="${xr+6}" y2="${Y(0)}" stroke="#1d5fc4" stroke-width=".6" stroke-dasharray="3 2"/>`+dim(xr,Y(ap),xr,Y(0),`a<tspan font-size="9" dy="3">p</tspan><tspan dy="-3"> = ${fmt(ap,1)}</tspan>`,6,4,'start');
+ g+=dim(X(-G.b/2),Y(ap)-14,X(G.b/2),Y(ap)-14,'b = '+fmt(G.b,1),0,-5);
+ g+=`<text x="${X(0)}" y="${Y(0)+18}" font-size="12" fill="var(--fg)" text-anchor="middle">r<tspan font-size="9" dy="3">R</tspan><tspan dy="-3"> = ${fmt(G.r,1)} (je ½ links/rechts)</tspan></text>`;
+ g+=`<text x="${X(0)}" y="${Y(ap*0.55)}" font-size="12" fill="var(--fg)" text-anchor="middle">α<tspan font-size="9" dy="3">V</tspan><tspan dy="-3"> = ${fmt(num(f.alphaN),1)}°</tspan></text>`;
+ const leg=`<div class="ps-leg" style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;margin-top:6px"><span><i style="display:inline-block;width:14px;height:5px;background:#b3261e;vertical-align:middle"></i> Radiusplatte links</span><span><i style="display:inline-block;width:14px;height:5px;background:#1d5fc4;vertical-align:middle"></i> Radiusplatte rechts</span><span><i style="display:inline-block;width:14px;height:5px;background:#2e7d32;vertical-align:middle"></i>/<i style="display:inline-block;width:14px;height:5px;background:#7a5a00;vertical-align:middle"></i> Flankenplatten (nach innen versetzt gezeichnet)</span></div>`;
+ const rows=G.segs.map(([a,b],i)=>`<tr><td>F${i+1}</td><td>${fmt(a,1)} – ${fmt(b,1)}</td><td>${fmt(G.yt+a*cb,1)} – ${fmt(G.yt+b*cb,1)}</td></tr>`).join('');
+ const info=G.tipOnly?`<p class="note">Die Schnitttiefe liegt im Bereich des Spitzenradius – es schneiden nur die Radiusplatten.</p>`:
+  `<p class="note" style="margin:6px 0 4px">Tangentenpunkt Radius → Flanke bei y<sub>t</sub> = ${fmt(G.yt,2)} mm über der Spitze, Flankenlänge L<sub>F</sub> = ${fmt(G.LF,1)} mm je Seite → <b>${G.nF} Flankenplatte${G.nF===1?'':'n'} je Seite</b>${Number.isFinite(G.ov)?`, tatsächliche Überlappung ${fmt(G.ov,2)} mm`:''}. Platten im Profil gesamt: ${2+2*G.nF}.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Platte</th><th>Lage entlang der Flanke (mm)</th><th>Höhe über Spitze (mm)</th></tr></thead><tbody><tr><td>Radius links / rechts</td><td>Bogen je ½</td><td>0 – ${fmt(top,1)}</td></tr>${rows}</tbody></table></div>`;
+ return `<div class="lbl">Profil (Achsschnitt, maßstäblich)</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px" role="img" aria-label="Profil des Längsnahtfräsers"><defs><marker id="lnar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1d5fc4"/></marker></defs>${g}</svg>${leg}${info}`;
+}
 function renderPos(p){const el=document.getElementById(p+'-possvg');if(el)el.innerHTML=posSvg(posForm(p,S.forms[p]));}
 
 const TOOL0={sub:'',ftyp:'',typ:'eigen',typH:'eigen',typK:'eigen',hersteller:'',herstellerH:'',herstellerK:'',kasNr:'',kasBez:'',geo1:'',geo2:'',geoS:'',kr1:'',kr2:'',krS:'',off1:'',off2:'',platteNr:'',platteBez:'',wsp2Nr:'',wsp2Bez:'',sorte2:'',wsp3Nr:'',wsp3Bez:'',sorte3:'',halterNr:'',halterBez:'',sorte:'',mat:'P2',matKunde:'',kc:'1600',mc:'0,25',haerte:'190 HB',rho:'7,85',kuehl:'Emulsion',stueck:'',standzeit:'',verschl:'',vb:'',ra:'',span:'',bem:''};
@@ -645,8 +689,9 @@ function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='fraesen')Object.assign(b,{Dc:'63',z:'5',vc:'200',fz:'0,15',ap:'3',pos:'gleich',aue:'5',ae:'40',kr:'90',g:'10',lam:'2',l:'300',eta:'0,8'});
  if(p==='bohren')Object.assign(b,{Dc:'12',z:'2',vc:'90',fn:'0,2',sig:'140',g:'30',l:'40',eta:'0,8'});
  if(p==='blechkante')b.pos='gleich';
- if(p==='laengsnaht')Object.assign(b,{Dc:'250',z:'16',vc:'180',fz:'0,15',pos:'gleich',tN:'8',RN:'6',betaN:'10',alphaN:'60',hU:'3',bU:'20',kr:'90',g:'6',lam:'2',l:'6000',eta:'0,8'});
- if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam','tN','RN','hU','bU'].forEach(k=>{if(k in b)b[k]='';});
+ if(p==='laengsnaht')b.pos='gleich';
+ if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
+ if(p==='laengsnaht')Object.assign(b,{Dc:'1000',DS:'1000',rR:'8',ap:'40',alphaN:'16',lF:'17',uF:'1'});
  return b;}
 const TRIAL0={kunde:'',standort:'',ansprech:'',techniker:'',datum:new Date().toISOString().slice(0,10),vnr:'',maschine:'',mHersteller:'',mTyp:'',mLeistung:'',mDrehmoment:'',steuerung:'',bauteil:'',zeichnung:'',spannung:'',los:'',ziel:''};
 
@@ -1100,7 +1145,7 @@ function renderProc(p){
    ${field(p,'kc','Spez. Schnittkraft kc1.1',{num:1,u:'N/mm²'})}${field(p,'mc','Anstiegswert mc',{num:1})}${p==='schaelen'?field(p,'rho','Dichte ρ',{num:1,u:'g/cm³'}):''}
   </div></section>`,
  cut:`<section class="card"><h2>Schnittdaten</h2><p class="hint">Der Rechner rechts aktualisiert sich bei jeder Eingabe.</p>
-  ${p==='laengsnaht'&&SX.every(x=>x[0]!=='tool')?`<span class="lbl">${subLbl(p)}</span><div class="chips" role="group" aria-label="${subLbl(p)}" style="margin-bottom:10px">${SUBS[p].map(([k,l])=>`<button class="chip-btn" data-sub="${k}" aria-pressed="${(f.sub||SUB_DEF[p])===k}">${l}</button>`).join('')}</div>${SUB_HINT[f.sub||SUB_DEF[p]]?`<p class="note" style="margin:0 0 10px">${SUB_HINT[f.sub||SUB_DEF[p]]}</p>`:''}`:''}
+  ${p==='laengsnaht'?`<div id="ln-prof" style="margin-bottom:14px">${lnProfHTML(f)}</div>`:''}
   <div class="fields">
    ${c.params.filter(([k])=>!c.vis||c.vis(k,S.forms[p])).map(([k,l,u])=>((p==='fraesen'&&k==='ae')||(p==='blechkante'&&k==='kr')?posBlock(p):'')+(p==='schaelen'&&k==='ap'?apField(p,l):k==='vc'||k===ALT[p].f?altField(p,k,l,u):field(p,k,l,{num:1,u})+(k==='lam'?'<p class="note wide" style="margin:-6px 0 0">λ = Spanlänge im Schnitt / tatsächliche Spanlänge. Typisch 1,5–3 bei Stahl, ca. 1,2–1,8 bei Aluminium. Bestimmt die Spanlänge lsp = le / λ.</p>':''))).join('')}
    ${field(p,'kuehl','Kühlung',{opts:KUEHL})}
@@ -1621,7 +1666,7 @@ main.addEventListener('input',e=>{
  if(k==='matRep'){applyRep(p,el.value);save();render();return;}
  if(/^geo/.test(k)){save();render();return;}
  if(el.dataset.cat&&catApply(p,el)){syncAlt(p,S.forms[p]);save();render();toast('Aus Stammdaten übernommen');return;}
- syncAlt(p,S.forms[p]);{const nh=document.getElementById(p+'-nkhint');if(nh)nh.textContent=nkHint(S.forms[p]);}renderOut(p);renderDerived(p);renderPos(p);renderNav(p);save();renderHeader();
+ syncAlt(p,S.forms[p]);{const nh=document.getElementById(p+'-nkhint');if(nh)nh.textContent=nkHint(S.forms[p]);}renderOut(p);renderDerived(p);renderPos(p);if(p==='laengsnaht'){const e=document.getElementById('ln-prof');if(e)e.innerHTML=lnProfHTML(S.forms[p]);}renderNav(p);save();renderHeader();
 });
 main.addEventListener('change',e=>{
  if(e.target.dataset.catimp){const inp=e.target,kind=inp.dataset.catimp,f=inp.files&&inp.files[0];if(!f)return;
