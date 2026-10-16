@@ -8,7 +8,9 @@
   "assets": {
     "directory": "./public",
     // Zugriff des Workers auf die statischen Dateien (für /versuchsprotokoll/ -> App-Datei)
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // Diese Apps nur für angemeldete Benutzer: der Worker prüft zuerst die Anmeldung
+    "run_worker_first": ["/spanbildung", "/spanbildung/*", "/vorspannrechner", "/vorspannrechner/*"]
   },
   // D1-Datenbank für Benutzerkonten/Sitzungen
   "d1_databases": [
