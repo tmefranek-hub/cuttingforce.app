@@ -11,6 +11,11 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://cuttingforce.app/vorspannrechner/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://cuttingforce.app/versuchsprotokoll/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
