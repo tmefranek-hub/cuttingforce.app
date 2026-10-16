@@ -658,29 +658,26 @@ function lnProfHTML(f){
  let g='';
  // Werkstück mit Nut
  g+=`<path d="M${pad/2} ${Y(ap)} ${P(prof).replace('M','L')} L${W-pad/2} ${Y(ap)} L${W-pad/2} ${H-6} L${pad/2} ${H-6}Z" fill="var(--surface-2)" stroke="none"/>`;
- g+=`<path d="${P(profP)}" fill="none" stroke="var(--fg)" stroke-width="1" stroke-dasharray="4 3"/><path d="${P(prof)}" fill="none" stroke="var(--fg)" stroke-width="1.2"/>`;
  g+=`<line x1="${X(-G.w(hP))-4}" y1="${Y(hP)}" x2="${X(G.w(hP))+4}" y2="${Y(hP)}" stroke="var(--fg)" stroke-width=".6" stroke-dasharray="4 3"/>`;
  g+=`<line x1="${pad/2}" y1="${Y(ap)}" x2="${W-pad/2}" y2="${Y(ap)}" stroke="var(--fg)" stroke-width="1"/>`;
- // Radiusplatten (je eine Hälfte), leicht nach außen versetzt gezeichnet
- const off=3,arc=(sg)=>{const a=[];for(let i=0;i<=30;i++){const t=(Math.PI/2-G.be)*i/30,x=sg*G.r*Math.sin(t),y=G.r*(1-Math.cos(t));a.push([X(x)-sg*off*Math.sin(t),Y(y)-off*Math.cos(t)]);}return a.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');};
- const top=Math.min(G.yt,ap);
- if(!G.tipOnly){g+=`<path d="${arc(-1)}" fill="none" stroke="#b3261e" stroke-width="5" stroke-linecap="round"/><path d="${arc(1)}" fill="none" stroke="#1d5fc4" stroke-width="5" stroke-linecap="round"/>`;}
- // Flankenplatten
- const cb=Math.cos(G.be),sb=Math.sin(G.be);
- const fl=(sg,a,b,o)=>{const nx=-sg*cb,ny=-sb,p1=[sg*(G.xt+a*sb),G.yt+a*cb],p2=[sg*(G.xt+b*sb),G.yt+b*cb];
-  return [X(p1[0])+nx*o,Y(p1[1])+ny*o,X(p2[0])+nx*o,Y(p2[1])+ny*o,nx];};
- G.segs.forEach(([a,b],i)=>{[-1,1].forEach(sg=>{const o=off+(i%2)*5,col=i%2?'#7a5a00':'#2e7d32';
-  const e=fl(sg,a,b,o),q=fl(sg,a-G.uF,b+G.uF,o);
-  g+=`<line x1="${q[0].toFixed(1)}" y1="${q[1].toFixed(1)}" x2="${q[2].toFixed(1)}" y2="${q[3].toFixed(1)}" stroke="${col}" stroke-width="2"/>`;
-  g+=`<line x1="${e[0].toFixed(1)}" y1="${e[1].toFixed(1)}" x2="${e[2].toFixed(1)}" y2="${e[3].toFixed(1)}" stroke="${col}" stroke-width="5"/>`;
-  if(sg>0)g+=`<text x="${((e[0]+e[2])/2-e[4]*8).toFixed(1)}" y="${((e[1]+e[3])/2+4).toFixed(1)}" font-size="11" fill="var(--fg)">F${i+1}</text>`;});});
+ // Gesamtprofil: Radiusplatten (je eine Hälfte) und Flankenplatten liegen direkt auf der Profilkontur und ergeben zusammen das Profil
+ const cb=Math.cos(G.be),sb=Math.sin(G.be),SW=5;
+ const arc=sg=>{const a=[];for(let i=0;i<=30;i++){const t=(Math.PI/2-G.be)*i/30;a.push([X(sg*G.r*Math.sin(t)),Y(G.r*(1-Math.cos(t)))]);}return a.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');};
+ const fp=(sg,sv)=>[X(sg*(G.xt+sv*sb)),Y(G.yt+sv*cb)];
+ const tick=(sg,sv,len)=>{const [x,y]=sv==null?[X(0),Y(0)]:fp(sg,sv),nx=sv==null?0:sg*cb,ny=sv==null?1:sb;return `<line x1="${(x-nx*len).toFixed(1)}" y1="${(y-ny*len).toFixed(1)}" x2="${(x+nx*len).toFixed(1)}" y2="${(y+ny*len).toFixed(1)}" stroke="var(--fg)" stroke-width="1.2"/>`;};
+ if(!G.tipOnly){g+=`<path d="${arc(-1)}" fill="none" stroke="#b3261e" stroke-width="${SW}" stroke-linecap="butt"/><path d="${arc(1)}" fill="none" stroke="#1d5fc4" stroke-width="${SW}" stroke-linecap="butt"/>`;
+  g+=tick(1,null,6);}
+ G.segs.forEach(([a,b],i)=>{[-1,1].forEach(sg=>{const col=i%2?'#7a5a00':'#2e7d32',p1=fp(sg,a),p2=fp(sg,b);
+  g+=`<line x1="${p1[0].toFixed(1)}" y1="${p1[1].toFixed(1)}" x2="${p2[0].toFixed(1)}" y2="${p2[1].toFixed(1)}" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt"/>`;
+  g+=tick(sg,a,6);if(i===G.segs.length-1)g+=tick(sg,b,6);
+  if(sg>0)g+=`<text x="${((p1[0]+p2[0])/2+cb*12).toFixed(1)}" y="${((p1[1]+p2[1])/2+4).toFixed(1)}" font-size="11" fill="var(--fg)">F${i+1}</text>`;});});
  // Bemaßung
  const dim=(x1,y1,x2,y2,t,dx,dy,anc)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#1d5fc4" stroke-width=".9" marker-start="url(#lnar)" marker-end="url(#lnar)"/><text x="${(x1+x2)/2+dx}" y="${(y1+y2)/2+dy}" font-size="12" fill="#1d5fc4" text-anchor="${anc||'middle'}">${t}</text>`;
- const xr=X(G.w(hP))+26;g+=dim(xr+34,Y(hP),xr+34,Y(0),`h<tspan font-size="9" dy="3">P</tspan><tspan dy="-3"> = ${fmt(hP,1)}</tspan>`,6,4,'start');g+=`<line x1="${X(G.b/2)}" y1="${Y(0)}" x2="${xr+6}" y2="${Y(0)}" stroke="#1d5fc4" stroke-width=".6" stroke-dasharray="3 2"/>`+dim(xr,Y(ap),xr,Y(0),`a<tspan font-size="9" dy="3">p</tspan><tspan dy="-3"> = ${fmt(ap,1)}</tspan>`,6,4,'start');
+ const xr=X(G.w(hP))+26;g+=dim(xr+78,Y(hP),xr+78,Y(0),`h<tspan font-size="9" dy="3">P</tspan><tspan dy="-3"> = ${fmt(hP,1)}</tspan>`,6,4,'start');g+=`<line x1="${X(G.b/2)}" y1="${Y(0)}" x2="${xr+6}" y2="${Y(0)}" stroke="#1d5fc4" stroke-width=".6" stroke-dasharray="3 2"/>`+dim(xr,Y(ap),xr,Y(0),`a<tspan font-size="9" dy="3">p</tspan><tspan dy="-3"> = ${fmt(ap,1)}</tspan>`,6,4,'start');
  g+=dim(X(-G.b/2),Y(ap)-14,X(G.b/2),Y(ap)-14,'b = '+fmt(G.b,1),0,-5);
  g+=`<text x="${X(0)}" y="${Y(0)+18}" font-size="12" fill="var(--fg)" text-anchor="middle">r<tspan font-size="9" dy="3">R</tspan><tspan dy="-3"> = ${fmt(G.r,1)} (je ½ links/rechts)</tspan></text>`;
  g+=`<text x="${X(0)}" y="${Y(ap*0.55)}" font-size="12" fill="var(--fg)" text-anchor="middle">α<tspan font-size="9" dy="3">V</tspan><tspan dy="-3"> = ${fmt(num(f.alphaN),1)}°</tspan></text>`;
- const leg=`<div class="ps-leg" style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;margin-top:6px"><span><i style="display:inline-block;width:14px;height:5px;background:#b3261e;vertical-align:middle"></i> Radiusplatte links</span><span><i style="display:inline-block;width:14px;height:5px;background:#1d5fc4;vertical-align:middle"></i> Radiusplatte rechts</span><span><i style="display:inline-block;width:14px;height:5px;background:#2e7d32;vertical-align:middle"></i>/<i style="display:inline-block;width:14px;height:5px;background:#7a5a00;vertical-align:middle"></i> Flankenplatten: dick = Schneidlänge im Einsatz, dünn = Überlappung</span><span>gestrichelt: Profil über der Werkstückoberfläche</span></div>`;
+ const leg=`<div class="ps-leg" style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;margin-top:6px"><span><i style="display:inline-block;width:14px;height:5px;background:#b3261e;vertical-align:middle"></i> Radiusplatte links</span><span><i style="display:inline-block;width:14px;height:5px;background:#1d5fc4;vertical-align:middle"></i> Radiusplatte rechts</span><span><i style="display:inline-block;width:14px;height:5px;background:#2e7d32;vertical-align:middle"></i>/<i style="display:inline-block;width:14px;height:5px;background:#7a5a00;vertical-align:middle"></i> Flankenplatten (Schneidlänge im Einsatz)</span><span>Querstriche: Plattenstöße, dort überlappen die Schneidkanten um je ü</span></div>`;
  const rows=G.segs.map(([a,b],i)=>`<tr><td>F${i+1}</td><td>${fmt(a-G.uF,1)} – ${fmt(b+G.uF,1)}</td><td>${fmt(a,1)} – ${fmt(b,1)}</td><td>${fmt(G.yt+a*cb,1)} – ${fmt(G.yt+b*cb,1)}</td></tr>`).join('');
  const info=G.tipOnly?`<p class="note">Die erforderliche Profilhöhe liegt im Bereich des Spitzenradius – es schneiden nur die Radiusplatten.</p>`:
   `<p class="note" style="margin:6px 0 4px">Erforderliche Profilhöhe h<sub>erf</sub> = a<sub>p</sub> + Δü = ${fmt(G.hErf,1)} mm. Schneidlänge im Einsatz l<sub>F</sub> = l<sub>K</sub> − 2·ü = ${fmt(G.lF,1)} mm. Tangentenpunkt y<sub>t</sub> = ${fmt(G.yt,2)} mm → <b>${G.nF} Flankenplatte${G.nF===1?'':'n'} je Seite</b>, alle mit voller Schneidlänge im Einsatz. Profilhöhe h<sub>P</sub> = ${fmt(G.hP,1)} mm (${fmt(G.hP-G.ap,1)} mm über der Schnitttiefe). Platten im Profil gesamt: ${2+2*G.nF}.</p>
