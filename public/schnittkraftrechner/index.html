@@ -541,15 +541,15 @@ const PROC={
    const Q=G.A*vf/1000,Pc=G.A*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/Dc;
    return {n,vf,vfm:vf/1000,fb:G.fb,A:G.A,phs,le,h,hout,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
  laengsnaht:{name:'Längsnahtfräsen',t1:'Radius- und Flankenplatten',t2:'Längsnahtfräser (Profilscheibenfräser)',ph1:'z. B. Radiusplatte R8',ph2:'z. B. Längsnahtfräser Ø1000',
-  params:[['Dc','Durchmesser des Fräsers Dc','mm'],['DS','Flugkreis Profilspitze (Radiusplatten) DS','mm'],['rR','Radius der Radiusplatten rR','mm'],['ap','Schnitttiefe ap (max. Eintauchtiefe des Profils)','mm'],['alphaN','Öffnungswinkel des V αV (gesamt)','°'],['lF','Schneidenlänge Flankenplatte im Einsatz lF','mm'],['uF','Mindestüberlappung der Flankenplatten ü','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc (an DS)','m/min'],['fz','Zahnvorschub fz','mm/Z'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['l','Nahtlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
+  params:[['Dc','Durchmesser des Fräsers Dc','mm'],['DS','Flugkreis Profilspitze (Radiusplatten) DS','mm'],['rR','Radius der Radiusplatten rR','mm'],['ap','Notwendige Schnitttiefe ap','mm'],['dU','Schneiden über der Schnitttiefe Δü','mm'],['alphaN','Öffnungswinkel des V αV (gesamt)','°'],['lK','Schneidkantenlänge Flankenplatte lK','mm'],['uF','Überlappung ü (je Plattenende)','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc (an DS)','m/min'],['fz','Zahnvorschub fz','mm/Z'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['l','Nahtlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
   short:[['ap','ap'],['rR','rR'],['vc','vc'],['fz','fz']], keys:['Pc','Q','nF'],
-  formula:'Profil: V mit Öffnungswinkel αV, Spitzenradius rR · Tangentenpunkt yt = rR·(1−sin(αV/2)) · Flankenlänge LF = (ap−yt)/cos(αV/2) · Flankenplatten je Seite nF = ⌈(LF−ü)/(lF−ü)⌉ · A = ∫ b(y) dy · cos φs = 1 − 2·ap/DS · vorläufig: Pc = A·vf·kc / 60·10⁶',
+  formula:'Profil: V mit Öffnungswinkel αV, Spitzenradius rR · Tangentenpunkt yt = rR·(1−sin(αV/2)) · erforderliche Profilhöhe herf = ap + Δü · Schneidlänge im Einsatz lF = lK − 2ü · Flankenplatten je Seite nF = ⌈(herf−yt)/(lF·cos(αV/2))⌉ · Profilhöhe hP = yt + nF·lF·cos(αV/2) · A = ∫ b(y) dy · cos φs = 1 − 2·ap/DS · vorläufig: Pc = A·vf·kc / 60·10⁶',
   calc(f){const DS=num(f.DS),z=num(f.z),vc=num(f.vc),fz=num(f.fz),eta=num(f.eta)||1,l=num(f.l);
    const G=lnGeom(f),n=vc*1000/(Math.PI*DS),vf=fz*z*n,E=engage(posForm('laengsnaht',f));
    const h=E.ok?fz*(Math.cos(E.a)-Math.cos(E.e))/(E.e-E.a):NaN,kc=kcOf(f,h);
    const phs=E.ok?(E.e-E.a)*180/Math.PI:NaN,le=E.ok?DS/2*(E.e-E.a):NaN,lsp=le/num(f.lam);
    const Q=G.A*vf/1000,Pc=G.A*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/DS;
-   return {n,vf,vfm:vf/1000,bn:G.b,A:G.A,LF:G.LF,nF:G.nF,nFg:G.nF*2+2,phs,le,h,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
+   return {n,vf,vfm:vf/1000,bn:G.b,A:G.A,LF:G.LF,hP:G.hP,lFe:G.lF,nF:G.nF,nFg:G.nF*2+2,phs,le,h,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
  kurbelwelle:{name:'Kurbelwellenfräsen',t1:'Wendeschneidplatte',t2:'Scheibenfräser / Innenfräser',ph1:'z. B. Tangentialplatte',ph2:'z. B. Außenfräser Ø700',
   params:[['dw','Lagerdurchmesser vor Bearbeitung dw','mm'],['ap','Aufmaß radial ap','mm'],['b','Lagerbreite b','mm'],['Dc','Fräserdurchmesser Dc','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc','m/min'],['fz','Zahnvorschub fz (am Lagerumfang)','mm/Z'],['kr','Anstellwinkel κr','°'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['umd','Werkstückumdrehungen je Lager',''],['eta','Wirkungsgrad Maschine η','']],
   short:[['vc','vc'],['fz','fz'],['ap','ap'],['dw','dw']], keys:['Pc','Mc','nw'],
@@ -570,22 +570,22 @@ function bkGeom(f){const t=num(f.t),c=num(f.c)||0,a=rad(num(f.alpha));
    Radiusplatten: links und rechts je eine Hälfte des Spitzenradius bis zum Tangentenpunkt.
    Flankenplatten: entlang jeder Flanke vom Tangentenpunkt bis zur Profilhöhe ap, gleichmäßig verteilt mit Überlappung ≥ ü. */
 function lnGeom(f){
- const r=num(f.rR),ap=num(f.ap),be=rad(num(f.alphaN)/2),lF=num(f.lF),uF=Math.max(0,num(f.uF)||0);
+ const r=num(f.rR),ap=num(f.ap),be=rad(num(f.alphaN)/2),lK=num(f.lK),uF=Math.max(0,num(f.uF)||0),dU=Math.max(0,num(f.dU)||0);
  const bad={A:NaN,b:NaN,t:ap,LF:NaN,nF:NaN,segs:[],ok:false};
  if(!(r>0&&ap>0&&be>=0&&be<Math.PI/2))return bad;
- const yt=r*(1-Math.sin(be)),xt=r*Math.cos(be);
+ const yt=r*(1-Math.sin(be)),xt=r*Math.cos(be),cb=Math.cos(be);
  const w=y=>y<=yt?Math.sqrt(Math.max(0,r*r-(r-y)*(r-y))):xt+(y-yt)*Math.tan(be);  // halbe Breite
- let A=0;const N=400;for(let k=0;k<N;k++)A+=2*w(ap*(k+.5)/N)*ap/N;
- const LF=Math.max(0,(ap-yt)/Math.cos(be));
- let nF=0,segs=[],ov=NaN,err='';
- if(LF>0){if(!(lF>uF)){err='Die Schneidenlänge lF muss größer als die Überlappung ü sein.';nF=NaN;}
-  else{nF=LF<=lF?1:Math.ceil((LF-uF)/(lF-uF)-1e-9);const pitch=nF>1?(LF-lF)/(nF-1):0;ov=nF>1?lF-pitch:NaN;
-   for(let i=0;i<nF;i++){const s0=i*pitch;segs.push([s0,Math.min(LF,s0+lF)]);}}}
- return {A,b:2*w(ap),t:ap,yt,xt,r,be,ap,LF,nF,segs,ov,w,err,ok:!err,tipOnly:ap<=yt};}
+ let A=0;const N=400;for(let k=0;k<N;k++)A+=2*w(ap*(k+.5)/N)*ap/N;               // abgetragener Querschnitt bis ap
+ const hErf=ap+dU,lF=lK-2*uF;
+ let nF=0,segs=[],err='',LF=0,hP=Math.max(hErf,yt);
+ if(!(lF>0))err='Die Schneidkantenlänge lK muss größer als 2 · Überlappung ü sein.';
+ else if(hErf>yt){nF=Math.ceil((hErf-yt)/(lF*cb)-1e-9);LF=nF*lF;hP=yt+LF*cb;
+  for(let i=0;i<nF;i++)segs.push([i*lF,(i+1)*lF]);}                         // Schneidlänge im Einsatz, lückenlos aneinander
+ return {A,b:2*w(ap),t:ap,yt,xt,r,be,ap,hErf,hP,lF,lK,uF,LF,nF,segs,w,err,ok:!err,tipOnly:hErf<=yt};}
 function posForm(p,f){return p==='blechkante'?{...f,ae:String(bkGeom(f).fb)}:p==='laengsnaht'?{...f,pos:'gleich',ae:String(lnGeom(f).t)}:f;}
-const RES={bn:['Nutbreite an der Oberfläche','mm',1,'b'],LF:['Flankenlänge je Seite','mm',1,'LF'],nF:['Flankenplatten je Seite','',0,'nF'],nFg:['Platten im Profil (2 Radius + Flanken)','',0,'n'],fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
+const RES={bn:['Nutbreite an der Oberfläche','mm',1,'b'],LF:['Flankenlänge je Seite','mm',1,'LF'],hP:['Profilhöhe','mm',1,'hP'],lFe:['Schneidlänge im Einsatz','mm',1,'lF'],nF:['Flankenplatten je Seite','',0,'nF'],nFg:['Platten im Profil (2 Radius + Flanken)','',0,'n'],fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
  Fc:['Schnittkraft','N',0,'Fc'],Ff:['Vorschubkraft','N',0,'Ff'],Mc:['Drehmoment','Nm',1,'Mc'],Q:['Zeitspanvolumen','cm³/min',1,'Q'],Pc:['Schnittleistung','kW',2,'Pc'],Pm:['Antriebsleistung','kW',2,'Pmot'],th:['Hauptzeit','min',2,'th']};
-const RES_ORDER={drehen:['n','vf','h','kc','Fc','Mc','Q','Pc','Pm','th'],fraesen:['n','vf','phs','le','h','hin','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],bohren:['n','vf','fzn','h','kc','Ff','Mc','Q','Pc','Pm','th'],schaelen:['n','vf','vfm','zs','fzc','h','kc','Fc','Mc','Q','Pc','Pm','tph','th'],blechkante:['n','vf','vfm','fb','A','phs','le','h','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],laengsnaht:['nF','nFg','LF','bn','A','n','vf','vfm','phs','le','h','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],kurbelwelle:['n','vf','nw','phs','le','h','hmax','lsp','kc','Fc','Mc','Q','Pc','Pm','th']};
+const RES_ORDER={drehen:['n','vf','h','kc','Fc','Mc','Q','Pc','Pm','th'],fraesen:['n','vf','phs','le','h','hin','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],bohren:['n','vf','fzn','h','kc','Ff','Mc','Q','Pc','Pm','th'],schaelen:['n','vf','vfm','zs','fzc','h','kc','Fc','Mc','Q','Pc','Pm','tph','th'],blechkante:['n','vf','vfm','fb','A','phs','le','h','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],laengsnaht:['nF','nFg','lFe','hP','LF','bn','A','n','vf','vfm','phs','le','h','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],kurbelwelle:['n','vf','nw','phs','le','h','hmax','lsp','kc','Fc','Mc','Q','Pc','Pm','th']};
 const RES_FC_LABEL={fraesen:'Mittl. Umfangskraft',blechkante:'Mittl. Umfangskraft',laengsnaht:'Mittl. Umfangskraft',kurbelwelle:'Mittl. Umfangskraft'};
 /* ---------- Fräserposition / Eingriffswinkel (Boehlerit-Katalog: Berechnung des Eingriffswinkels φs) ---------- */
 const POSN={mitte:'Mittige Anordnung',gleich:'Kanten fräsen – Gleichlauf',gegen:'Kanten fräsen – Gegenlauf',versetzt:'Versetzt fräsen'};
@@ -648,15 +648,18 @@ function lnProfHTML(f){
  const G=lnGeom(f);
  if(!G.ok&&!G.err)return `<p class="note">Profil: Radius rR, Schnitttiefe ap und Öffnungswinkel αV eintragen.</p>`;
  if(G.err)return `<p class="warn">${G.err}</p>`;
- const W=560,H=380,pad=34,ap=G.ap,bw=G.b/2+Math.max(4,ap*0.18),k=Math.min((W/2-pad)/bw,(H-2*pad)/(ap*1.18));
- const cx=W/2,y0=pad+ap*0.12*k,X=x=>cx+x*k,Y=y=>y0+(ap-y)*k;   // Oberfläche oben (y = ap), Spitze unten (y = 0)
+ const W=560,H=400,pad=34,ap=G.ap,hP=G.hP,bw=G.w(hP)+Math.max(4,hP*0.15),k=Math.min((W/2-pad)/bw,(H-2*pad)/(hP*1.1));
+ const cx=W/2,y0=pad+hP*0.06*k,X=x=>cx+x*k,Y=y=>y0+(hP-y)*k;   // Profiloberkante oben (y = hP), Werkstückoberfläche bei y = ap, Spitze unten (y = 0)
  const pts=[];for(let i=0;i<=80;i++){const y=ap*i/80;pts.push([G.w(y),y]);}
+ const ptsP=[];for(let i=0;i<=80;i++){const y=hP*i/80;ptsP.push([G.w(y),y]);}
+ const profP=ptsP.slice().reverse().map(([x,y])=>[-x,y]).concat(ptsP.slice(1));
  const prof=pts.slice().reverse().map(([x,y])=>[-x,y]).concat(pts.slice(1));
  const P=a=>a.map((q,i)=>(i?'L':'M')+X(q[0]).toFixed(1)+' '+Y(q[1]).toFixed(1)).join(' ');
  let g='';
  // Werkstück mit Nut
  g+=`<path d="M${pad/2} ${Y(ap)} ${P(prof).replace('M','L')} L${W-pad/2} ${Y(ap)} L${W-pad/2} ${H-6} L${pad/2} ${H-6}Z" fill="var(--surface-2)" stroke="none"/>`;
- g+=`<path d="${P(prof)}" fill="none" stroke="var(--fg)" stroke-width="1"/>`;
+ g+=`<path d="${P(profP)}" fill="none" stroke="var(--fg)" stroke-width="1" stroke-dasharray="4 3"/><path d="${P(prof)}" fill="none" stroke="var(--fg)" stroke-width="1.2"/>`;
+ g+=`<line x1="${X(-G.w(hP))-4}" y1="${Y(hP)}" x2="${X(G.w(hP))+4}" y2="${Y(hP)}" stroke="var(--fg)" stroke-width=".6" stroke-dasharray="4 3"/>`;
  g+=`<line x1="${pad/2}" y1="${Y(ap)}" x2="${W-pad/2}" y2="${Y(ap)}" stroke="var(--fg)" stroke-width="1"/>`;
  // Radiusplatten (je eine Hälfte), leicht nach außen versetzt gezeichnet
  const off=3,arc=(sg)=>{const a=[];for(let i=0;i<=30;i++){const t=(Math.PI/2-G.be)*i/30,x=sg*G.r*Math.sin(t),y=G.r*(1-Math.cos(t));a.push([X(x)-sg*off*Math.sin(t),Y(y)-off*Math.cos(t)]);}return a.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');};
@@ -664,21 +667,24 @@ function lnProfHTML(f){
  if(!G.tipOnly){g+=`<path d="${arc(-1)}" fill="none" stroke="#b3261e" stroke-width="5" stroke-linecap="round"/><path d="${arc(1)}" fill="none" stroke="#1d5fc4" stroke-width="5" stroke-linecap="round"/>`;}
  // Flankenplatten
  const cb=Math.cos(G.be),sb=Math.sin(G.be);
- G.segs.forEach(([a,b],i)=>{[-1,1].forEach(sg=>{const o=off+(i%2)*5,nx=-sg*cb,ny=-sb;
-  const p1=[sg*(G.xt+a*sb),G.yt+a*cb],p2=[sg*(G.xt+b*sb),G.yt+b*cb];
-  g+=`<line x1="${(X(p1[0])+nx*o).toFixed(1)}" y1="${(Y(p1[1])+ny*o).toFixed(1)}" x2="${(X(p2[0])+nx*o).toFixed(1)}" y2="${(Y(p2[1])+ny*o).toFixed(1)}" stroke="${i%2?'#7a5a00':'#2e7d32'}" stroke-width="5" stroke-linecap="butt"/>`;
-  if(sg>0)g+=`<text x="${(X(p1[0]+(p2[0]-p1[0])/2)-nx*8).toFixed(1)}" y="${(Y((p1[1]+p2[1])/2)+4).toFixed(1)}" font-size="11" fill="var(--fg)" class="ln-lab">F${i+1}</text>`;});});
+ const fl=(sg,a,b,o)=>{const nx=-sg*cb,ny=-sb,p1=[sg*(G.xt+a*sb),G.yt+a*cb],p2=[sg*(G.xt+b*sb),G.yt+b*cb];
+  return [X(p1[0])+nx*o,Y(p1[1])+ny*o,X(p2[0])+nx*o,Y(p2[1])+ny*o,nx];};
+ G.segs.forEach(([a,b],i)=>{[-1,1].forEach(sg=>{const o=off+(i%2)*5,col=i%2?'#7a5a00':'#2e7d32';
+  const e=fl(sg,a,b,o),q=fl(sg,a-G.uF,b+G.uF,o);
+  g+=`<line x1="${q[0].toFixed(1)}" y1="${q[1].toFixed(1)}" x2="${q[2].toFixed(1)}" y2="${q[3].toFixed(1)}" stroke="${col}" stroke-width="2"/>`;
+  g+=`<line x1="${e[0].toFixed(1)}" y1="${e[1].toFixed(1)}" x2="${e[2].toFixed(1)}" y2="${e[3].toFixed(1)}" stroke="${col}" stroke-width="5"/>`;
+  if(sg>0)g+=`<text x="${((e[0]+e[2])/2-e[4]*8).toFixed(1)}" y="${((e[1]+e[3])/2+4).toFixed(1)}" font-size="11" fill="var(--fg)">F${i+1}</text>`;});});
  // Bemaßung
  const dim=(x1,y1,x2,y2,t,dx,dy,anc)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#1d5fc4" stroke-width=".9" marker-start="url(#lnar)" marker-end="url(#lnar)"/><text x="${(x1+x2)/2+dx}" y="${(y1+y2)/2+dy}" font-size="12" fill="#1d5fc4" text-anchor="${anc||'middle'}">${t}</text>`;
- const xr=X(G.b/2)+26;g+=`<line x1="${X(G.b/2)}" y1="${Y(0)}" x2="${xr+6}" y2="${Y(0)}" stroke="#1d5fc4" stroke-width=".6" stroke-dasharray="3 2"/>`+dim(xr,Y(ap),xr,Y(0),`a<tspan font-size="9" dy="3">p</tspan><tspan dy="-3"> = ${fmt(ap,1)}</tspan>`,6,4,'start');
+ const xr=X(G.w(hP))+26;g+=dim(xr+34,Y(hP),xr+34,Y(0),`h<tspan font-size="9" dy="3">P</tspan><tspan dy="-3"> = ${fmt(hP,1)}</tspan>`,6,4,'start');g+=`<line x1="${X(G.b/2)}" y1="${Y(0)}" x2="${xr+6}" y2="${Y(0)}" stroke="#1d5fc4" stroke-width=".6" stroke-dasharray="3 2"/>`+dim(xr,Y(ap),xr,Y(0),`a<tspan font-size="9" dy="3">p</tspan><tspan dy="-3"> = ${fmt(ap,1)}</tspan>`,6,4,'start');
  g+=dim(X(-G.b/2),Y(ap)-14,X(G.b/2),Y(ap)-14,'b = '+fmt(G.b,1),0,-5);
  g+=`<text x="${X(0)}" y="${Y(0)+18}" font-size="12" fill="var(--fg)" text-anchor="middle">r<tspan font-size="9" dy="3">R</tspan><tspan dy="-3"> = ${fmt(G.r,1)} (je ½ links/rechts)</tspan></text>`;
  g+=`<text x="${X(0)}" y="${Y(ap*0.55)}" font-size="12" fill="var(--fg)" text-anchor="middle">α<tspan font-size="9" dy="3">V</tspan><tspan dy="-3"> = ${fmt(num(f.alphaN),1)}°</tspan></text>`;
- const leg=`<div class="ps-leg" style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;margin-top:6px"><span><i style="display:inline-block;width:14px;height:5px;background:#b3261e;vertical-align:middle"></i> Radiusplatte links</span><span><i style="display:inline-block;width:14px;height:5px;background:#1d5fc4;vertical-align:middle"></i> Radiusplatte rechts</span><span><i style="display:inline-block;width:14px;height:5px;background:#2e7d32;vertical-align:middle"></i>/<i style="display:inline-block;width:14px;height:5px;background:#7a5a00;vertical-align:middle"></i> Flankenplatten (nach innen versetzt gezeichnet)</span></div>`;
- const rows=G.segs.map(([a,b],i)=>`<tr><td>F${i+1}</td><td>${fmt(a,1)} – ${fmt(b,1)}</td><td>${fmt(G.yt+a*cb,1)} – ${fmt(G.yt+b*cb,1)}</td></tr>`).join('');
- const info=G.tipOnly?`<p class="note">Die Schnitttiefe liegt im Bereich des Spitzenradius – es schneiden nur die Radiusplatten.</p>`:
-  `<p class="note" style="margin:6px 0 4px">Tangentenpunkt Radius → Flanke bei y<sub>t</sub> = ${fmt(G.yt,2)} mm über der Spitze, Flankenlänge L<sub>F</sub> = ${fmt(G.LF,1)} mm je Seite → <b>${G.nF} Flankenplatte${G.nF===1?'':'n'} je Seite</b>${Number.isFinite(G.ov)?`, tatsächliche Überlappung ${fmt(G.ov,2)} mm`:''}. Platten im Profil gesamt: ${2+2*G.nF}.</p>
-  <div class="tbl-wrap"><table><thead><tr><th>Platte</th><th>Lage entlang der Flanke (mm)</th><th>Höhe über Spitze (mm)</th></tr></thead><tbody><tr><td>Radius links / rechts</td><td>Bogen je ½</td><td>0 – ${fmt(top,1)}</td></tr>${rows}</tbody></table></div>`;
+ const leg=`<div class="ps-leg" style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;margin-top:6px"><span><i style="display:inline-block;width:14px;height:5px;background:#b3261e;vertical-align:middle"></i> Radiusplatte links</span><span><i style="display:inline-block;width:14px;height:5px;background:#1d5fc4;vertical-align:middle"></i> Radiusplatte rechts</span><span><i style="display:inline-block;width:14px;height:5px;background:#2e7d32;vertical-align:middle"></i>/<i style="display:inline-block;width:14px;height:5px;background:#7a5a00;vertical-align:middle"></i> Flankenplatten: dick = Schneidlänge im Einsatz, dünn = Überlappung</span><span>gestrichelt: Profil über der Werkstückoberfläche</span></div>`;
+ const rows=G.segs.map(([a,b],i)=>`<tr><td>F${i+1}</td><td>${fmt(a-G.uF,1)} – ${fmt(b+G.uF,1)}</td><td>${fmt(a,1)} – ${fmt(b,1)}</td><td>${fmt(G.yt+a*cb,1)} – ${fmt(G.yt+b*cb,1)}</td></tr>`).join('');
+ const info=G.tipOnly?`<p class="note">Die erforderliche Profilhöhe liegt im Bereich des Spitzenradius – es schneiden nur die Radiusplatten.</p>`:
+  `<p class="note" style="margin:6px 0 4px">Erforderliche Profilhöhe h<sub>erf</sub> = a<sub>p</sub> + Δü = ${fmt(G.hErf,1)} mm. Schneidlänge im Einsatz l<sub>F</sub> = l<sub>K</sub> − 2·ü = ${fmt(G.lF,1)} mm. Tangentenpunkt y<sub>t</sub> = ${fmt(G.yt,2)} mm → <b>${G.nF} Flankenplatte${G.nF===1?'':'n'} je Seite</b>, alle mit voller Schneidlänge im Einsatz. Profilhöhe h<sub>P</sub> = ${fmt(G.hP,1)} mm (${fmt(G.hP-G.ap,1)} mm über der Schnitttiefe). Platten im Profil gesamt: ${2+2*G.nF}.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Platte</th><th>Schneidkante entlang der Flanke (mm)</th><th>davon im Einsatz (mm)</th><th>Höhe über Spitze (mm)</th></tr></thead><tbody><tr><td>Radius links / rechts</td><td colspan="2">Bogen je ½</td><td>0 – ${fmt(G.yt,1)}</td></tr>${rows}</tbody></table></div>`;
  return `<div class="lbl">Profil (Achsschnitt, maßstäblich)</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px" role="img" aria-label="Profil des Längsnahtfräsers"><defs><marker id="lnar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1d5fc4"/></marker></defs>${g}</svg>${leg}${info}`;
 }
 function renderPos(p){const el=document.getElementById(p+'-possvg');if(el)el.innerHTML=posSvg(posForm(p,S.forms[p]));}
@@ -691,7 +697,7 @@ function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='blechkante')b.pos='gleich';
  if(p==='laengsnaht')b.pos='gleich';
  if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
- if(p==='laengsnaht')Object.assign(b,{Dc:'1000',DS:'1000',rR:'8',ap:'40',alphaN:'16',lF:'17',uF:'1'});
+ if(p==='laengsnaht')Object.assign(b,{Dc:'1000',DS:'1000',rR:'8',ap:'40',dU:'5',alphaN:'16',lK:'19',uF:'1'});
  return b;}
 const TRIAL0={kunde:'',standort:'',ansprech:'',techniker:'',datum:new Date().toISOString().slice(0,10),vnr:'',maschine:'',mHersteller:'',mTyp:'',mLeistung:'',mDrehmoment:'',steuerung:'',bauteil:'',zeichnung:'',spannung:'',los:'',ziel:''};
 
