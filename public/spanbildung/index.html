@@ -64,6 +64,8 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif}
 .s-dimt{fill:#1d5fc4;font-size:12px}
 .s-lab{fill:#333;font-size:12px}
 .s-coil{fill:none;stroke:#c46a1d;stroke-linecap:round}
+.s-lab,.s-dimt{paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
+svg text.tex{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13.5px}
 @media (prefers-color-scheme:dark){.s-tool{fill:#2a2a2a;stroke:#ddd}.s-insert{fill:#666;stroke:#ddd}.s-work{fill:#2c2820;stroke:#a89870}.s-uncut{fill:#4a4230}.s-lab{fill:#ddd}.s-env{stroke:#ddd}}
 </style>
 </head>
@@ -273,14 +275,23 @@ function chipShape(i,R,len){
     if(k===N)break;
     const kap=d<R.lc?0:Math.pow(Math.max(hc,0)/R.hchmax,R.cn)/R.rmin;
     let t2=t+kap*dd,x2=x+Math.cos(t2)*dd,y2=y+Math.sin(t2)*dd;
-    const rr=Math.hypot(x2-C[0],y2-C[1]);
-    if(d>R.lc&&rr>rT){                                           // Auftreffen am Werkstück: entlang der Oberfläche führen
-      const ax=C[0]+(x2-C[0])*rT/rr,ay=C[1]+(y2-C[1])*rT/rr;
+    /* Der Span darf den Flugkreis des Werkzeugs (D_c/2) nicht verlassen: Spanunterseite und -oberseite bleiben innerhalb.
+       Erreicht er ihn, trifft er auf das Werkstück und wird entlang der Schnittfläche geführt. */
+    const nxx=-Math.sin(t2),nyy=Math.cos(t2),rr=Math.max(Math.hypot(x2-C[0],y2-C[1]),Math.hypot(x2+nxx*hc-C[0],y2+nyy*hc-C[1])+0.001);
+    const rLim=rT-0.005;
+    if(d>R.lc&&rr>rLim){
+      const ri=Math.hypot(x2-C[0],y2-C[1]),sc=(ri-(rr-rLim))/ri;
+      const ax=C[0]+(x2-C[0])*sc,ay=C[1]+(y2-C[1])*sc;
       const tn=Math.atan2(ay-y,ax-x);
       if(!hit)hit={pt:[ax,ay],d,len};
       eps=Math.max(eps,hc/2*Math.abs(kap-1/rT));                // Span wird an der Werkstückoberfläche (r_W ≈ D_c/2) aufgebogen
       t2=tn;x2=ax;y2=ay;}
     x=x2;y=y2;t=t2;inner.push([x,y]);}
+  /* Absicherung: kein Punkt von Spanunter- oder -oberseite außerhalb des Flugkreises (außer in der Entstehungszone an der Schneide) */
+  for(let k=0;k<inner.length&&k<outer.length;k++){if(k*dd<=R.lc)continue;
+    const ri=Math.hypot(inner[k][0]-C[0],inner[k][1]-C[1]),ro=Math.hypot(outer[k][0]-C[0],outer[k][1]-C[1]),ex=Math.max(ri,ro)-(rT-0.005);
+    if(ex>0){for(const q of [inner[k],outer[k]]){const r0=Math.hypot(q[0]-C[0],q[1]-C[1]),f=(r0-ex)/r0;q[0]=C[0]+(q[0]-C[0])*f;q[1]=C[1]+(q[1]-C[1])*f;}
+      if(!hit)hit={pt:[inner[k][0],inner[k][1]],d:k*dd,len};}}
   return {inner,outer,hit,eps,area,len};
 }
 function inPoly(pt,poly){let c=false;for(let a=0,b=poly.length-1;a<poly.length;b=a++){const [xa,ya]=poly[a],[xb,yb]=poly[b];
@@ -307,6 +318,28 @@ const NS='http://www.w3.org/2000/svg';
 function el(tag,attrs,parent,text){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e;}
 const P=pts=>pts.map((p,k)=>(k?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
 let MODEL=null,INP=null,t0=performance.now();
+/* Mini-LaTeX für SVG-Beschriftungen: Variablen kursiv (KaTeX-Schrift), Indizes/Exponenten als tspan.
+   Unterstützt _x, _{..}, ^x, ^{..}, \griechisch, \cdot, \, \quad, {,}, \mathrm{..}, \text{..}, ^{\circ}. */
+const TEXG={alpha:'α',beta:'β',gamma:'γ',varphi:'φ',phi:'ϕ',kappa:'κ',lambda:'λ',mu:'μ',rho:'ρ',psi:'ψ',theta:'θ',varepsilon:'ε',eta:'η',sigma:'σ',tau:'τ',pi:'π',delta:'δ',circ:'°',cdot:'·',quad:' ',approx:'≈',le:'≤',ge:'≥',to:'→',leftarrow:'←'};
+function texRuns(src,shift,up){const runs=[];let k=0;
+  const push=(t,it,sh)=>{if(!t)return;const l=runs[runs.length-1];if(l&&l.it===it&&l.sh===sh)l.t+=t;else runs.push({t,it,sh});};
+  const group=()=>{if(src[k]==='{'){let d=1,j=k+1;while(j<src.length&&d){if(src[j]==='{')d++;else if(src[j]==='}')d--;j++;}const g=src.slice(k+1,j-1);k=j;return g;}return src[k++]||'';};
+  while(k<src.length){const c=src[k];
+    if(c==='\\'){let j=k+1;if(/[a-zA-Z]/.test(src[j]||'')){while(/[a-zA-Z]/.test(src[j]||''))j++;const cmd=src.slice(k+1,j);k=j;
+        if(cmd==='mathrm'||cmd==='text'){const g=group();texRuns(g,shift,true).forEach(r=>push(r.t,false,r.sh));}
+        else if(TEXG[cmd]!=null)push(TEXG[cmd],!up&&/^[a-z]+$/.test(cmd)&&!['circ','cdot','quad','approx','le','ge','to','leftarrow','pi'].includes(cmd),shift);}
+      else{const ch=src[j];k=j+1;push(ch===','?' ':ch===';'?' ':ch,false,shift);}}
+    else if(c==='_'||c==='^'){k++;const g=group();texRuns(g,c==='_'?'sub':'sup',up).forEach(r=>push(r.t,r.it,r.sh));}
+    else if(c==='{'){const g=group();texRuns(g,shift,up).forEach(r=>push(r.t,r.it,r.sh));}
+    else{k++;push(c,!up&&/[A-Za-z]/.test(c),shift);}}
+  return runs;}
+function tl(parent,attrs,tex){const t=el('text',attrs,parent);t.classList.add('tex');let cur='';
+  for(const r of texRuns(tex,'',false)){const dy=(r.sh==='sub'?4:r.sh==='sup'?-5:0)-(cur==='sub'?4:cur==='sup'?-5:0);
+    const ts=el('tspan',{},t,r.t);if(dy)ts.setAttribute('dy',dy);if(r.sh)ts.setAttribute('font-size','0.72em');
+    if(r.it){ts.setAttribute('font-family','KaTeX_Math, "Times New Roman", serif');ts.setAttribute('font-style','italic');}cur=r.sh;}
+  return t;}
+const TF=(v,d)=>fmt(v,d).replace(/,/g,'{,}').replace(/[  ]/g,'\\,');
+
 
 function drawDetail(ts){
   const sv=$('sv-detail');sv.innerHTML='';const R=MODEL.R;if(!Number.isFinite(R.hm)||!Number.isFinite(R.phi))return;
@@ -323,7 +356,7 @@ function drawDetail(ts){
   el('rect',{x:0,y:oy,width:W,height:H-oy,class:'s-work'},sv);
   const ps=[-h/Math.tan(phi),h];
   el('path',{d:P([X(-ox/k,h),X(ps[0],ps[1]),X(0,0),X(-ox/k,0)])+'Z',class:'s-uncut'},sv);
-  el('text',{x:16,y:oy-h*k/2+4,class:'s-lab'},sv,'h = '+fmt(h,3)+' mm');
+  tl(sv,{x:16,y:oy-h*k/2+4,class:'s-lab'},'h_m = '+TF(h,3)+'\\,\\mathrm{mm}');
   // Span
   const s0=ps[0]*u[0]+ps[1]*u[1],Lch=Math.max(s0+1e-3,(oy-15)/k/Math.max(u[1],0.3));
   const phase=((ts-t0)/1000*0.5)%1;
@@ -347,12 +380,12 @@ function drawDetail(ts){
   el('path',{d:P([X(0,0),X(u[0]*Lr,u[1]*Lr),[W+10,-10],[W+10,oy-Lf*Math.sin(fa)*k],X(Lf*Math.cos(fa),Lf*Math.sin(fa))])+'Z',class:'s-insert'},sv);
   // Scherebene und Beschriftung
   const sp=X(ps[0],ps[1]);el('line',{x1:ox,y1:oy,x2:sp[0],y2:sp[1],class:'s-shear'},sv);
-  el('text',{x:sp[0]-8,y:sp[1]+18,class:'s-lab','text-anchor':'end'},sv,'φ = '+fmt(R.phi/RAD,1)+'°');
+  tl(sv,{x:sp[0]-8,y:sp[1]+18,class:'s-lab','text-anchor':'end'},'\\varphi = '+TF(R.phi/RAD,1)+'^{\\circ}');
   const lcP=X(...at(R.lc,0));el('circle',{cx:lcP[0],cy:lcP[1],r:3.5,fill:'#1d5fc4'},sv);
-  el('text',{x:lcP[0]+10,y:lcP[1]+4,class:'s-dimt'},sv,'Span hebt ab: l_c = '+fmt(R.lc,2)+' mm, r = '+fmt(rc,1)+' mm');
-  el('text',{x:ox+14,y:oy+20,class:'s-lab'},sv,'α = '+fmt(R.alpha,0)+'°   β = '+fmt(INP.beta,0)+'°   γ = '+fmt(INP.g,0)+'°');
-  el('text',{x:16,y:H-30,class:'s-lab'},sv,'← Schnittrichtung   v_ch = v_c / λ entlang der Spanfläche');
-  el('text',{x:16,y:H-12,class:'s-lab'},sv,'h_ch = λ·h_m = '+fmt(R.hch,3)+' mm   (λ = '+fmt(R.lam,2)+')'+(R.seg?'   Segmentteilung '+fmt(R.seg.pc*1000,0)+' µm':''));
+  tl(sv,{x:lcP[0]+10,y:lcP[1]+4,class:'s-dimt'},'\\text{Span hebt ab: }l_c = '+TF(R.lc,2)+'\\,\\mathrm{mm},\\quad r = '+TF(rc,1)+'\\,\\mathrm{mm}');
+  tl(sv,{x:ox+14,y:oy+20,class:'s-lab'},'\\alpha = '+TF(R.alpha,0)+'^{\\circ}\\quad\\beta = '+TF(INP.beta,0)+'^{\\circ}\\quad\\gamma = '+TF(INP.g,0)+'^{\\circ}');
+  tl(sv,{x:16,y:H-30,class:'s-lab'},'\\text{← Schnittrichtung}\\quad v_{ch} = v_c/\\lambda\\text{ entlang der Spanfläche}');
+  tl(sv,{x:16,y:H-12,class:'s-lab'},'h_{ch} = \\lambda\\cdot h_m = '+TF(R.hch,3)+'\\,\\mathrm{mm}\\quad\\lambda = '+TF(R.lam,2)+(R.seg?'\\quad p_c = '+TF(R.seg.pc*1000,0)+'\\,\\mathrm{µm}':''));
 }
 
 function dimLine(sv,a,b,label,off){
@@ -360,7 +393,7 @@ function dimLine(sv,a,b,label,off){
   const a2=[a[0]+nx,a[1]+ny],b2=[b[0]+nx,b[1]+ny];
   el('line',{x1:a[0],y1:a[1],x2:a2[0],y2:a2[1],class:'s-dim',opacity:.5},sv);el('line',{x1:b[0],y1:b[1],x2:b2[0],y2:b2[1],class:'s-dim',opacity:.5},sv);
   el('line',{x1:a2[0],y1:a2[1],x2:b2[0],y2:b2[1],class:'s-dim','marker-start':'url(#ar)','marker-end':'url(#ar)'},sv);
-  el('text',{x:(a2[0]+b2[0])/2+nx*0.35,y:(a2[1]+b2[1])/2+ny*0.35+4,class:'s-dimt','text-anchor':'middle'},sv,label);
+  tl(sv,{x:(a2[0]+b2[0])/2+nx*0.35,y:(a2[1]+b2[1])/2+ny*0.35+4,class:'s-dimt','text-anchor':'middle'},label);
 }
 function drawPocket(ts){
   const sv=$('sv-pocket');sv.innerHTML='';const R=MODEL.R;if(!R.G)return;
@@ -391,23 +424,23 @@ function drawPocket(ts){
     el('text',{x:hp[0]-10,y:hp[1]-10,class:'s-lab','text-anchor':'end',fill:'#b3261e'},sv,'Auftreffen am Werkstück');}
   // Bemaßung
   const O=X([0,0]),T1=X([L,0]);
-  dimLine(sv,O,T1,'L = '+fmt(L,1),-26);
+  dimLine(sv,O,T1,'L = '+TF(L,1)+'\\,\\mathrm{mm}',-26);
   const ccp=X(cc),rp=X([cc[0]+R.Rk*Math.cos(-0.35),cc[1]+R.Rk*Math.sin(-0.35)]);
   el('line',{x1:ccp[0],y1:ccp[1],x2:rp[0],y2:rp[1],class:'s-dim','marker-end':'url(#ar)'},sv);
-  el('text',{x:ccp[0]+6,y:ccp[1]-6,class:'s-dimt'},sv,'R = '+fmt(R.Rk,1));
+  tl(sv,{x:ccp[0]+6,y:ccp[1]-6,class:'s-dimt'},'R = '+TF(R.Rk,1)+'\\,\\mathrm{mm}');
   const T2=X(G.T2),E=X(G.E);
   el('line',{x1:T2[0],y1:T2[1],x2:E[0],y2:E[1],class:'s-pocket',fill:'none','stroke-width':2.2},sv);
   // Winkel ψ zwischen Vorderwand-Richtung (−x) und Rückwand
   const ar=40,vtx=T2,a1=Math.atan2(0,-1),dirB=[E[0]-T2[0],E[1]-T2[1]];
   el('path',{d:`M${vtx[0]-ar} ${vtx[1]} A${ar} ${ar} 0 0 1 ${vtx[0]+ar*dirB[0]/Math.hypot(...dirB)} ${vtx[1]+ar*dirB[1]/Math.hypot(...dirB)}`,class:'s-dim'},sv);
   el('line',{x1:vtx[0],y1:vtx[1],x2:vtx[0]-ar-14,y2:vtx[1],class:'s-dim','stroke-dasharray':'3 3'},sv);
-  el('text',{x:vtx[0]-ar-18,y:vtx[1]-8,class:'s-dimt','text-anchor':'end'},sv,'ψ = '+fmt(G.psi/RAD,0)+'°');
-  dimLine(sv,X([Lp,0]),X([Lp,-i.s]),'s = '+fmt(i.s,2),-30);
+  tl(sv,{x:vtx[0]-ar-18,y:vtx[1]-8,class:'s-dimt','text-anchor':'end'},'\\psi = '+TF(G.psi/RAD,0)+'^{\\circ}');
+  dimLine(sv,X([Lp,0]),X([Lp,-i.s]),'s = '+TF(i.s,2)+'\\,\\mathrm{mm}',-30);
   el('text',{x:O[0]-6,y:O[1]+16,class:'s-lab','text-anchor':'end'},sv,'Schneide');
-  {const bp=X([i.s/Math.tan(beta)*0.35+0.15,-i.s*0.22]);el('text',{x:bp[0],y:bp[1],class:'s-lab'},sv,'β = '+fmt(i.beta,0)+'°');}
+  {const bp=X([i.s/Math.tan(beta)*0.35+0.15,-i.s*0.22]);tl(sv,{x:bp[0],y:bp[1],class:'s-lab'},'\\beta = '+TF(i.beta,0)+'^{\\circ}');}
   const fill=Math.min(1,sh.area/G.A);
-  el('text',{x:W-16,y:22,class:'s-lab','text-anchor':'end'},sv,'Füllgrad '+fmt(fill*100,0)+' %  ·  Spanlänge '+fmt(len,1)+' / '+fmt(R.lsp,1)+' mm');
-  el('text',{x:W-16,y:40,class:'s-lab','text-anchor':'end'},sv,'Teilung 360°/z = '+fmt(360/i.z,1)+'°, Kammer belegt '+fmt(G.thetaE/RAD,1)+'° (max. '+fmt(R.thetaMax/RAD,1)+'°)');
+  tl(sv,{x:W-16,y:22,class:'s-lab','text-anchor':'end'},'\\text{Füllgrad }'+TF(fill*100,0)+'\\,\\%\\quad l = '+TF(len,1)+' / '+TF(R.lsp,1)+'\\,\\mathrm{mm}\\;(l_{sp})');
+  tl(sv,{x:W-16,y:40,class:'s-lab','text-anchor':'end'},'360^{\\circ}/z = '+TF(360/i.z,1)+'^{\\circ},\\quad\\theta_K = '+TF(G.thetaE/RAD,1)+'^{\\circ}\\;(\\theta_{K,max} = '+TF(R.thetaMax/RAD,1)+'^{\\circ})');
 }
 
 function renderResults(){
@@ -465,8 +498,9 @@ let PENDING=false;
 function scheduleUpdate(){if(PENDING)return;PENDING=true;requestAnimationFrame(()=>{PENDING=false;update();});}
 function wheelLabels(){
   const cr=num($('cr').value),cn=num($('cn').value),R=MODEL&&MODEL.R;
-  $('wl-cr').textContent='c_r = '+fmt(cr,2)+(R&&Number.isFinite(R.rmin)?' · r_min = '+fmt(R.rmin,2)+' mm':'');
-  $('wl-cn').textContent='n = '+fmt(cn,3);
+  const t1='c_r = '+TF(cr,2)+(R&&Number.isFinite(R.rmin)?'\\quad r_{min} = '+TF(R.rmin,2)+'\\,\\mathrm{mm}':''),t2='n = '+TF(cn,3);
+  const put=(id,t)=>{const e=$(id);if(window.katex){try{katex.render(t,e,{throwOnError:false});return;}catch(x){}}e.textContent=t;};
+  put('wl-cr',t1);put('wl-cn',t2);
 }
 function initWheel(w){
   const f=$(w.dataset.field),min=+w.dataset.min,max=+w.dataset.max,step=+w.dataset.step,inv=w.dataset.invert==='1',rib=w.querySelector('.wheel-rib');
