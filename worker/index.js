@@ -42,6 +42,23 @@ export default {
       return env.ASSETS.fetch(new Request(new URL(APP_FILE, url.origin), request));
     }
 
+    // 1c) Apps nur für angemeldete Benutzer (Spanbildung, Vorspannrechner)
+    const gated = MEMBER_APPS.find((a) => path === a.path || path.startsWith(a.path + '/'));
+    if (gated) {
+      if (path === gated.path) return Response.redirect(new URL(gated.path + '/', url.origin), 301);
+      const session = await getSessionUser(request, env);
+      if (!session) {
+        return new Response(gatePage(gated), {
+          status: 401,
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+        });
+      }
+      const res = await env.ASSETS.fetch(request);
+      const out = new Response(res.body, res);
+      out.headers.set('Cache-Control', 'private, no-store');
+      return out;
+    }
+
     // 2) API-Routen
     if (path === '/api/me' && request.method === 'GET') {
       return handleMe(request, env);
@@ -70,6 +87,50 @@ export default {
     return new Response('Not found', { status: 404 });
   },
 };
+
+/* ---------- Apps nur für Mitglieder ---------- */
+
+const MEMBER_APPS = [
+  { path: '/spanbildung', name: 'Spanbildung & Spankammer', text: '2D-Simulation der Spanbildung beim Fräsen und Auslegung der Spankammer.' },
+  { path: '/vorspannrechner', name: 'Vorspannrechner', text: 'Klemmschraube einer Wendeschneidplatte: Kontakt, Umdrehungen bis zur festen Montage und Biegung der Schraube.' },
+];
+
+/** Anmeldeseite, die statt der App ausgeliefert wird, solange niemand angemeldet ist. */
+function gatePage(app) {
+  return `<!DOCTYPE html>
+<html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${app.name} – Anmeldung · cuttingforce.app</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="/style.css">
+<style>
+.gate{max-width:26rem;margin:32px auto;padding-inline:16px}
+.gate form{display:grid;gap:10px;margin-top:12px}
+.gate label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.gate input{font:16px var(--f-body);padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+.gate button{padding:11px;border:1px solid var(--fg);border-radius:6px;font:600 15px var(--f-disp);cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+.gate .alt{background:none;border:0;color:var(--fg);text-decoration:underline;padding:4px;font:14px var(--f-body)}
+.gate .err{color:#b3261e;min-height:1.2em;margin:0;font-size:14px}
+</style></head>
+<body><header class="top"><div class="wrap"><a href="/" class="brand-logo" style="text-decoration:none"><span class="wordmark"><span class="wm-light">cutting</span><span class="wm-bold">force</span><span class="wm-mono">.app</span></span></a></div></header>
+<main class="gate"><section class="card">
+<h2>${app.name}</h2><p>${app.text}</p><p><b>Diese App steht nur angemeldeten Benutzern zur Verfügung.</b></p>
+<form id="f" autocomplete="on">
+<label>E-Mail<input id="em" type="email" autocomplete="username" required></label>
+<label>Passwort<input id="pw" type="password" autocomplete="current-password" required minlength="8"></label>
+<label id="l2" hidden>Passwort wiederholen<input id="pw2" type="password" autocomplete="new-password"></label>
+<p class="err" id="err" role="alert"></p>
+<button type="submit" id="go">Anmelden</button>
+<button type="button" class="alt" id="sw">Noch kein Konto? Registrieren</button>
+</form></section><p><a href="/">← Zur Startseite</a></p></main>
+<script>
+let reg=false;const $=i=>document.getElementById(i);
+$('sw').onclick=()=>{reg=!reg;$('l2').hidden=!reg;$('go').textContent=reg?'Konto anlegen':'Anmelden';$('sw').textContent=reg?'Schon ein Konto? Anmelden':'Noch kein Konto? Registrieren';$('pw').autocomplete=reg?'new-password':'current-password';$('err').textContent='';};
+$('f').onsubmit=async e=>{e.preventDefault();const email=$('em').value.trim(),password=$('pw').value;
+ if(reg&&password!==$('pw2').value){$('err').textContent='Die Passwörter stimmen nicht überein';return;}
+ try{const r=await fetch(reg?'/api/register':'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+  const d=await r.json().catch(()=>({}));if(!r.ok){$('err').textContent=d.error||'Das hat nicht funktioniert.';return;}
+  location.reload();}catch(x){$('err').textContent='Keine Verbindung zum Server';}};
+</script></body></html>`;
+}
 
 /* ---------- Hilfsfunktionen ---------- */
 
