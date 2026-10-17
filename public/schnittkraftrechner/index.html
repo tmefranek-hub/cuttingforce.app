@@ -657,7 +657,8 @@ function posBlock(p){
 function lnRows(f){const G=lnGeom(f);return G.ok&&!G.tipOnly?['Radius'].concat(G.segs.map((_,i)=>'F'+(i+1))):['Radius'];}
 /* Zähnezahl je Reihe und Seite (L = links, R = rechts), gespeichert in zRows (links) und zRowsR (rechts) */
 const LN_ZK={L:'zRows',R:'zRowsR'},LN_PK={L:'phRows',R:'phRowsR'};
-function lnZ(f,side='L'){const names=lnRows(f),zc=Math.round(num(f.z)),saved=String(f[LN_ZK[side]]||'').split(';').map(v=>Math.round(num(v)));
+const lnMid=f=>String(f.lnMid??'1')==='1';   // linke Platten genau mittig zwischen den rechten
+function lnZ(f,side='L'){if(side==='R'&&lnMid(f))side='L';const names=lnRows(f),zc=Math.round(num(f.z)),saved=String(f[LN_ZK[side]]||'').split(';').map(v=>Math.round(num(v)));
  const out=[];names.forEach((nm,i)=>{let v=Number.isFinite(saved[i])&&saved[i]>0?saved[i]:(i?out[i-1]:zc);
   if(zc>0&&v>zc)v=zc;if(i&&Number.isFinite(out[i-1])&&v>out[i-1])v=out[i-1];out.push(Number.isFinite(v)&&v>0?v:NaN);});
  return names.map((nm,i)=>({nm,z:out[i]}));}
@@ -673,14 +674,37 @@ function lnZHTML(f){const A=lnAng(f),zc=Math.round(num(f.z)),fz=num(f.fz);
  const pv=z=>z>0?fmt(360/z,2):'–',fv=z=>z>0&&zc>0&&fz>0?fmt(fz*zc/z,3):'–';
  return `<div class="lbl" style="margin-top:4px">Zähnezahl und Teilung je Plattenreihe – L = links, R = rechts</div>
  <p class="note" style="margin:2px 0 6px">Reihe 1 sind die Radiusplatten, danach die Flankenplatten von innen nach außen. Links und rechts haben eigene Zähnezahlen und damit eigene Teilungen. Je Seite gilt: eine äußere Reihe kann nie mehr Zähne haben als die Reihe darunter – wird eine Reihe verringert, werden alle äußeren Reihen dieser Seite mitbegrenzt.${zc>0?'':' Zähnezahl z des Fräsers eintragen, dann werden die Reihen vorbelegt.'}</p>
- <style>.lnzt th,.lnzt td{padding:6px 5px!important;font-size:13px;white-space:nowrap}</style><div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> L</th><th>z<sub>i</sub> R</th><th>Teilung L / R (°)</th><th>f<sub>z,i</sub> L / R (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th></tr></thead><tbody>
- ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm+' links','numeric')}</td><td>${inp('data-zrow',i,'R',Number.isFinite(r.zR)?r.zR:'','Zähnezahl '+r.nm+' rechts','numeric')}</td><td>${pv(r.zL)} / ${pv(r.zR)}</td><td>${fv(r.zL)} / ${fv(r.zR)}</td><td>${inp('data-phrow',i,'L',dec(r.phL,2),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${inp('data-phrow',i,'R',dec(r.phR,2),'Winkelversatz '+r.nm+' rechts','decimal')}</td></tr>`).join('')}
- </tbody></table></div>
- <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = f<sub>z</sub> · z / z<sub>i</sub>: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j: θ = φ<sub>0,i</sub> + (j−1)·360°/z<sub>i</sub>, je Seite mit eigener Teilung. Vorgabe φ<sub>0</sub> rechts = halbe Teilung rechts. 0° = Bezugsmarke, gezählt in Drehrichtung.</p>`;}
+ <div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px"><button type="button" class="btn" data-lnmid="1" aria-pressed="${lnMid(f)}">${lnMid(f)?'✓ ':''}Links mittig zwischen rechts</button>${lnMid(f)?'':'<button type="button" class="btn" data-lneq="1">Zähnezahl links = rechts</button>'}<button type="button" class="btn" data-lnspread="1">Gleichmäßig aufteilen</button></div>
+ <style>.lnzt th,.lnzt td{padding:6px 5px!important;font-size:13px;white-space:nowrap}</style>${lnMid(f)?`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> (L = R)</th><th>Teilung (°)</th><th>f<sub>z,i</sub> (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th></tr></thead><tbody>
+ ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm,'numeric')}</td><td>${pv(r.zL)}</td><td>${fv(r.zL)}</td><td>${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${fmt(((r.phR%360)+360)%360,3)}</td></tr>`).join('')}
+ </tbody></table></div>`:`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> L</th><th>z<sub>i</sub> R</th><th>Teilung L / R (°)</th><th>f<sub>z,i</sub> L / R (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th></tr></thead><tbody>
+ ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm+' links','numeric')}</td><td>${inp('data-zrow',i,'R',Number.isFinite(r.zR)?r.zR:'','Zähnezahl '+r.nm+' rechts','numeric')}</td><td>${pv(r.zL)} / ${pv(r.zR)}</td><td>${fv(r.zL)} / ${fv(r.zR)}</td><td>${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${inp('data-phrow',i,'R',dec(r.phR,3),'Winkelversatz '+r.nm+' rechts','decimal')}</td></tr>`).join('')}
+ </tbody></table></div>`}
+ <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = f<sub>z</sub> · z / z<sub>i</sub>: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j: θ = φ<sub>0,i</sub> + (j−1)·360°/z<sub>i</sub>, je Seite mit eigener Teilung. ${lnMid(f)?'„Links mittig zwischen rechts“: rechts hat dieselbe Zähnezahl wie links und liegt genau eine halbe Teilung weiter (φ<sub>0,R</sub> = φ<sub>0,L</sub> + Teilung/2).':'Vorgabe φ<sub>0</sub> rechts = φ<sub>0</sub> links + halbe Teilung rechts.'} „Gleichmäßig aufteilen“ wählt Reihe für Reihe den Winkelversatz mit dem größten Mindestabstand zu allen übrigen Platten (alle Reihen, links und rechts) – so ist am Beginn alles gut verteilt. 0° = Bezugsmarke, gezählt in Drehrichtung.</p>`;}
 /* Winkellage aller Platten: Reihe i, Seite L/R, Platte j */
+/* Gleichmäßige Aufteilung: Reihe für Reihe den Winkelversatz wählen, der den kleinsten Winkelabstand
+   zu allen bereits gesetzten Platten (alle Reihen, links und rechts) möglichst groß macht. Ergebnis wird zwischengespeichert. */
+const LN_SPC={};
+function lnSpreadCalc(zL,zR,mid){const key=zL.join(',')+'|'+zR.join(',')+'|'+mid;if(LN_SPC[key])return LN_SPC[key];
+ const placed=[],L=[],Rr=[],N=x=>((x%360)+360)%360,dist=(a,b)=>{const d=Math.abs(N(a-b));return Math.min(d,360-d);};
+ const score=pos=>{let m=360;for(const a of pos)for(const b of placed){const d=dist(a,b);if(d<m)m=d;}return m;};
+ const best=(z,extra)=>{if(!(z>0))return 0;const p=360/z,steps=240;let bv=-1,bp=0;
+  for(let k=0;k<steps;k++){const ph=p*k/steps,pos=[];for(let j=0;j<z;j++)pos.push(ph+j*p);if(extra)extra(ph).forEach(x=>pos.push(x));
+   const sc=placed.length?score(pos):0;if(sc>bv+1e-9){bv=sc;bp=ph;}if(!placed.length)break;}
+  return bp;};
+ zL.forEach((z,i)=>{
+  if(mid){const p=z>0?360/z:0,ph=best(z,x=>Array.from({length:z},(_,j)=>x+p/2+j*p));L.push(ph);Rr.push(ph+p/2);
+   for(let j=0;j<z;j++){placed.push(ph+j*p);placed.push(ph+p/2+j*p);}}
+  else{const ph=best(z);L.push(ph);for(let j=0;j<z;j++)placed.push(ph+j*360/z);
+   const zr=zR[i],pr=best(zr);Rr.push(pr);for(let j=0;j<zr;j++)placed.push(pr+j*360/zr);}});
+ return LN_SPC[key]={L,R:Rr};}
 function lnAng(f){const ZL=lnZ(f,'L'),ZR=lnZ(f,'R'),pL=String(f.phRows||'').split(';'),pR=String(f.phRowsR||'').split(';');
- const rows=ZL.map((r,i)=>{const zL=r.z,zR=ZR[i].z,a=num(pL[i]),b=num(pR[i]);
-  return {nm:r.nm,zL,zR,phL:Number.isFinite(a)?a:0,phR:Number.isFinite(b)?b:(zR>0?180/zR:0)};});
+ /* Vorgabe „gleichmäßig aufgeteilt“: Reihe i um i/(2n) einer Teilung versetzt, rechts eine halbe Teilung weiter –
+    so liegen alle Platten (alle Reihen, links und rechts) gleichmäßig verteilt */
+ const mid=lnMid(f),SP=lnSpreadCalc(ZL.map(r=>r.z),ZR.map(r=>r.z),mid);
+ const rows=ZL.map((r,i)=>{const zL=r.z,zR=ZR[i].z,pLv=zL>0?360/zL:0,a=num(pL[i]),b=num(pR[i]);
+  const phL=Number.isFinite(a)?a:SP.L[i],phR=mid?phL+pLv/2:(Number.isFinite(b)?b:SP.R[i]);
+  return {nm:r.nm,zL,zR,phL,phR};});
  const ins=[],N=x=>((x%360)+360)%360;
  rows.forEach((r,i)=>{if(r.zL>0)for(let j=0;j<r.zL;j++)ins.push({i,nm:r.nm,side:'L',j:j+1,ang:N(r.phL+j*360/r.zL)});
   if(r.zR>0)for(let j=0;j<r.zR;j++)ins.push({i,nm:r.nm,side:'R',j:j+1,ang:N(r.phR+j*360/r.zR)});});
@@ -748,7 +772,12 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
 }
 function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0;LN_T=t;LN_ROT=(LN_ROT+dt*30)%360;
  const r=document.querySelector('[data-lnrot]');if(r)r.value=LN_ROT;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();requestAnimationFrame(lnLoop);}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap]');if(!b)return;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
+ if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht;
+  if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
+  if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';}else f.lnMid='1';}
+  else{f.phRows='';f.phRowsR='';toast('Platten gleichmäßig aufgeteilt');}
+  const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');lnDrawSim();save();return;}
  if(b.dataset.lnap)LN_DEPTH=null;
  if(b.dataset.lnview){LN_VIEW=LN_VIEW==='links'?'rechts':'links';b.textContent='Ansicht von '+(LN_VIEW==='links'?'rechts':'links');}
  if(b.dataset.lnplay){LN_PLAY=!LN_PLAY;b.textContent=LN_PLAY?'❚❚ Pause':'▶ Drehen';if(LN_PLAY){LN_T=0;requestAnimationFrame(lnLoop);}}
