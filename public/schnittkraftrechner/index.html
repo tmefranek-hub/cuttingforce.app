@@ -680,12 +680,14 @@ function lnAng(f){const zr=lnZ(f),ph=String(f.phRows||'').split(';'),lr=String(f
   ins.push({i,nm:r.nm,side:'L',j:j+1,ang:((b%360)+360)%360});ins.push({i,nm:r.nm,side:'R',j:j+1,ang:(((b+r.dlr)%360)+360)%360});}});
  return {rows,ins};}
 function lnSetAng(f,key,idx,val){const n=lnZ(f).length,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[idx]=String(val).trim();f[key]=a.slice(0,n).join(';');}
-let LN_ROT=0,LN_VIEW='links',LN_PLAY=false,LN_MAT=false,LN_T=0;
+let LN_DEPTH=null,LN_ROT=0,LN_VIEW='links',LN_PLAY=false,LN_MAT=false,LN_T=0;
 function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Seitenansicht des Fräsers – Lage der Schneiden</div>
  <div class="toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px">
   <button type="button" class="btn" data-lnview="1">Ansicht von ${LN_VIEW==='links'?'rechts':'links'}</button>
   <button type="button" class="btn" data-lnplay="1">${LN_PLAY?'❚❚ Pause':'▶ Drehen'}</button>
   <label style="display:flex;align-items:center;gap:6px;flex:1;min-width:180px;font-size:13px">Drehwinkel <input type="range" min="0" max="360" step="0.5" value="${LN_ROT}" data-lnrot="1" style="flex:1"><span id="ln-rotv">${fmt(LN_ROT,1)}°</span></label>
+  <label style="display:flex;align-items:center;gap:6px;flex:1 1 100%;font-size:13px;white-space:nowrap">Eintauchtiefe t <input type="range" min="0" max="60" step="0.1" value="0" data-lndepth="1" style="flex:1;min-width:80px"><span id="ln-depthv" style="min-width:4.5em"></span></label>
+  <button type="button" class="btn" data-lnap="1">t = a<sub>p</sub></button>
   <button type="button" class="btn" data-lnmat="1">${LN_MAT?'Positionsmatrix ausblenden':'Positionsmatrix anzeigen'}</button>
  </div><div id="ln-simsvg"></div><div id="ln-mat"></div>`;}
 function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-simsvg');if(!el)return;
@@ -699,37 +701,44 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const COL=['#b3261e','#2e7d32','#7a5a00','#1d5fc4','#6a1b9a','#00838f','#ad1457','#5d4037'];
  let g='';
  // Werkstück (Oberfläche bei ap unter dem Flugkreis), Nutgrund = Flugkreis
- const ys=cy+Rp-ap*k*ex;
+ const t=Math.max(0,Math.min(G.hP,LN_DEPTH==null?ap:LN_DEPTH));
+ {const sl=document.querySelector('[data-lndepth]');if(sl){sl.max=G.hP.toFixed(1);if(document.activeElement!==sl)sl.value=t;}const dv=document.getElementById('ln-depthv');if(dv)dv.textContent=fmt(t,1)+' mm';}
+ const yLow=i=>i===0?0:G.yt+G.segs[i-1][0]*cb;                                   // tiefster Punkt der Reihe über der Spitze
+ const phRow=i=>{if(!(t>yLow(i)))return 0;const c=(DS/2-t)/(DS/2-yLow(i));return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;};
+ const ys=cy+Rp-t*k*ex;
  g+=`<rect x="0" y="${ys.toFixed(1)}" width="${W}" height="${(H-ys).toFixed(1)}" fill="var(--surface-2)"/><line x1="0" y1="${ys.toFixed(1)}" x2="${W}" y2="${ys.toFixed(1)}" stroke="var(--fg)" stroke-width="1"/>`;
  g+=`<text x="8" y="${(ys-6).toFixed(1)}" font-size="11" fill="var(--muted)">Werkstückoberfläche</text>`;
  // Fräserscheibe
  g+=`<circle cx="${cx}" cy="${cy}" r="${(rDraw(G.hP)-4).toFixed(1)}" fill="var(--surface)" stroke="var(--fg)" stroke-width="1.2"/><circle cx="${cx}" cy="${cy}" r="${Rp}" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/><circle cx="${cx}" cy="${cy}" r="3" fill="var(--fg)"/>`;
  // Eingriffsbogen je Reihe (Vorschubrichtung im Bild rechts bei Ansicht von links)
- A.rows.forEach((r,i)=>{const rr=rDraw(yMid(i)),Rr=DS/2-yMid(i),c=(DS/2-ap)/Rr;if(!(c<1))return;const ph=Math.acos(Math.max(-1,c))*180/Math.PI;
+ A.rows.forEach((r,i)=>{const rr=rDraw(yMid(i)),ph=phRow(i);if(!(ph>0))return;
   const a1=P(rr,180),a2=P(rr,180-ph);g+=`<path d="M${a1[0].toFixed(1)} ${a1[1].toFixed(1)} A${rr} ${rr} 0 0 ${mir>0?0:1} ${a2[0].toFixed(1)} ${a2[1].toFixed(1)}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".28" stroke-width="10"/>`;});
  // Reihenkreise und Platten
- let eng=0;
+ let eng=0;const ENG=new Set();
  A.rows.forEach((r,i)=>{const rr=rDraw(yMid(i));g+=`<circle cx="${cx}" cy="${cy}" r="${rr.toFixed(1)}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".35" stroke-width=".8"/>`;});
  const near=LN_VIEW==='links'?'L':'R';
- A.ins.slice().sort((a,b)=>(a.side===near)-(b.side===near)).forEach(q=>{const i=q.i,rr=rDraw(yMid(i)),Rr=DS/2-yMid(i),c=(DS/2-ap)/Rr,ph=c<1?Math.acos(Math.max(-1,c))*180/Math.PI:0;
-  const a=(((q.ang+LN_ROT)%360)+360)%360,on=ph>0&&a>=180-ph&&a<=180,[x,y]=P(rr,a),rot=mir*a,col=COL[i%COL.length],isN=q.side===near;if(on)eng++;
+ A.ins.slice().sort((a,b)=>(a.side===near)-(b.side===near)).forEach(q=>{const i=q.i,rr=rDraw(yMid(i)),ph=phRow(i);
+  const a=(((q.ang+LN_ROT)%360)+360)%360,on=ph>0&&a>=180-ph&&a<=180,[x,y]=P(rr,a),rot=mir*a,col=COL[i%COL.length],isN=q.side===near;if(on){eng++;ENG.add(q.i+q.side+q.j);}
   g+=`<rect x="${(x-7).toFixed(1)}" y="${(y-3.5).toFixed(1)}" width="14" height="7" rx="1" transform="rotate(${rot.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="${isN?col:'var(--surface)'}" fill-opacity="${isN?1:.6}" stroke="${on?'var(--fg)':col}" stroke-width="${on?2:1}" ${isN?'':'stroke-dasharray="2 1.5"'}/>`;});
  // Bezugsmarke 0°, Drehrichtung, Vorschub
  const m0=P(Rp+14,LN_ROT),m1=P(rDraw(G.hP)-10,LN_ROT);g+=`<line x1="${m1[0].toFixed(1)}" y1="${m1[1].toFixed(1)}" x2="${m0[0].toFixed(1)}" y2="${m0[1].toFixed(1)}" stroke="var(--fg)" stroke-width=".8" stroke-dasharray="4 2"/><text x="${m0[0].toFixed(1)}" y="${(m0[1]-3).toFixed(1)}" font-size="11" text-anchor="middle" fill="var(--fg)">0°</text>`;
  const r0=Rp+16,d1=P(r0,22),d2=P(r0,48);g+=`<path d="M${d1[0].toFixed(1)} ${d1[1].toFixed(1)} A${r0} ${r0} 0 0 ${mir>0?1:0} ${d2[0].toFixed(1)} ${d2[1].toFixed(1)}" fill="none" stroke="var(--fg)" stroke-width="1.2" marker-end="url(#lnar2)"/><text x="${(P(r0+10,40)[0]).toFixed(1)}" y="${(P(r0+10,40)[1]).toFixed(1)}" font-size="11" text-anchor="${mir>0?'start':'end'}" fill="var(--fg)">Drehrichtung</text>`;
  const fx=mir>0?W-110:110;g+=`<line x1="${fx-40*mir}" y1="${H-62}" x2="${fx+40*mir}" y2="${H-62}" stroke="var(--fg)" stroke-width="1.2" marker-end="url(#lnar2)"/><text x="${fx}" y="${H-70}" font-size="11" text-anchor="middle" fill="var(--fg)">Vorschub v<tspan font-size="8" dy="2">f</tspan></text>`;
  g+=`<text x="8" y="${H-34}" font-size="12" fill="var(--fg)">Ansicht von ${LN_VIEW} · voll: ${LN_VIEW==='links'?'linke':'rechte'} Platten, gestrichelt: ${LN_VIEW==='links'?'rechte':'linke'} Platten</text>`;
- g+=`<text x="8" y="${H-8}" font-size="11" fill="var(--muted)">Winkel maßstäblich, radiale Lage der Reihen ${ex>1.01?'×'+fmt(ex,1)+' überhöht':'maßstäblich'} · im Eingriff: ${eng} Platten</text>`;
+ g+=`<text x="8" y="${H-8}" font-size="11" fill="var(--muted)">Winkel maßstäblich, radiale Lage der Reihen ${ex>1.01?'×'+fmt(ex,1)+' überhöht':'maßstäblich'} · t = ${fmt(t,1)} mm · im Eingriff: ${eng} Platten</text>`;
  const leg=A.rows.map((r,i)=>`<span><i style="display:inline-block;width:12px;height:6px;background:${COL[i%COL.length]};vertical-align:middle"></i> ${r.nm} (z = ${Number.isFinite(r.z)?r.z:'–'})</span>`).join('');
- el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:6px" role="img" aria-label="Seitenansicht des Längsnahtfräsers"><defs><marker id="lnar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fg)"/></marker></defs>${g}</svg><div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:6px;justify-content:center">${leg}<span>dicker Rand: Platte im Eingriff · getönter Bogen: Eingriffsbogen je Reihe</span></div>`;
+ el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:6px" role="img" aria-label="Seitenansicht des Längsnahtfräsers"><defs><marker id="lnar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fg)"/></marker></defs>${g}</svg><div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:6px;justify-content:center">${leg}<span>dicker Rand: Platte im Eingriff · getönter Bogen: Eingriffsbogen je Reihe</span></div>
+ <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Reihe</th><th>schneidet ab Tiefe (mm)</th><th>Eingriffsbogen φ<sub>i</sub> (°)</th><th>Platten im Eingriff (links / rechts)</th></tr></thead><tbody>${A.rows.map((r,i)=>{const L=A.ins.filter(q=>q.i===i&&q.side==='L'&&ENG.has(i+'L'+q.j)).map(q=>q.j),Rr=A.ins.filter(q=>q.i===i&&q.side==='R'&&ENG.has(i+'R'+q.j)).map(q=>q.j);
+  return `<tr${phRow(i)>0?'':' style="opacity:.5"'}><td>${r.nm}</td><td>${fmt(yLow(i),1)}</td><td>${phRow(i)>0?fmt(phRow(i),2):'–'}</td><td>${L.length+Rr.length?`${L.length} (${L.join(', ')||'–'}) / ${Rr.length} (${Rr.join(', ')||'–'})`:'0'}</td></tr>`;}).join('')}</tbody></table></div>`;
  const mt=document.getElementById('ln-mat');
  if(mt){if(!LN_MAT){mt.innerHTML='';}else{const zmax=Math.max(1,...A.rows.map(r=>r.z>0?r.z:0));
-  const line=(r,i,side)=>{const list=A.ins.filter(q=>q.i===i&&q.side===side);return `<tr><td>${r.nm}</td><td>${side==='L'?'links':'rechts'}</td>${Array.from({length:zmax},(_,j)=>`<td>${list[j]?fmt(list[j].ang,2):''}</td>`).join('')}</tr>`;};
-  mt.innerHTML=`<div class="lbl" style="margin-top:10px">Positionsmatrix – Winkellage θ (°) jeder Platte, 0° = Bezugsmarke, in Drehrichtung</div><div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Seite</th>${Array.from({length:zmax},(_,j)=>`<th>${j+1}</th>`).join('')}</tr></thead><tbody>${A.rows.map((r,i)=>line(r,i,'L')+line(r,i,'R')).join('')}</tbody></table></div><p class="note">${A.ins.length} Platten im Fräser.</p>`;}}
+  const line=(r,i,side)=>{const list=A.ins.filter(q=>q.i===i&&q.side===side);return `<tr><td>${r.nm}</td><td>${side==='L'?'links':'rechts'}</td>${Array.from({length:zmax},(_,j)=>{const q=list[j];return q?(ENG.has(i+side+q.j)?`<td style="font-weight:700;background:var(--surface-2)">${fmt(q.ang,2)}</td>`:`<td>${fmt(q.ang,2)}</td>`):'<td></td>';}).join('')}</tr>`;};
+  mt.innerHTML=`<div class="lbl" style="margin-top:10px">Positionsmatrix – Winkellage θ (°) jeder Platte, 0° = Bezugsmarke, in Drehrichtung</div><div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Seite</th>${Array.from({length:zmax},(_,j)=>`<th>${j+1}</th>`).join('')}</tr></thead><tbody>${A.rows.map((r,i)=>line(r,i,'L')+line(r,i,'R')).join('')}</tbody></table></div><p class="note">${A.ins.length} Platten im Fräser. Fett hinterlegt: im Eingriff bei Drehwinkel ${fmt(LN_ROT,1)}° und Tiefe ${fmt(t,1)} mm.</p>`;}}
 }
 function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0;LN_T=t;LN_ROT=(LN_ROT+dt*30)%360;
  const r=document.querySelector('[data-lnrot]');if(r)r.value=LN_ROT;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();requestAnimationFrame(lnLoop);}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat]');if(!b)return;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap]');if(!b)return;
+ if(b.dataset.lnap)LN_DEPTH=null;
  if(b.dataset.lnview){LN_VIEW=LN_VIEW==='links'?'rechts':'links';b.textContent='Ansicht von '+(LN_VIEW==='links'?'rechts':'links');}
  if(b.dataset.lnplay){LN_PLAY=!LN_PLAY;b.textContent=LN_PLAY?'❚❚ Pause':'▶ Drehen';if(LN_PLAY){LN_T=0;requestAnimationFrame(lnLoop);}}
  if(b.dataset.lnmat){LN_MAT=!LN_MAT;b.textContent=LN_MAT?'Positionsmatrix ausblenden':'Positionsmatrix anzeigen';}
@@ -1752,6 +1761,7 @@ const main=document.getElementById('main');
 main.addEventListener('input',e=>{
  const el=e.target,k=el.dataset.k;
  if(el.dataset.zrow!=null||el.dataset.phrow!=null||el.dataset.lrrow!=null)return;
+ if(el.dataset.lndepth!=null){LN_DEPTH=+el.value;lnDrawSim();return;}
  if(el.dataset.lnrot!=null){LN_ROT=+el.value;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();return;}
  if(el.dataset.catr){const [kind,i,col]=el.dataset.catr.split(':');if(CAT[kind][i]){CAT[kind][i][col]=el.value;saveCat();if(kind==='mat')rebuildMats();}return;}
  if(el.dataset.catq){catQ[el.dataset.catq]=el.value;renderCatTables();return;}
