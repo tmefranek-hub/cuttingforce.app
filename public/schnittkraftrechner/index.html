@@ -652,6 +652,28 @@ function posBlock(p){
   <div class="posgrid"><div class="possvgwrap" id="${p}-possvg">${posSvg(posForm(p,f))}</div><p class="note posformel">${POSHINT[pos]}</p></div>
  </div>${pos==='versetzt'?field(p,'aue','Überstand aüe (Gleichlaufseite)',{num:1,u:'mm'}):''}`;
 }
+/* Längsnaht: Zähnezahl je Plattenreihe. Reihe 1 = Radiusplatten, Reihe 2 … = Flankenplatten F1, F2, …
+   Regel: von der Spitze nach außen nicht steigend – keine Reihe hat mehr Zähne als die Reihe darunter, und keine mehr als der Fräser (z). */
+function lnRows(f){const G=lnGeom(f);return G.ok&&!G.tipOnly?['Radius'].concat(G.segs.map((_,i)=>'F'+(i+1))):['Radius'];}
+function lnZ(f){const names=lnRows(f),zc=Math.round(num(f.z)),saved=String(f.zRows||'').split(';').map(v=>Math.round(num(v)));
+ const out=[];names.forEach((nm,i)=>{let v=Number.isFinite(saved[i])&&saved[i]>0?saved[i]:(i?out[i-1]:zc);
+  if(zc>0&&v>zc)v=zc;if(i&&Number.isFinite(out[i-1])&&v>out[i-1])v=out[i-1];out.push(Number.isFinite(v)&&v>0?v:NaN);});
+ return names.map((nm,i)=>({nm,z:out[i]}));}
+function lnSetZ(f,idx,val){const rows=lnZ(f),zc=Math.round(num(f.z));let v=Math.round(num(val)),msg='';
+ if(!(v>0)){v=idx?rows[idx-1].z:(zc>0?zc:NaN);msg='Ungültige Zähnezahl – Wert der Reihe darunter übernommen';}
+ if(zc>0&&v>zc){v=zc;msg=`Höchstens ${zc} Zähne (Zähnezahl des Fräsers)`;}
+ if(idx&&rows[idx-1].z>0&&v>rows[idx-1].z){v=rows[idx-1].z;msg=`${rows[idx].nm} darf nicht mehr Zähne haben als ${rows[idx-1].nm} (${v})`;}
+ rows[idx].z=v;let cut=0;for(let j=idx+1;j<rows.length;j++)if(rows[j].z>v){rows[j].z=v;cut++;}
+ if(cut&&!msg)msg=`${cut} äußere Reihe${cut>1?'n':''} auf ${v} Zähne begrenzt`;
+ f.zRows=rows.map(r=>Number.isFinite(r.z)?r.z:'').join(';');return msg;}
+function lnZHTML(f){const rows=lnZ(f),zc=Math.round(num(f.z)),fz=num(f.fz);
+ return `<div class="lbl" style="margin-top:4px">Zähnezahl je Plattenreihe</div>
+ <p class="note" style="margin:2px 0 6px">Reihe 1 sind die Radiusplatten (links und rechts), danach die Flankenplatten von innen nach außen. Eine äußere Reihe kann nie mehr Zähne haben als die Reihe darunter – wird eine Reihe verringert, werden alle äußeren Reihen mitbegrenzt.${zc>0?'':' Zähnezahl z des Fräsers eintragen, dann werden die Reihen vorbelegt.'}</p>
+ <div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Platten</th><th>Zähne z<sub>i</sub></th><th>Teilung (°)</th><th>Vorschub je Platte f<sub>z,i</sub> (mm)</th></tr></thead><tbody>
+ ${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.nm==='Radius'?'Radius links / rechts':r.nm+' links / rechts'}</td><td><input data-zrow="${i}" value="${Number.isFinite(r.z)?r.z:''}" inputmode="numeric" autocomplete="off" style="width:5.5em;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit" aria-label="Zähnezahl ${r.nm}"></td><td>${r.z>0?fmt(360/r.z,2):'–'}</td><td>${r.z>0&&zc>0&&fz>0?fmt(fz*zc/r.z,3):'–'}</td></tr>`).join('')}
+ </tbody></table></div>
+ <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = f<sub>z</sub> · z / z<sub>i</sub>: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub.</p>`;}
+function lnRenderZ(){const e=document.getElementById('ln-z');if(e&&!e.contains(document.activeElement))e.innerHTML=lnZHTML(S.forms.laengsnaht);}
 /* Längsnaht: Profilzeichnung mit Radius- und Flankenplatten */
 function lnProfHTML(f){
  const G=lnGeom(f);
@@ -710,7 +732,7 @@ function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='blechkante')b.pos='gleich';
  if(p==='laengsnaht')b.pos='gleich';
  if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
- if(p==='laengsnaht')Object.assign(b,{Dc:'1000',DS:'1000',rR:'8',ap:'40',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10'});
+ if(p==='laengsnaht')Object.assign(b,{Dc:'1000',DS:'1000',rR:'8',ap:'40',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
  return b;}
 const TRIAL0={kunde:'',standort:'',ansprech:'',techniker:'',datum:new Date().toISOString().slice(0,10),vnr:'',maschine:'',mHersteller:'',mTyp:'',mLeistung:'',mDrehmoment:'',steuerung:'',bauteil:'',zeichnung:'',spannung:'',los:'',ziel:''};
 
@@ -1164,7 +1186,7 @@ function renderProc(p){
    ${field(p,'kc','Spez. Schnittkraft kc1.1',{num:1,u:'N/mm²'})}${field(p,'mc','Anstiegswert mc',{num:1})}${p==='schaelen'?field(p,'rho','Dichte ρ',{num:1,u:'g/cm³'}):''}
   </div></section>`,
  cut:`<section class="card"><h2>Schnittdaten</h2><p class="hint">Der Rechner rechts aktualisiert sich bei jeder Eingabe.</p>
-  ${p==='laengsnaht'?`<div id="ln-prof" style="margin-bottom:14px">${lnProfHTML(f)}</div>`:''}
+  ${p==='laengsnaht'?`<div id="ln-prof" style="margin-bottom:14px">${lnProfHTML(f)}</div><div id="ln-z" style="margin-bottom:14px">${lnZHTML(f)}</div>`:''}
   <div class="fields">
    ${c.params.filter(([k])=>!c.vis||c.vis(k,S.forms[p])).map(([k,l,u])=>((p==='fraesen'&&k==='ae')||(p==='blechkante'&&k==='kr')?posBlock(p):'')+(p==='schaelen'&&k==='ap'?apField(p,l):k==='vc'||k===ALT[p].f?altField(p,k,l,u):field(p,k,l,{num:1,u})+(k==='lam'?'<p class="note wide" style="margin:-6px 0 0">λ = Spanlänge im Schnitt / tatsächliche Spanlänge. Typisch 1,5–3 bei Stahl, ca. 1,2–1,8 bei Aluminium. Bestimmt die Spanlänge lsp = le / λ.</p>':''))).join('')}
    ${field(p,'kuehl','Kühlung',{opts:KUEHL})}
@@ -1667,6 +1689,7 @@ document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.cl
 const main=document.getElementById('main');
 main.addEventListener('input',e=>{
  const el=e.target,k=el.dataset.k;
+ if(el.dataset.zrow!=null)return;
  if(el.dataset.catr){const [kind,i,col]=el.dataset.catr.split(':');if(CAT[kind][i]){CAT[kind][i][col]=el.value;saveCat();if(kind==='mat')rebuildMats();}return;}
  if(el.dataset.catq){catQ[el.dataset.catq]=el.value;renderCatTables();return;}
  if(el.dataset.label){const s=S.sets.find(x=>x.id===el.dataset.label);if(s){s.label=el.value;save();}return;}
@@ -1685,9 +1708,10 @@ main.addEventListener('input',e=>{
  if(k==='matRep'){applyRep(p,el.value);save();render();return;}
  if(/^geo/.test(k)){save();render();return;}
  if(el.dataset.cat&&catApply(p,el)){syncAlt(p,S.forms[p]);save();render();toast('Aus Stammdaten übernommen');return;}
- syncAlt(p,S.forms[p]);{const nh=document.getElementById(p+'-nkhint');if(nh)nh.textContent=nkHint(S.forms[p]);}renderOut(p);renderDerived(p);renderPos(p);if(p==='laengsnaht'){const e=document.getElementById('ln-prof');if(e)e.innerHTML=lnProfHTML(S.forms[p]);}renderNav(p);save();renderHeader();
+ syncAlt(p,S.forms[p]);{const nh=document.getElementById(p+'-nkhint');if(nh)nh.textContent=nkHint(S.forms[p]);}renderOut(p);renderDerived(p);renderPos(p);if(p==='laengsnaht'){const e=document.getElementById('ln-prof');if(e)e.innerHTML=lnProfHTML(S.forms[p]);lnRenderZ();}renderNav(p);save();renderHeader();
 });
 main.addEventListener('change',e=>{
+ if(e.target.dataset.zrow!=null){const f=S.forms.laengsnaht,msg=lnSetZ(f,+e.target.dataset.zrow,e.target.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');save();if(msg)toast(msg);return;}
  if(e.target.dataset.catimp){const inp=e.target,kind=inp.dataset.catimp,f=inp.files&&inp.files[0];if(!f)return;
   const [kd,pp]=kind.split(':');
   f.text().then(t=>{let rows;try{rows=csvToCat(kd,t);}catch(err){toast(err==='kopf'?'Kopfzeile nicht erkannt – CSV-Vorlage verwenden':'Die Datei enthält keine Daten');return;}
