@@ -1247,10 +1247,11 @@ function renderProc(p){
    ${field(p,'kc','Spez. Schnittkraft kc1.1',{num:1,u:'N/mm²'})}${field(p,'mc','Anstiegswert mc',{num:1})}${p==='schaelen'?field(p,'rho','Dichte ρ',{num:1,u:'g/cm³'}):''}
   </div></section>`,
  cut:`<section class="card"><h2>Schnittdaten</h2><p class="hint">Der Rechner rechts aktualisiert sich bei jeder Eingabe.</p>
-  ${p==='laengsnaht'?`<div id="ln-prof" style="margin-bottom:14px">${lnProfHTML(f)}</div><div id="ln-z" style="margin-bottom:14px">${lnZHTML(f)}</div><div id="ln-sim" style="margin-bottom:14px">${lnSimHTML()}</div>`:''}
-  <div class="fields">
-   ${c.params.filter(([k])=>!c.vis||c.vis(k,S.forms[p])).map(([k,l,u])=>((p==='fraesen'&&k==='ae')||(p==='blechkante'&&k==='kr')?posBlock(p):'')+(p==='schaelen'&&k==='ap'?apField(p,l):k==='vc'||k===ALT[p].f?altField(p,k,l,u):field(p,k,l,{num:1,u})+(k==='lam'?'<p class="note wide" style="margin:-6px 0 0">λ = Spanlänge im Schnitt / tatsächliche Spanlänge. Typisch 1,5–3 bei Stahl, ca. 1,2–1,8 bei Aluminium. Bestimmt die Spanlänge lsp = le / λ.</p>':''))).join('')}
-   ${field(p,'kuehl','Kühlung',{opts:KUEHL})}
+  ${(()=>{const PF=([k,l,u])=>((p==='fraesen'&&k==='ae')||(p==='blechkante'&&k==='kr')?posBlock(p):'')+(p==='schaelen'&&k==='ap'?apField(p,l):k==='vc'||k===ALT[p].f?altField(p,k,l,u):field(p,k,l,{num:1,u})+(k==='lam'?'<p class="note wide" style="margin:-6px 0 0">λ = Spanlänge im Schnitt / tatsächliche Spanlänge. Typisch 1,5–3 bei Stahl, ca. 1,2–1,8 bei Aluminium. Bestimmt die Spanlänge lsp = le / λ.</p>':'')),PS=c.params.filter(([k])=>!c.vis||c.vis(k,S.forms[p]));
+   if(p!=='laengsnaht')return `<div class="fields">${PS.map(PF).join('')}${field(p,'kuehl','Kühlung',{opts:KUEHL})}</div>`;
+   /* Längsnaht: Fräser- und Profilgeometrie bis zur Zähnezahl oben, dann Profil, Zahnreihen und Seitenansicht, darunter die Schnittdaten */
+   const iz=PS.findIndex(([k])=>k==='z'),top=PS.slice(0,iz+1),rest=PS.slice(iz+1);
+   return `<div class="fields">${top.map(PF).join('')}</div><div id="ln-prof" style="margin:14px 0">${lnProfHTML(f)}</div><div id="ln-z" style="margin-bottom:14px">${lnZHTML(f)}</div><div id="ln-sim" style="margin-bottom:14px">${lnSimHTML()}</div><div class="lbl" style="margin-bottom:6px">Schnittdaten</div><div class="fields">${rest.map(PF).join('')}${field(p,'kuehl','Kühlung',{opts:KUEHL})}</div>`;})()}
   </div></section>`,
  eval:`<section class="card"><h2>Ergebnis am Werkzeug</h2><p class="hint">Wird mit dem Parametersatz gespeichert.</p>
   <div class="fields">
