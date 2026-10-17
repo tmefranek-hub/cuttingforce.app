@@ -681,7 +681,7 @@ function lnAng(f){const zr=lnZ(f),ph=String(f.phRows||'').split(';'),lr=String(f
  return {rows,ins};}
 function lnSetAng(f,key,idx,val){const n=lnZ(f).length,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[idx]=String(val).trim();f[key]=a.slice(0,n).join(';');}
 let LN_DEPTH=null,LN_ROT=0,LN_VIEW='links',LN_PLAY=false,LN_MAT=false,LN_T=0;
-function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Seitenansicht des Fräsers – Lage der Schneiden</div>
+function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Rotationssimulation – Eingriffsbereich des Fräsers</div>
  <div class="toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px">
   <button type="button" class="btn" data-lnview="1">Ansicht von ${LN_VIEW==='links'?'rechts':'links'}</button>
   <button type="button" class="btn" data-lnplay="1">${LN_PLAY?'❚❚ Pause':'▶ Drehen'}</button>
@@ -693,41 +693,46 @@ function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Seitenansic
 function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-simsvg');if(!el)return;
  const G=lnGeom(f),A=lnAng(f),DS=num(f.DS),ap=num(f.ap);
  if(!(DS>0&&ap>0&&G.ok)){el.innerHTML='<p class="note">Flugkreis DS, Schnitttiefe ap und Profil eintragen.</p>';return;}
- const W=520,H=540,cx=W/2,cy=236,Rp=200,k=Rp/(DS/2),cb=Math.cos(G.be);
- const yMid=i=>i===0?G.yt/2:G.yt+((G.segs[i-1][0]+G.segs[i-1][1])/2)*cb;      // Höhe der Reihenmitte über der Spitze
- const gapMin=16,dy1=A.rows.length>1?(yMid(1)-yMid(0)):G.yt,ex=Math.max(1,gapMin/Math.max(1e-6,dy1*k));
- const rDraw=y=>Rp-y*k*ex,mir=LN_VIEW==='rechts'?-1:1;
- const P=(rr,deg)=>{const a=(deg)*Math.PI/180;return [cx+mir*rr*Math.sin(a),cy-rr*Math.cos(a)];};
+ /* Alles maßstäblich: Koordinaten in mm um die Fräserachse, X = Lage quer, Y nach unten; Winkel θ von oben in Drehrichtung */
+ const RS=DS/2,cb=Math.cos(G.be),mir=LN_VIEW==='rechts'?-1:1,near=LN_VIEW==='links'?'L':'R';
  const COL=['#b3261e','#2e7d32','#7a5a00','#1d5fc4','#6a1b9a','#00838f','#ad1457','#5d4037'];
- let g='';
- // Werkstück (Oberfläche bei ap unter dem Flugkreis), Nutgrund = Flugkreis
  const t=Math.max(0,Math.min(G.hP,LN_DEPTH==null?ap:LN_DEPTH));
  {const sl=document.querySelector('[data-lndepth]');if(sl){sl.max=G.hP.toFixed(1);if(document.activeElement!==sl)sl.value=t;}const dv=document.getElementById('ln-depthv');if(dv)dv.textContent=fmt(t,1)+' mm';}
- const yLow=i=>i===0?0:G.yt+G.segs[i-1][0]*cb;                                   // tiefster Punkt der Reihe über der Spitze
- const phRow=i=>{if(!(t>yLow(i)))return 0;const c=(DS/2-t)/(DS/2-yLow(i));return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;};
- const ys=cy+Rp-t*k*ex;
- g+=`<rect x="0" y="${ys.toFixed(1)}" width="${W}" height="${(H-ys).toFixed(1)}" fill="var(--surface-2)"/><line x1="0" y1="${ys.toFixed(1)}" x2="${W}" y2="${ys.toFixed(1)}" stroke="var(--fg)" stroke-width="1"/>`;
- g+=`<text x="8" y="${(ys-6).toFixed(1)}" font-size="11" fill="var(--muted)">Werkstückoberfläche</text>`;
- // Fräserscheibe
- g+=`<circle cx="${cx}" cy="${cy}" r="${(rDraw(G.hP)-4).toFixed(1)}" fill="var(--surface)" stroke="var(--fg)" stroke-width="1.2"/><circle cx="${cx}" cy="${cy}" r="${Rp}" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/><circle cx="${cx}" cy="${cy}" r="3" fill="var(--fg)"/>`;
- // Eingriffsbogen je Reihe (Vorschubrichtung im Bild rechts bei Ansicht von links)
- A.rows.forEach((r,i)=>{const rr=rDraw(yMid(i)),ph=phRow(i);if(!(ph>0))return;
-  const a1=P(rr,180),a2=P(rr,180-ph);g+=`<path d="M${a1[0].toFixed(1)} ${a1[1].toFixed(1)} A${rr} ${rr} 0 0 ${mir>0?0:1} ${a2[0].toFixed(1)} ${a2[1].toFixed(1)}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".28" stroke-width="10"/>`;});
- // Reihenkreise und Platten
- let eng=0;const ENG=new Set();
- A.rows.forEach((r,i)=>{const rr=rDraw(yMid(i));g+=`<circle cx="${cx}" cy="${cy}" r="${rr.toFixed(1)}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".35" stroke-width=".8"/>`;});
- const near=LN_VIEW==='links'?'L':'R';
- A.ins.slice().sort((a,b)=>(a.side===near)-(b.side===near)).forEach(q=>{const i=q.i,rr=rDraw(yMid(i)),ph=phRow(i);
-  const a=(((q.ang+LN_ROT)%360)+360)%360,on=ph>0&&a>=180-ph&&a<=180,[x,y]=P(rr,a),rot=mir*a,col=COL[i%COL.length],isN=q.side===near;if(on){eng++;ENG.add(q.i+q.side+q.j);}
-  g+=`<rect x="${(x-7).toFixed(1)}" y="${(y-3.5).toFixed(1)}" width="14" height="7" rx="1" transform="rotate(${rot.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="${isN?col:'var(--surface)'}" fill-opacity="${isN?1:.6}" stroke="${on?'var(--fg)':col}" stroke-width="${on?2:1}" ${isN?'':'stroke-dasharray="2 1.5"'}/>`;});
- // Bezugsmarke 0°, Drehrichtung, Vorschub
- const m0=P(Rp+14,LN_ROT),m1=P(rDraw(G.hP)-10,LN_ROT);g+=`<line x1="${m1[0].toFixed(1)}" y1="${m1[1].toFixed(1)}" x2="${m0[0].toFixed(1)}" y2="${m0[1].toFixed(1)}" stroke="var(--fg)" stroke-width=".8" stroke-dasharray="4 2"/><text x="${m0[0].toFixed(1)}" y="${(m0[1]-3).toFixed(1)}" font-size="11" text-anchor="middle" fill="var(--fg)">0°</text>`;
- const r0=Rp+16,d1=P(r0,22),d2=P(r0,48);g+=`<path d="M${d1[0].toFixed(1)} ${d1[1].toFixed(1)} A${r0} ${r0} 0 0 ${mir>0?1:0} ${d2[0].toFixed(1)} ${d2[1].toFixed(1)}" fill="none" stroke="var(--fg)" stroke-width="1.2" marker-end="url(#lnar2)"/><text x="${(P(r0+10,40)[0]).toFixed(1)}" y="${(P(r0+10,40)[1]).toFixed(1)}" font-size="11" text-anchor="${mir>0?'start':'end'}" fill="var(--fg)">Drehrichtung</text>`;
- const fx=mir>0?W-110:110;g+=`<line x1="${fx-40*mir}" y1="${H-62}" x2="${fx+40*mir}" y2="${H-62}" stroke="var(--fg)" stroke-width="1.2" marker-end="url(#lnar2)"/><text x="${fx}" y="${H-70}" font-size="11" text-anchor="middle" fill="var(--fg)">Vorschub v<tspan font-size="8" dy="2">f</tspan></text>`;
- g+=`<text x="8" y="${H-34}" font-size="12" fill="var(--fg)">Ansicht von ${LN_VIEW} · voll: ${LN_VIEW==='links'?'linke':'rechte'} Platten, gestrichelt: ${LN_VIEW==='links'?'rechte':'linke'} Platten</text>`;
- g+=`<text x="8" y="${H-8}" font-size="11" fill="var(--muted)">Winkel maßstäblich, radiale Lage der Reihen ${ex>1.01?'×'+fmt(ex,1)+' überhöht':'maßstäblich'} · t = ${fmt(t,1)} mm · im Eingriff: ${eng} Platten</text>`;
+ const yLow=i=>i===0?0:G.yt+G.segs[i-1][0]*cb, yHigh=i=>i===0?G.yt:G.yt+G.segs[i-1][1]*cb, yMid=i=>(yLow(i)+yHigh(i))/2;
+ const phRow=i=>{if(!(t>yLow(i)))return 0;const c=(RS-t)/(RS-yLow(i));return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;};
+ const PT=(r,deg)=>{const q=deg*Math.PI/180;return [mir*r*Math.sin(q),-r*Math.cos(q)];};
+ const ENG=new Set();let eng=0;
+ const INS=A.ins.map(q=>{const a=(((q.ang+LN_ROT)%360)+360)%360,ph=phRow(q.i),on=ph>0&&a>=180-ph&&a<=180;if(on){eng++;ENG.add(q.i+q.side+q.j);}return {...q,a,on};})
+  .sort((x,y)=>(x.side===near)-(y.side===near));
+ /* eine Ansicht: Maßstab k (px/mm), Ursprung (ox, oy) in px */
+ const view=(W,H,k,ox,oy,detail)=>{const S=([x,y])=>[ox+x*k,oy+y*k],f1=v=>v.toFixed(1);let g='';
+  const ys=oy+(RS-t)*k;
+  g+=`<rect x="0" y="${f1(ys)}" width="${W}" height="${f1(Math.max(0,H-ys))}" fill="var(--surface-2)"/><line x1="0" y1="${f1(ys)}" x2="${W}" y2="${f1(ys)}" stroke="var(--fg)" stroke-width="1"/>`;
+  g+=`<circle cx="${f1(ox)}" cy="${f1(oy)}" r="${f1((RS-G.hP)*k)}" fill="var(--surface)" stroke="var(--fg)" stroke-width="1"/>`;
+  A.rows.forEach((r,i)=>{g+=`<circle cx="${f1(ox)}" cy="${f1(oy)}" r="${f1((RS-yMid(i))*k)}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".35" stroke-width=".8"/>`;
+   const ph=phRow(i);if(ph>0){const rr=(RS-yMid(i))*k,p1=S(PT(RS-yMid(i),180)),p2=S(PT(RS-yMid(i),180-ph));
+    g+=`<path d="M${f1(p1[0])} ${f1(p1[1])} A${f1(rr)} ${f1(rr)} 0 0 ${mir>0?0:1} ${f1(p2[0])} ${f1(p2[1])}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".3" stroke-width="${detail?14:8}"/>`;}});
+  const sw=detail?5:3;
+  INS.forEach(q=>{const i=q.i,p1=S(PT(RS-yLow(i),q.a)),p2=S(PT(RS-yHigh(i),q.a)),col=COL[i%COL.length],isN=q.side===near;
+   if(q.on)g+=`<line x1="${f1(p1[0])}" y1="${f1(p1[1])}" x2="${f1(p2[0])}" y2="${f1(p2[1])}" stroke="var(--fg)" stroke-width="${sw+3}"/>`;
+   g+=`<line x1="${f1(p1[0])}" y1="${f1(p1[1])}" x2="${f1(p2[0])}" y2="${f1(p2[1])}" stroke="${col}" stroke-width="${sw}" stroke-opacity="${isN?1:.55}" ${isN?'':'stroke-dasharray="2 1.5"'}/>`;});
+  return g;};
+ // Nur der Eingriffsbereich – gleicher Maßstab in beiden Richtungen, Durchmesserverhältnisse stimmen
+ const phM=Math.max(phRow(0),3),sM=Math.sin(phM*Math.PI/180),xr=RS*sM,hy=Math.max(G.hP,t)+RS*(1-Math.cos(phM*Math.PI/180));
+ const Wz=560,Hz=360,k2=Math.min((Wz-40)/(xr*1.25+G.hP*1.5),(Hz-70)/(hy*1.35));
+ const zx0=mir*xr*0.42,zy0=RS-hy*0.45,ox2=Wz/2-zx0*k2,oy2=(Hz-30)/2-zy0*k2;
+ let g2=view(Wz,Hz,k2,ox2,oy2,true);
+ const yS=oy2+(RS-t)*k2;
+ g2+=`<text x="${mir>0?8:Wz-8}" y="${(yS-6).toFixed(1)}" font-size="11" text-anchor="${mir>0?'start':'end'}" fill="var(--muted)">Werkstückoberfläche (t = ${fmt(t,1)} mm)</text>`;
+ // Drehrichtung (Pfeil entlang des Flugkreises) und Vorschub
+ const rA=RS+6/k2,d1=PT(rA,180+mir*0+ -phM*0.15),d2=PT(rA,180-phM*0.55),S2=([x,y])=>[ox2+x*k2,oy2+y*k2];
+ const a1=S2(PT(rA,180-phM*0.95)),a2=S2(PT(rA,180-phM*0.6));
+ g2+=`<path d="M${a1[0].toFixed(1)} ${a1[1].toFixed(1)} A${(rA*k2).toFixed(1)} ${(rA*k2).toFixed(1)} 0 0 ${mir>0?1:0} ${a2[0].toFixed(1)} ${a2[1].toFixed(1)}" fill="none" stroke="var(--fg)" stroke-width="1.2" marker-end="url(#lnar2)"/>`;
+ const fx=mir>0?Wz-90:90,fy=Hz-46;g2+=`<line x1="${fx-36*mir}" y1="${fy}" x2="${fx+36*mir}" y2="${fy}" stroke="var(--fg)" stroke-width="1.2" marker-end="url(#lnar2)"/><text x="${fx}" y="${fy-7}" font-size="11" text-anchor="middle" fill="var(--fg)">Vorschub v<tspan font-size="8" dy="2">f</tspan></text>`;
+ g2+=`<rect x="0" y="${Hz-30}" width="${Wz}" height="30" fill="var(--surface)"/><text x="8" y="${Hz-17}" font-size="12" fill="var(--fg)">Eingriffsbereich, Ansicht von ${LN_VIEW} · voll: ${LN_VIEW==='links'?'linke':'rechte'}, gestrichelt: ${LN_VIEW==='links'?'rechte':'linke'} Platten</text><text x="8" y="${Hz-4}" font-size="11" fill="var(--muted)">maßstäblich (Ø ${fmt(DS,0)} mm, Profilhöhe ${fmt(G.hP,1)} mm, beide Achsen gleicher Maßstab) · im Eingriff: ${eng} Platten</text>`;
+ const SV=(w,h,body)=>`<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto 8px;background:var(--surface);border:1px solid var(--line);border-radius:6px" role="img"><defs><marker id="lnar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fg)"/></marker></defs><g>${body}</g></svg>`;
  const leg=A.rows.map((r,i)=>`<span><i style="display:inline-block;width:12px;height:6px;background:${COL[i%COL.length]};vertical-align:middle"></i> ${r.nm} (z = ${Number.isFinite(r.z)?r.z:'–'})</span>`).join('');
- el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:6px" role="img" aria-label="Seitenansicht des Längsnahtfräsers"><defs><marker id="lnar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fg)"/></marker></defs>${g}</svg><div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:6px;justify-content:center">${leg}<span>dicker Rand: Platte im Eingriff · getönter Bogen: Eingriffsbogen je Reihe</span></div>
+ el.innerHTML=SV(Wz,Hz,g2)+`<div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:2px;justify-content:center">${leg}<span>Platten als radiale Striche über ihre Schneidenhöhe · schwarz umrandet: im Eingriff · getönter Bogen: Eingriffsbogen je Reihe</span></div>
  <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Reihe</th><th>schneidet ab Tiefe (mm)</th><th>Eingriffsbogen φ<sub>i</sub> (°)</th><th>Platten im Eingriff (links / rechts)</th></tr></thead><tbody>${A.rows.map((r,i)=>{const L=A.ins.filter(q=>q.i===i&&q.side==='L'&&ENG.has(i+'L'+q.j)).map(q=>q.j),Rr=A.ins.filter(q=>q.i===i&&q.side==='R'&&ENG.has(i+'R'+q.j)).map(q=>q.j);
   return `<tr${phRow(i)>0?'':' style="opacity:.5"'}><td>${r.nm}</td><td>${fmt(yLow(i),1)}</td><td>${phRow(i)>0?fmt(phRow(i),2):'–'}</td><td>${L.length+Rr.length?`${L.length} (${L.join(', ')||'–'}) / ${Rr.length} (${Rr.join(', ')||'–'})`:'0'}</td></tr>`;}).join('')}</tbody></table></div>`;
  const mt=document.getElementById('ln-mat');
