@@ -655,31 +655,37 @@ function posBlock(p){
 /* Längsnaht: Zähnezahl je Plattenreihe. Reihe 1 = Radiusplatten, Reihe 2 … = Flankenplatten F1, F2, …
    Regel: von der Spitze nach außen nicht steigend – keine Reihe hat mehr Zähne als die Reihe darunter, und keine mehr als der Fräser (z). */
 function lnRows(f){const G=lnGeom(f);return G.ok&&!G.tipOnly?['Radius'].concat(G.segs.map((_,i)=>'F'+(i+1))):['Radius'];}
-function lnZ(f){const names=lnRows(f),zc=Math.round(num(f.z)),saved=String(f.zRows||'').split(';').map(v=>Math.round(num(v)));
+/* Zähnezahl je Reihe und Seite (L = links, R = rechts), gespeichert in zRows (links) und zRowsR (rechts) */
+const LN_ZK={L:'zRows',R:'zRowsR'},LN_PK={L:'phRows',R:'phRowsR'};
+function lnZ(f,side='L'){const names=lnRows(f),zc=Math.round(num(f.z)),saved=String(f[LN_ZK[side]]||'').split(';').map(v=>Math.round(num(v)));
  const out=[];names.forEach((nm,i)=>{let v=Number.isFinite(saved[i])&&saved[i]>0?saved[i]:(i?out[i-1]:zc);
   if(zc>0&&v>zc)v=zc;if(i&&Number.isFinite(out[i-1])&&v>out[i-1])v=out[i-1];out.push(Number.isFinite(v)&&v>0?v:NaN);});
  return names.map((nm,i)=>({nm,z:out[i]}));}
-function lnSetZ(f,idx,val){const rows=lnZ(f),zc=Math.round(num(f.z));let v=Math.round(num(val)),msg='';
+function lnSetZ(f,side,idx,val){const rows=lnZ(f,side),zc=Math.round(num(f.z)),sn=side==='L'?'links':'rechts';let v=Math.round(num(val)),msg='';
  if(!(v>0)){v=idx?rows[idx-1].z:(zc>0?zc:NaN);msg='Ungültige Zähnezahl – Wert der Reihe darunter übernommen';}
  if(zc>0&&v>zc){v=zc;msg=`Höchstens ${zc} Zähne (Zähnezahl des Fräsers)`;}
- if(idx&&rows[idx-1].z>0&&v>rows[idx-1].z){v=rows[idx-1].z;msg=`${rows[idx].nm} darf nicht mehr Zähne haben als ${rows[idx-1].nm} (${v})`;}
+ if(idx&&rows[idx-1].z>0&&v>rows[idx-1].z){v=rows[idx-1].z;msg=`${rows[idx].nm} ${sn} darf nicht mehr Zähne haben als ${rows[idx-1].nm} ${sn} (${v})`;}
  rows[idx].z=v;let cut=0;for(let j=idx+1;j<rows.length;j++)if(rows[j].z>v){rows[j].z=v;cut++;}
- if(cut&&!msg)msg=`${cut} äußere Reihe${cut>1?'n':''} auf ${v} Zähne begrenzt`;
- f.zRows=rows.map(r=>Number.isFinite(r.z)?r.z:'').join(';');return msg;}
-function lnZHTML(f){const rows=lnZ(f),zc=Math.round(num(f.z)),fz=num(f.fz);
- return `<div class="lbl" style="margin-top:4px">Zähnezahl je Plattenreihe</div>
- <p class="note" style="margin:2px 0 6px">Reihe 1 sind die Radiusplatten (links und rechts), danach die Flankenplatten von innen nach außen. Eine äußere Reihe kann nie mehr Zähne haben als die Reihe darunter – wird eine Reihe verringert, werden alle äußeren Reihen mitbegrenzt.${zc>0?'':' Zähnezahl z des Fräsers eintragen, dann werden die Reihen vorbelegt.'}</p>
- <div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Platten</th><th>Zähne z<sub>i</sub></th><th>Teilung (°)</th><th>Vorschub je Platte f<sub>z,i</sub> (mm)</th><th>Winkelversatz φ<sub>0,i</sub> (°)</th><th>Versatz rechts Δφ<sub>i</sub> (°)</th></tr></thead><tbody>
- ${lnAng(f).rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.nm==='Radius'?'Radius links / rechts':r.nm+' links / rechts'}</td><td><input data-zrow="${i}" value="${Number.isFinite(r.z)?r.z:''}" inputmode="numeric" autocomplete="off" style="width:5.5em;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit" aria-label="Zähnezahl ${r.nm}"></td><td>${r.z>0?fmt(360/r.z,2):'–'}</td><td>${r.z>0&&zc>0&&fz>0?fmt(fz*zc/r.z,3):'–'}</td><td><input data-phrow="${i}" value="${dec(r.ph0,2)}" inputmode="decimal" autocomplete="off" style="width:5.5em;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit" aria-label="Winkelversatz ${r.nm}"></td><td><input data-lrrow="${i}" value="${dec(r.dlr,2)}" inputmode="decimal" autocomplete="off" style="width:5.5em;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit" aria-label="Versatz rechts ${r.nm}"></td></tr>`).join('')}
- </tbody></table></div>
- <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = f<sub>z</sub> · z / z<sub>i</sub>: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j einer Reihe: θ = φ<sub>0,i</sub> + j·360°/z<sub>i</sub> (links), rechts zusätzlich + Δφ<sub>i</sub> (Vorgabe: halbe Teilung). 0° = oben, gezählt in Drehrichtung.</p>`;}
+ if(cut&&!msg)msg=`${cut} äußere Reihe${cut>1?'n':''} ${sn} auf ${v} Zähne begrenzt`;
+ f[LN_ZK[side]]=rows.map(r=>Number.isFinite(r.z)?r.z:'').join(';');return msg;}
+function lnZHTML(f){const A=lnAng(f),zc=Math.round(num(f.z)),fz=num(f.fz);
+ const inp=(attr,i,side,val,lab,mode)=>`<input ${attr}="${i}" data-side="${side}" value="${val}" inputmode="${mode}" autocomplete="off" style="width:4.8em;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit" aria-label="${lab}">`;
+ const pv=z=>z>0?fmt(360/z,2):'–',fv=z=>z>0&&zc>0&&fz>0?fmt(fz*zc/z,3):'–';
+ return `<div class="lbl" style="margin-top:4px">Zähnezahl und Teilung je Plattenreihe – links und rechts getrennt</div>
+ <p class="note" style="margin:2px 0 6px">Reihe 1 sind die Radiusplatten, danach die Flankenplatten von innen nach außen. Links und rechts haben eigene Zähnezahlen und damit eigene Teilungen. Je Seite gilt: eine äußere Reihe kann nie mehr Zähne haben als die Reihe darunter – wird eine Reihe verringert, werden alle äußeren Reihen dieser Seite mitbegrenzt.${zc>0?'':' Zähnezahl z des Fräsers eintragen, dann werden die Reihen vorbelegt.'}</p>
+ <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px">${['L','R'].map(sd=>`<div><div class="lbl" style="margin-bottom:4px">${sd==='L'?'Links':'Rechts'}</div><div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>z<sub>i</sub></th><th>Teilung (°)</th><th>f<sub>z,i</sub> (mm)</th><th>φ<sub>0,i</sub> (°)</th></tr></thead><tbody>
+ ${A.rows.map((r,i)=>{const z=sd==='L'?r.zL:r.zR,ph=sd==='L'?r.phL:r.phR,sn=sd==='L'?'links':'rechts';return `<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,sd,Number.isFinite(z)?z:'','Zähnezahl '+r.nm+' '+sn,'numeric')}</td><td>${pv(z)}</td><td>${fv(z)}</td><td>${inp('data-phrow',i,sd,dec(ph,2),'Winkelversatz '+r.nm+' '+sn,'decimal')}</td></tr>`;}).join('')}
+ </tbody></table></div></div>`).join('')}</div>
+ <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = f<sub>z</sub> · z / z<sub>i</sub>: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j: θ = φ<sub>0,i</sub> + (j−1)·360°/z<sub>i</sub>, je Seite mit eigener Teilung. Vorgabe φ<sub>0</sub> rechts = halbe Teilung rechts. 0° = Bezugsmarke, gezählt in Drehrichtung.</p>`;}
 /* Winkellage aller Platten: Reihe i, Seite L/R, Platte j */
-function lnAng(f){const zr=lnZ(f),ph=String(f.phRows||'').split(';'),lr=String(f.lrRows||'').split(';');
- const rows=zr.map((r,i)=>{const p0=num(ph[i]),d=num(lr[i]);return {...r,ph0:Number.isFinite(p0)?p0:0,dlr:Number.isFinite(d)?d:(r.z>0?180/r.z:0)};});
- const ins=[];rows.forEach((r,i)=>{if(!(r.z>0))return;for(let j=0;j<r.z;j++){const b=r.ph0+j*360/r.z;
-  ins.push({i,nm:r.nm,side:'L',j:j+1,ang:((b%360)+360)%360});ins.push({i,nm:r.nm,side:'R',j:j+1,ang:(((b+r.dlr)%360)+360)%360});}});
+function lnAng(f){const ZL=lnZ(f,'L'),ZR=lnZ(f,'R'),pL=String(f.phRows||'').split(';'),pR=String(f.phRowsR||'').split(';');
+ const rows=ZL.map((r,i)=>{const zL=r.z,zR=ZR[i].z,a=num(pL[i]),b=num(pR[i]);
+  return {nm:r.nm,zL,zR,phL:Number.isFinite(a)?a:0,phR:Number.isFinite(b)?b:(zR>0?180/zR:0)};});
+ const ins=[],N=x=>((x%360)+360)%360;
+ rows.forEach((r,i)=>{if(r.zL>0)for(let j=0;j<r.zL;j++)ins.push({i,nm:r.nm,side:'L',j:j+1,ang:N(r.phL+j*360/r.zL)});
+  if(r.zR>0)for(let j=0;j<r.zR;j++)ins.push({i,nm:r.nm,side:'R',j:j+1,ang:N(r.phR+j*360/r.zR)});});
  return {rows,ins};}
-function lnSetAng(f,key,idx,val){const n=lnZ(f).length,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[idx]=String(val).trim();f[key]=a.slice(0,n).join(';');}
+function lnSetAng(f,key,idx,val){const n=lnRows(f).length,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[idx]=String(val).trim();f[key]=a.slice(0,n).join(';');}
 let LN_DEPTH=null,LN_ROT=0,LN_VIEW='links',LN_PLAY=false,LN_MAT=false,LN_T=0;
 function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Rotationssimulation – Eingriffsbereich des Fräsers</div>
  <div class="toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px">
@@ -731,12 +737,12 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const fx=mir>0?Wz-90:90,fy=Hz-46;g2+=`<line x1="${fx-36*mir}" y1="${fy}" x2="${fx+36*mir}" y2="${fy}" stroke="var(--fg)" stroke-width="1.2" marker-end="url(#lnar2)"/><text x="${fx}" y="${fy-7}" font-size="11" text-anchor="middle" fill="var(--fg)">Vorschub v<tspan font-size="8" dy="2">f</tspan></text>`;
  g2+=`<rect x="0" y="${Hz-30}" width="${Wz}" height="30" fill="var(--surface)"/><text x="8" y="${Hz-17}" font-size="12" fill="var(--fg)">Eingriffsbereich, Ansicht von ${LN_VIEW} · voll: ${LN_VIEW==='links'?'linke':'rechte'}, gestrichelt: ${LN_VIEW==='links'?'rechte':'linke'} Platten</text><text x="8" y="${Hz-4}" font-size="11" fill="var(--muted)">maßstäblich (Ø ${fmt(DS,0)} mm, Profilhöhe ${fmt(G.hP,1)} mm, beide Achsen gleicher Maßstab) · im Eingriff: ${eng} Platten</text>`;
  const SV=(w,h,body)=>`<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto 8px;background:var(--surface);border:1px solid var(--line);border-radius:6px" role="img"><defs><marker id="lnar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fg)"/></marker></defs><g>${body}</g></svg>`;
- const leg=A.rows.map((r,i)=>`<span><i style="display:inline-block;width:12px;height:6px;background:${COL[i%COL.length]};vertical-align:middle"></i> ${r.nm} (z = ${Number.isFinite(r.z)?r.z:'–'})</span>`).join('');
+ const leg=A.rows.map((r,i)=>`<span><i style="display:inline-block;width:12px;height:6px;background:${COL[i%COL.length]};vertical-align:middle"></i> ${r.nm} (z = ${Number.isFinite(r.zL)?r.zL:'–'} / ${Number.isFinite(r.zR)?r.zR:'–'})</span>`).join('');
  el.innerHTML=SV(Wz,Hz,g2)+`<div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:2px;justify-content:center">${leg}<span>Platten als radiale Striche über ihre Schneidenhöhe · schwarz umrandet: im Eingriff · getönter Bogen: Eingriffsbogen je Reihe</span></div>
  <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Reihe</th><th>schneidet ab Tiefe (mm)</th><th>Eingriffsbogen φ<sub>i</sub> (°)</th><th>Platten im Eingriff (links / rechts)</th></tr></thead><tbody>${A.rows.map((r,i)=>{const L=A.ins.filter(q=>q.i===i&&q.side==='L'&&ENG.has(i+'L'+q.j)).map(q=>q.j),Rr=A.ins.filter(q=>q.i===i&&q.side==='R'&&ENG.has(i+'R'+q.j)).map(q=>q.j);
   return `<tr${phRow(i)>0?'':' style="opacity:.5"'}><td>${r.nm}</td><td>${fmt(yLow(i),1)}</td><td>${phRow(i)>0?fmt(phRow(i),2):'–'}</td><td>${L.length+Rr.length?`${L.length} (${L.join(', ')||'–'}) / ${Rr.length} (${Rr.join(', ')||'–'})`:'0'}</td></tr>`;}).join('')}</tbody></table></div>`;
  const mt=document.getElementById('ln-mat');
- if(mt){if(!LN_MAT){mt.innerHTML='';}else{const zmax=Math.max(1,...A.rows.map(r=>r.z>0?r.z:0));
+ if(mt){if(!LN_MAT){mt.innerHTML='';}else{const zmax=Math.max(1,...A.rows.map(r=>Math.max(r.zL>0?r.zL:0,r.zR>0?r.zR:0)));
   const line=(r,i,side)=>{const list=A.ins.filter(q=>q.i===i&&q.side===side);return `<tr><td>${r.nm}</td><td>${side==='L'?'links':'rechts'}</td>${Array.from({length:zmax},(_,j)=>{const q=list[j];return q?(ENG.has(i+side+q.j)?`<td style="font-weight:700;background:var(--surface-2)">${fmt(q.ang,2)}</td>`:`<td>${fmt(q.ang,2)}</td>`):'<td></td>';}).join('')}</tr>`;};
   mt.innerHTML=`<div class="lbl" style="margin-top:10px">Positionsmatrix – Winkellage θ (°) jeder Platte, 0° = Bezugsmarke, in Drehrichtung</div><div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Seite</th>${Array.from({length:zmax},(_,j)=>`<th>${j+1}</th>`).join('')}</tr></thead><tbody>${A.rows.map((r,i)=>line(r,i,'L')+line(r,i,'R')).join('')}</tbody></table></div><p class="note">${A.ins.length} Platten im Fräser. Fett hinterlegt: im Eingriff bei Drehwinkel ${fmt(LN_ROT,1)}° und Tiefe ${fmt(t,1)} mm.</p>`;}}
 }
@@ -1765,7 +1771,7 @@ document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.cl
 const main=document.getElementById('main');
 main.addEventListener('input',e=>{
  const el=e.target,k=el.dataset.k;
- if(el.dataset.zrow!=null||el.dataset.phrow!=null||el.dataset.lrrow!=null)return;
+ if(el.dataset.zrow!=null||el.dataset.phrow!=null)return;
  if(el.dataset.lndepth!=null){LN_DEPTH=+el.value;lnDrawSim();return;}
  if(el.dataset.lnrot!=null){LN_ROT=+el.value;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();return;}
  if(el.dataset.catr){const [kind,i,col]=el.dataset.catr.split(':');if(CAT[kind][i]){CAT[kind][i][col]=el.value;saveCat();if(kind==='mat')rebuildMats();}return;}
@@ -1789,8 +1795,8 @@ main.addEventListener('input',e=>{
  syncAlt(p,S.forms[p]);{const nh=document.getElementById(p+'-nkhint');if(nh)nh.textContent=nkHint(S.forms[p]);}renderOut(p);renderDerived(p);renderPos(p);if(p==='laengsnaht'){const e=document.getElementById('ln-prof');if(e)e.innerHTML=lnProfHTML(S.forms[p]);lnRenderZ();lnDrawSim();}renderNav(p);save();renderHeader();
 });
 main.addEventListener('change',e=>{
- if(e.target.dataset.phrow!=null||e.target.dataset.lrrow!=null){const f=S.forms.laengsnaht,t=e.target;lnSetAng(f,t.dataset.phrow!=null?'phRows':'lrRows',+(t.dataset.phrow??t.dataset.lrrow),t.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnDrawSim();save();return;}
- if(e.target.dataset.zrow!=null){const f=S.forms.laengsnaht,msg=lnSetZ(f,+e.target.dataset.zrow,e.target.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');lnDrawSim();save();if(msg)toast(msg);return;}
+ if(e.target.dataset.phrow!=null){const f=S.forms.laengsnaht,t=e.target;lnSetAng(f,LN_PK[t.dataset.side||'L'],+t.dataset.phrow,t.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnDrawSim();save();return;}
+ if(e.target.dataset.zrow!=null){const f=S.forms.laengsnaht,msg=lnSetZ(f,e.target.dataset.side||'L',+e.target.dataset.zrow,e.target.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');lnDrawSim();save();if(msg)toast(msg);return;}
  if(e.target.dataset.catimp){const inp=e.target,kind=inp.dataset.catimp,f=inp.files&&inp.files[0];if(!f)return;
   const [kd,pp]=kind.split(':');
   f.text().then(t=>{let rows;try{rows=csvToCat(kd,t);}catch(err){toast(err==='kopf'?'Kopfzeile nicht erkannt – CSV-Vorlage verwenden':'Die Datei enthält keine Daten');return;}
