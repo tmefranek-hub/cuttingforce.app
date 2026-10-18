@@ -741,7 +741,7 @@ function lnSetAng(f,key,idx,val){const n=lnRows(f).length,a=String(f[key]||'').s
 let LN_DEPTH=null,LN_ROT=0,LN_VIEW='links',LN_PLAY=false,LN_MAT=false,LN_T=0;
 function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Rotationssimulation – Eingriffsbereich des Fräsers</div>
  <div class="toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px">
-  <button type="button" class="btn" data-lnview="1">Ansicht von ${LN_VIEW==='links'?'rechts':'links'}</button>
+  <span style="display:inline-flex;gap:4px;align-items:center;font-size:13px">Ansicht: ${[['links','von links'],['rechts','von rechts'],['beide','beide Seiten']].map(([v,l])=>`<button type="button" class="chip-btn" data-lnview="${v}" aria-pressed="${LN_VIEW===v}">${l}</button>`).join('')}</span>
   <button type="button" class="btn" data-lnplay="1">${LN_PLAY?'❚❚ Pause':'▶ Drehen'}</button>
   <label style="display:flex;align-items:center;gap:6px;flex:1;min-width:180px;font-size:13px">Drehwinkel <input type="range" min="0" max="360" step="0.5" value="${LN_ROT}" data-lnrot="1" style="flex:1"><span id="ln-rotv">${fmt(LN_ROT,1)}°</span></label>
   <div id="ln-cutsel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:1 1 100%;font-size:13px"></div>
@@ -752,7 +752,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  {const cs=document.getElementById('ln-cutsel');if(cs)cs.innerHTML='Angezeigter Schnitt: '+C.list.map(c=>`<button type="button" class="chip-btn" data-lnsel="${c.k}" aria-pressed="${c.k===ks}">Schnitt ${c.k+1}${c.t>0?' · '+fmt(c.t,0)+' mm':''}</button>`).join('');}
  if(!(DS>0&&ap>0&&G.ok&&cu&&cu.t>0&&cu.d>0)){el.innerHTML='<p class="note">Fräserdurchmesser Dc, Profil und die Schnitttiefen (zunehmend) eintragen.</p>';return;}
  /* Alles maßstäblich: Koordinaten in mm um die Fräserachse, X = Lage quer, Y nach unten; Winkel θ von oben in Drehrichtung */
- const RS=DS/2,cb=Math.cos(G.be),mir=LN_VIEW==='rechts'?-1:1,near=LN_VIEW==='links'?'L':'R';
+ const RS=DS/2,cb=Math.cos(G.be);let mir=1,near='L';
  const COL=['#b3261e','#2e7d32','#7a5a00','#1d5fc4','#6a1b9a','#00838f','#ad1457','#5d4037'];
  const t=cu.t,tp=cu.tp;
  const yLow=i=>i===0?0:G.yt+G.segs[i-1][0]*cb, yHigh=i=>i===0?G.yt:G.yt+G.segs[i-1][1]*cb, yMid=i=>(yLow(i)+yHigh(i))/2;
@@ -761,8 +761,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const phRow=i=>{let m=0;const a=yLow(i),b=Math.min(yHigh(i),t);for(let q=0;q<=20;q++){const v=phY(a+(b-a)*q/20);if(v>m)m=v;}return m;};
  const PT=(r,deg)=>{const q=deg*Math.PI/180;return [mir*r*Math.sin(q),-r*Math.cos(q)];};
  const ENG=new Set();let eng=0;
- const INS=A.ins.map(q=>{const a=(((q.ang+LN_ROT)%360)+360)%360,ph=phRow(q.i),on=ph>0&&a>=180-ph&&a<=180;if(on){eng++;ENG.add(q.i+q.side+q.j);}return {...q,a,on};})
-  .sort((x,y)=>(x.side===near)-(y.side===near));
+ const INS=A.ins.map(q=>{const a=(((q.ang+LN_ROT)%360)+360)%360,ph=phRow(q.i),on=ph>0&&a>=180-ph&&a<=180;if(on){eng++;ENG.add(q.i+q.side+q.j);}return {...q,a,on};});
  /* eine Ansicht: Maßstab k (px/mm), Ursprung (ox, oy) in px */
  const view=(W,H,k,ox,oy,detail)=>{const S=([x,y])=>[ox+x*k,oy+y*k],f1=v=>v.toFixed(1);let g='';
   const ys=oy+(RS-t)*k;
@@ -778,9 +777,11 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
    if(q.on)g+=`<line x1="${f1(p1[0])}" y1="${f1(p1[1])}" x2="${f1(p2[0])}" y2="${f1(p2[1])}" stroke="var(--fg)" stroke-width="${sw+3}"/>`;
    g+=`<line x1="${f1(p1[0])}" y1="${f1(p1[1])}" x2="${f1(p2[0])}" y2="${f1(p2[1])}" stroke="${col}" stroke-width="${sw}" stroke-opacity="${isN?1:.55}" ${isN?'':'stroke-dasharray="2 1.5"'}/>`;});
   return g;};
+ const Wz=560,Hz=360;
+ const mk=VIEW=>{mir=VIEW==='rechts'?-1:1;near=VIEW==='links'?'L':'R';INS.sort((x,y)=>(x.side===near)-(y.side===near));
  // Nur der Eingriffsbereich – gleicher Maßstab in beiden Richtungen, Durchmesserverhältnisse stimmen
  const phM=Math.max(phRow(0),3),sM=Math.sin(phM*Math.PI/180),xr=RS*sM,hy=Math.max(G.hP,t)+RS*(1-Math.cos(phM*Math.PI/180));
- const Wz=560,Hz=360,k2=Math.min((Wz-40)/(xr*1.25+G.hP*1.5),(Hz-70)/(hy*1.35));
+ const k2=Math.min((Wz-40)/(xr*1.25+G.hP*1.5),(Hz-70)/(hy*1.35));
  const zx0=mir*xr*0.42,zy0=RS-hy*0.45,ox2=Wz/2-zx0*k2,oy2=(Hz-30)/2-zy0*k2;
  let g2=view(Wz,Hz,k2,ox2,oy2,true);
  const yS=oy2+(RS-t)*k2;
@@ -790,10 +791,11 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const a1=S2(PT(rA,180-phM*0.95)),a2=S2(PT(rA,180-phM*0.6));
  g2+=`<path d="M${a1[0].toFixed(1)} ${a1[1].toFixed(1)} A${(rA*k2).toFixed(1)} ${(rA*k2).toFixed(1)} 0 0 ${mir>0?1:0} ${a2[0].toFixed(1)} ${a2[1].toFixed(1)}" fill="none" stroke="var(--fg)" stroke-width="1.2" marker-end="url(#lnar2)"/>`;
  const fx=mir>0?Wz-90:90,fy=Hz-46;g2+=`<line x1="${fx-36*mir}" y1="${fy}" x2="${fx+36*mir}" y2="${fy}" stroke="var(--fg)" stroke-width="1.2" marker-end="url(#lnar2)"/><text x="${fx}" y="${fy-7}" font-size="11" text-anchor="middle" fill="var(--fg)">Vorschub v<tspan font-size="8" dy="2">f</tspan></text>`;
- g2+=`<rect x="0" y="${Hz-30}" width="${Wz}" height="30" fill="var(--surface)"/><text x="8" y="${Hz-17}" font-size="12" fill="var(--fg)">Eingriffsbereich, Ansicht von ${LN_VIEW} · voll: ${LN_VIEW==='links'?'linke':'rechte'}, gestrichelt: ${LN_VIEW==='links'?'rechte':'linke'} Platten</text><text x="8" y="${Hz-4}" font-size="11" fill="var(--muted)">maßstäblich (Ø ${fmt(DS,0)} mm, Profilhöhe ${fmt(G.hP,1)} mm, beide Achsen gleicher Maßstab) · im Eingriff: ${eng} Platten</text>`;
+ g2+=`<rect x="0" y="${Hz-30}" width="${Wz}" height="30" fill="var(--surface)"/><text x="8" y="${Hz-17}" font-size="12" fill="var(--fg)">Eingriffsbereich, Ansicht von ${VIEW} · voll: ${VIEW==='links'?'linke':'rechte'}, gestrichelt: ${VIEW==='links'?'rechte':'linke'} Platten</text><text x="8" y="${Hz-4}" font-size="11" fill="var(--muted)">maßstäblich (Ø ${fmt(DS,0)} mm, Profilhöhe ${fmt(G.hP,1)} mm, beide Achsen gleicher Maßstab) · im Eingriff: ${eng} Platten</text>`;
+ return g2;};
  const SV=(w,h,body)=>`<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto 8px;background:var(--surface);border:1px solid var(--line);border-radius:6px" role="img"><defs><marker id="lnar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fg)"/></marker></defs><g>${body}</g></svg>`;
  const leg=A.rows.map((r,i)=>`<span><i style="display:inline-block;width:12px;height:6px;background:${COL[i%COL.length]};vertical-align:middle"></i> ${r.nm} (z = ${Number.isFinite(r.zL)?r.zL:'–'} / ${Number.isFinite(r.zR)?r.zR:'–'})</span>`).join('');
- el.innerHTML=SV(Wz,Hz,g2)+`<div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:2px;justify-content:center">${leg}<span>Platten als radiale Striche über ihre Schneidenhöhe · schwarz umrandet: im Eingriff · getönter Bogen: Eingriffsbogen je Reihe</span></div>
+ el.innerHTML=(LN_VIEW==='beide'?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:8px">${SV(Wz,Hz,mk('links'))}${SV(Wz,Hz,mk('rechts'))}</div>`:SV(Wz,Hz,mk(LN_VIEW)))+`<div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:2px;justify-content:center">${leg}<span>Platten als radiale Striche über ihre Schneidenhöhe · schwarz umrandet: im Eingriff · getönter Bogen: Eingriffsbogen je Reihe</span></div>
  <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Reihe</th><th>schneidet ab Tiefe (mm)</th><th>a<sub>e,max</sub> (mm)</th><th>Eingriffsbogen φ<sub>i</sub> (°)</th><th>Eingriffslänge l<sub>e,max</sub> (mm)</th><th>Platten im Eingriff (links / rechts)</th></tr></thead><tbody>${A.rows.map((r,i)=>{const L=A.ins.filter(q=>q.i===i&&q.side==='L'&&ENG.has(i+'L'+q.j)).map(q=>q.j),Rr=A.ins.filter(q=>q.i===i&&q.side==='R'&&ENG.has(i+'R'+q.j)).map(q=>q.j);
   return `<tr${phRow(i)>0?'':' style="opacity:.5"'}><td>${r.nm}</td><td>${fmt(yLow(i),1)}</td><td>${phRow(i)>0?fmt(lnAe(cu,yLow(i)),1):'–'}</td><td>${phRow(i)>0?fmt(phRow(i),2):'–'}</td><td>${phRow(i)>0?fmt((RS-yLow(i))*phRow(i)*Math.PI/180,1):'–'}</td><td>${L.length+Rr.length?`${L.length} (${L.join(', ')||'–'}) / ${Rr.length} (${Rr.join(', ')||'–'})`:'0'}</td></tr>`;}).join('')}</tbody></table></div>
  <details style="margin-top:6px"><summary style="cursor:pointer;font-size:13px">Eingriff je Inkrement – Schnitt ${ks+1} (rechte Profilhälfte, links spiegelbildlich)</summary><div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Platte</th><th>Inkr.</th><th>y (mm)</th><th>κ (°)</th><th>a<sub>e</sub> (mm)</th><th>φ (°)</th><th>l<sub>e</sub> (mm)</th></tr></thead><tbody>${G.inc.map(q=>{const ph=phY(q.y),ae=lnAe(cu,q.y);return `<tr${ph>0?'':' style="opacity:.45"'}><td>${q.pl==='R'?'Radius':q.pl}</td><td>${q.k}</td><td>${fmt(q.y,2)}</td><td>${fmt(q.kap,1)}</td><td>${ae>0?fmt(ae,2):'–'}</td><td>${ph>0?fmt(ph,2):'–'}</td><td>${ph>0?fmt((RS-q.y)*ph*Math.PI/180,1):'–'}</td></tr>`;}).join('')}</tbody></table></div>
@@ -805,7 +807,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
 }
 function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0;LN_T=t;LN_ROT=(LN_ROT+dt*30)%360;
  const r=document.querySelector('[data-lnrot]');if(r)r.value=LN_ROT;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();requestAnimationFrame(lnLoop);}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
  if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht;
   if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
   if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';}else f.lnMid='1';}
@@ -822,9 +824,10 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[d
  if(b.dataset.lnfit){LN_FIT=!LN_FIT;lnPowRender();return;}
  if(b.dataset.lnzoom){LN_ZOOM=+b.dataset.lnzoom;lnPowRender();return;}
  if(b.dataset.lnsrc){LN_SRC=b.dataset.lnsrc;lnPowRender();return;}
+ if(b.dataset.lnsplit){LN_SPLIT=!LN_SPLIT;lnPowRender();return;}
  if(b.dataset.lnedge!=null){LN_EDGE=+b.dataset.lnedge;lnPowRender();return;}
  if(b.dataset.lnsel!=null){const f=S.forms.laengsnaht;f.lnCut=b.dataset.lnsel;lnRefresh(f);return;}
- if(b.dataset.lnview){LN_VIEW=LN_VIEW==='links'?'rechts':'links';b.textContent='Ansicht von '+(LN_VIEW==='links'?'rechts':'links');}
+ if(b.dataset.lnview){LN_VIEW=b.dataset.lnview;document.querySelectorAll('[data-lnview]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.lnview===LN_VIEW));}
  if(b.dataset.lnplay){LN_PLAY=!LN_PLAY;b.textContent=LN_PLAY?'❚❚ Pause':'▶ Drehen';if(LN_PLAY){LN_T=0;requestAnimationFrame(lnLoop);}}
  if(b.dataset.lnmat){LN_MAT=!LN_MAT;b.textContent=LN_MAT?'Positionsmatrix ausblenden':'Positionsmatrix anzeigen';}
  lnDrawSim();});
@@ -834,7 +837,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[d
    h = f_z,i · sin β · sin κ, F_c = b · k_c1.1 · h^(1−m_c) · (1 − γ₀/100), M = Σ F_c · r, P = M · ω.
    Die Gesamtkurve entsteht durch Überlagerung aller Platten mit ihrer Winkellage θ (Positionsmatrix).
    Ergebnisobjekt LN_CALC enthält alle Zwischengrößen (je Schneide, je Inkrement, Kurven), damit weitere Größen angezeigt werden können. */
-let LN_CALC=null,LN_PQ='P',LN_EDGE=0,LN_FIT=true,LN_ZOOM=360,LN_SRC='tot',LN_TRK='';
+let LN_SPLIT=false,LN_CALC=null,LN_PQ='P',LN_EDGE=0,LN_FIT=true,LN_ZOOM=360,LN_SRC='tot',LN_TRK='';
 const lnCalcKey=f=>JSON.stringify(['Dc','rR','dU','alphaN','lK','uF','nIR','nIF','z','zRows','zRowsR','phRows','phRowsR','lnMid','vc','nCuts','cutT','cutVf','g','kc','mc','nPhi'].map(k=>f[k]));
 function lnPowerCut(f,k){
  const G=lnGeom(f),A=lnAng(f),C=lnCuts(f),cu=C.list[k],D=num(f.Dc),Rr=D/2,vc=num(f.vc),z=num(f.z),kc11=num(f.kc),mc=num(f.mc),gk=1-(num(f.g)||0)/100;
@@ -866,7 +869,7 @@ function lnPowerCut(f,k){
 function lnPowerAll(f){const C=lnCuts(f);LN_CALC={key:lnCalcKey(f),at:new Date(),cuts:C.list.map(c=>lnPowerCut(f,c.k))};}
 /* Liniendiagramm (eine Reihe, eine y-Achse) mit Mittelwertlinie, Fadenkreuz und Tooltip */
 const LN_CH={};
-function lnChart(id,xs,ys,o){const W=560,H=230,L=52,Rm=12,T=14,B=34,xmin=o.xmin??xs[0],xmax=o.xmax??xs[xs.length-1];let ymax=0,ymn=1e18;for(const v of ys){if(v>ymax)ymax=v;if(v<ymn)ymn=v;}
+function lnChart(id,xs,ys,o){const W=560,H=230,L=52,Rm=12,T=14,B=34,xmin=o.xmin??xs[0],xmax=o.xmax??xs[xs.length-1];let ymax=0,ymn=1e18;for(const v of ys){if(v>ymax)ymax=v;if(v<ymn)ymn=v;}(o.extra||[]).forEach(ex=>{for(const v of ex.ys){if(v>ymax)ymax=v;if(v<ymn)ymn=v;}});
  const nice=v=>{const e=Math.pow(10,Math.floor(Math.log10(v))),m=v/e;return (m<=1?1:m<=2?2:m<=5?5:10)*e;};
  let y0=0;if(o.fit&&ymax>0){const span=Math.max(ymax-ymn,ymax*0.02),st0=nice(span/4);y0=Math.max(0,Math.floor((ymn-span*0.15)/st0)*st0);ymax=Math.ceil((ymax+span*0.15)/st0)*st0;}else ymax=ymax>0?ymax*1.1:1;
  const X=x=>L+(x-xmin)/(xmax-xmin)*(W-L-Rm),Y=y=>T+(1-(y-y0)/(ymax-y0))*(H-T-B),f1=v=>v.toFixed(1);
@@ -876,17 +879,19 @@ function lnChart(id,xs,ys,o){const W=560,H=230,L=52,Rm=12,T=14,B=34,xmin=o.xmin?
  g+=`<line x1="${L}" x2="${W-Rm}" y1="${f1(Y(y0))}" y2="${f1(Y(y0))}" stroke="var(--muted)" stroke-width="1"/>`;
  let d='';xs.forEach((x,j)=>{if(x<xmin||x>xmax)return;d+=(d?'L':'M')+f1(X(x))+' '+f1(Y(ys[j]));});
  g+=`<path d="${d}" fill="none" stroke="#1d5fc4" stroke-width="2" stroke-linejoin="round"/>`;
+ (o.extra||[]).forEach(ex=>{let d2='';xs.forEach((x,j)=>{if(x<xmin||x>xmax)return;d2+=(d2?'L':'M')+f1(X(x))+' '+f1(Y(ex.ys[j]));});g+=`<path d="${d2}" fill="none" stroke="${ex.color}" stroke-width="2" stroke-linejoin="round"/>`;});
  if(o.mean!=null){g+=`<line x1="${L}" x2="${W-Rm}" y1="${f1(Y(o.mean))}" y2="${f1(Y(o.mean))}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="5 4"/><text x="${W-Rm-4}" y="${f1(Y(o.mean)-5)}" font-size="11" text-anchor="end" fill="var(--fg)" style="paint-order:stroke;stroke:var(--surface);stroke-width:3px">${o.meanLab||'Mittelwert'} ${fmt(o.mean,o.dec)} ${o.unit}</text>`;}
  g+=`<text x="${L}" y="${H-4}" font-size="11" fill="var(--muted)">${o.xlabel}</text><text x="6" y="11" font-size="11" fill="var(--muted)">${o.ylabel}${y0>0?' – Achse beginnt bei '+fmt(y0,o.dec)+' '+o.unit:''}</text>`;
  g+=`<g class="ln-hov" style="display:none"><line y1="${T}" y2="${H-B}" stroke="var(--fg)" stroke-width="1"/><circle r="4" fill="#1d5fc4" stroke="var(--surface)" stroke-width="2"/></g>`;
  LN_CH[id]={xs,ys,X,Y,L,W,Rm,o,xmin,xmax};
- return `<div style="position:relative"><svg data-lnchart="${id}" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px;touch-action:pan-y" role="img" aria-label="${o.ylabel} über ${o.xlabel}">${g}<rect x="${L}" y="${T}" width="${W-L-Rm}" height="${H-T-B}" fill="transparent"/></svg><div class="ln-tip" style="position:absolute;display:none;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:12px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.15)"></div></div>`;}
+ const lg=o.extra&&o.extra.length?`<div style="display:flex;gap:14px;justify-content:center;font-size:12.5px;margin-top:4px"><span><i style="display:inline-block;width:14px;height:3px;background:#1d5fc4;vertical-align:middle"></i> ${o.mainLab}</span>${o.extra.map(ex=>`<span><i style="display:inline-block;width:14px;height:3px;background:${ex.color};vertical-align:middle"></i> ${ex.label}</span>`).join('')}</div>`:'';
+ return lg+`<div style="position:relative"><svg data-lnchart="${id}" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px;touch-action:pan-y" role="img" aria-label="${o.ylabel} über ${o.xlabel}">${g}<rect x="${L}" y="${T}" width="${W-L-Rm}" height="${H-T-B}" fill="transparent"/></svg><div class="ln-tip" style="position:absolute;display:none;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:12px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.15)"></div></div>`;}
 function lnChartHover(e){const sv=e.target.closest&&e.target.closest('svg[data-lnchart]');if(!sv)return;const c=LN_CH[sv.dataset.lnchart];if(!c)return;
  const rc=sv.getBoundingClientRect(),sx=(e.clientX-rc.left)*sv.viewBox.baseVal.width/rc.width,x=c.xmin+(sx-c.L)/(c.W-c.L-c.Rm)*(c.xmax-c.xmin);
  let bj=0,bd=1e9;c.xs.forEach((v,j)=>{const d=Math.abs(v-x);if(d<bd){bd=d;bj=j;}});
  const hv=sv.querySelector('.ln-hov'),tip=sv.parentNode.querySelector('.ln-tip'),px=c.X(c.xs[bj]),py=c.Y(c.ys[bj]);
  hv.style.display='';hv.querySelector('line').setAttribute('x1',px);hv.querySelector('line').setAttribute('x2',px);hv.querySelector('circle').setAttribute('cx',px);hv.querySelector('circle').setAttribute('cy',py);
- tip.style.display='';tip.innerHTML=`${c.o.xfmt?c.o.xfmt(c.xs[bj]):fmt(c.xs[bj],1)} · <b>${fmt(c.ys[bj],c.o.dec)} ${c.o.unit}</b>`;
+ tip.style.display='';tip.innerHTML=`${c.o.xfmt?c.o.xfmt(c.xs[bj]):fmt(c.xs[bj],1)} · ${c.o.extra&&c.o.extra.length?(c.o.mainLab||'')+' ':''}<b>${fmt(c.ys[bj],c.o.dec)} ${c.o.unit}</b>${(c.o.extra||[]).map(ex=>` · ${ex.label} <b>${fmt(ex.ys[bj],c.o.dec)} ${c.o.unit}</b>`).join('')}`;
  const k=rc.width/sv.viewBox.baseVal.width;tip.style.left=Math.min(rc.width-140,Math.max(0,px*k+10))+'px';tip.style.top=Math.max(0,py*k-34)+'px';}
 document.addEventListener('pointermove',lnChartHover);
 document.addEventListener('pointerleave',e=>{},true);
@@ -909,20 +914,22 @@ function lnPowResHTML(f){
  tracks.sort((x,y)=>x.i-y.i||x.sides.length-y.sides.length||(x.sides[0]>y.sides[0]?1:-1));
  if(!tracks.some(t=>t.key===LN_TRK)&&tracks.length)LN_TRK=tracks[0].key;
  const tr=LN_SRC==='trk'?tracks.find(t=>t.key===LN_TRK):null;
- let ysel,meanSel,lab,nOn=null;
+ let ysel,meanSel,lab,nOn=null,extra=null;const split=!!(tr&&tr.sides.length===2&&LN_SPLIT);
+ const trackSum=(i,sides)=>{const y=new Float64Array(r.N);sides.forEach(sd=>{const e=r.edges.find(x=>x.i===i&&x.side===sd);if(!e)return;r.ins.filter(q=>q.i===i&&q.side===sd).forEach(q=>{const o=Math.round(q.ang/r.da),src=isH?e.H:isP?e.P:e.M;for(let j=0;j<r.N;j++){const v=src[(j+o)%r.N];if(isH){if(v>y[j])y[j]=v;}else y[j]+=v;}});});return y;};
  if(tr){ysel=new Float64Array(r.N);nOn=new Float64Array(r.N);let zs=0;
   tr.sides.forEach(sd=>{const e=r.edges.find(x=>x.i===tr.i&&x.side===sd);if(!e)return;zs+=e.z;
    r.ins.filter(q=>q.i===tr.i&&q.side===sd).forEach(q=>{const o=Math.round(q.ang/r.da),src=isH?e.H:isP?e.P:e.M;
     for(let j=0;j<r.N;j++){const v=src[(j+o)%r.N];if(isH){if(v>ysel[j])ysel[j]=v;}else ysel[j]+=v;if(e.P[(j+o)%r.N]>0)nOn[j]++;}});});
-  let sm=0,mx=0;for(let j=0;j<r.N;j++){sm+=ysel[j];if(ysel[j]>mx)mx=ysel[j];}meanSel=isH?mx:sm/r.N;lab=`Spur ${tr.nm} (${zs} Platten)`;}
+  let sm=0,mx=0;for(let j=0;j<r.N;j++){sm+=ysel[j];if(ysel[j]>mx)mx=ysel[j];}meanSel=isH?mx:sm/r.N;lab=`Spur ${tr.nm} (${zs} Platten)`;
+  if(split){ysel=trackSum(tr.i,['L']);extra=[{ys:trackSum(tr.i,['R']),color:'#c2560c',label:'rechts'}];lab=`Spur ${r.edges.find(e=>e.i===tr.i).nm} – links und rechts getrennt`;}}
  else{ysel=isH?r.Ht:isP?r.Pt:r.Mt;meanSel=isH?r.hmax:isP?r.Pm:r.Mm;lab='Fräser gesamt';}
  const unitS=isH?'mm':isP?'kW':'Nm';
  h+=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin:4px 0 6px">Anzeige: <button type="button" class="chip-btn" data-lnsrc="tot" aria-pressed="${!tr}">Fräser gesamt</button><button type="button" class="chip-btn" data-lnsrc="trk" aria-pressed="${!!tr}">Wendeplattenreihe (Spur)</button>
-  ${LN_SRC==='trk'?`<select data-lntrk="1" style="padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit">${tracks.map(t=>`<option value="${t.key}" ${t.key===LN_TRK?'selected':''}>${t.nm}</option>`).join('')}</select>`:''}</div>`;
+  ${LN_SRC==='trk'?`<select data-lntrk="1" style="padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit">${tracks.map(t=>`<option value="${t.key}" ${t.key===LN_TRK?'selected':''}>${t.nm}</option>`).join('')}</select>${tr&&tr.sides.length===2?`<button type="button" class="chip-btn" data-lnsplit="1" aria-pressed="${LN_SPLIT}">beide Seiten getrennt</button>`:''}`:''}</div>`;
  h+=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;margin:4px 0 6px">Verlauf über 0 … 2π: <button type="button" class="chip-btn" data-lnpq="P" aria-pressed="${isP&&!isH}">Leistung</button><button type="button" class="chip-btn" data-lnpq="M" aria-pressed="${LN_PQ==='M'}">Drehmoment</button><button type="button" class="chip-btn" data-lnpq="H" aria-pressed="${isH}">Max. aktuelle Spanungsdicke</button><span style="flex:1"></span>Bereich: ${[[360,'2π'],[90,'90°'],[30,'30°'],[10,'10°']].map(([v,l])=>`<button type="button" class="chip-btn" data-lnzoom="${v}" aria-pressed="${LN_ZOOM===v}">${l}</button>`).join('')}<button type="button" class="chip-btn" data-lnfit="1" aria-pressed="${!LN_FIT}">Achse ab 0</button></div>`;
- h+=lnChart('tot',xs,Array.from(ysel),{xlabel:'Fräserdrehwinkel ψ',ylabel:(isH?'max. aktuelle Spanungsdicke h(ψ) (mm)':isP?'Schnittleistung P (kW)':'Drehmoment M (Nm)')+' – '+lab,unit:unitS,dec:isH?3:isP?2:0,mean:meanSel,meanLab:isH?'h_max':'Mittelwert',fit:LN_FIT&&!isH,xmin:0,xmax:LN_ZOOM,xticks:LN_ZOOM===360?[0,90,180,270,360]:[0,LN_ZOOM/4,LN_ZOOM/2,3*LN_ZOOM/4,LN_ZOOM],xfmt:LN_ZOOM===360?(x=>x===0?'0':x===90?'π/2':x===180?'π':x===270?'3π/2':x===360?'2π':fmt(x,1)+'°'):(x=>fmt(x,Number.isInteger(x)?0:1)+'°')});
+ h+=lnChart('tot',xs,Array.from(ysel),{xlabel:'Fräserdrehwinkel ψ',ylabel:(isH?'max. aktuelle Spanungsdicke h(ψ) (mm)':isP?'Schnittleistung P (kW)':'Drehmoment M (Nm)')+' – '+lab,unit:unitS,dec:isH?3:isP?2:0,mean:split?null:meanSel,meanLab:isH?'h_max':'Mittelwert',extra,mainLab:'links',fit:LN_FIT&&!isH,xmin:0,xmax:LN_ZOOM,xticks:LN_ZOOM===360?[0,90,180,270,360]:[0,LN_ZOOM/4,LN_ZOOM/2,3*LN_ZOOM/4,LN_ZOOM],xfmt:LN_ZOOM===360?(x=>x===0?'0':x===90?'π/2':x===180?'π':x===270?'3π/2':x===360?'2π':fmt(x,1)+'°'):(x=>fmt(x,Number.isInteger(x)?0:1)+'°')});
  if(isH&&!tr)h+=`<p class="note" style="margin:4px 0 10px">Je Drehwinkel ψ die größte aktuelle Spanungsdicke aller Platten im Eingriff (h = f<sub>z,i</sub> · sin β · sin κ). Höchstwert h<sub>max</sub> = ${fmt(r.hmax,3)} mm.</p>`;
- if(tr){let mn=1e18,mx=0,nm=0,nx=0,nn=1e9;for(let j=0;j<r.N;j++){if(ysel[j]<mn)mn=ysel[j];if(ysel[j]>mx)mx=ysel[j];nm+=nOn[j];if(nOn[j]>nx)nx=nOn[j];if(nOn[j]<nn)nn=nOn[j];}
+ if(tr&&!split){let mn=1e18,mx=0,nm=0,nx=0,nn=1e9;for(let j=0;j<r.N;j++){if(ysel[j]<mn)mn=ysel[j];if(ysel[j]>mx)mx=ysel[j];nm+=nOn[j];if(nOn[j]>nx)nx=nOn[j];if(nOn[j]<nn)nn=nOn[j];}
   h+=`<p class="note" style="margin:4px 0 10px">${lab}: ${isH?`h<sub>max</sub> = ${fmt(mx,3)} mm, min. ${fmt(mn,3)} mm`:`Mittelwert ${fmt(meanSel,isP?2:0)} ${unitS}, max. ${fmt(mx,isP?2:0)} ${unitS}, min. ${fmt(mn,isP?2:0)} ${unitS}, Schwankung ${fmt(mx-mn,isP?2:0)} ${unitS}${meanSel>0?' ('+fmt((mx-mn)/meanSel*100,1)+' %)':''}`} · Platten der Spur im Eingriff min / Ø / max: ${fmt(nn,0)} / ${fmt(nm/r.N,1)} / ${fmt(nx,0)}.</p>`;}
  h+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px">
   ${kv('Mittlere Schnittleistung P̄',fmt(r.Pm,2),'kW',1)}${kv('Max. / min. Schnittleistung',fmt(r.Pmax,2)+' / '+fmt(r.Pmin,2),'kW')}${kv('Schwankung ΔP (ΔP/P̄)',fmt(r.Pmax-r.Pmin,2)+' kW ('+fmt((r.Pmax-r.Pmin)/r.Pm*100,1)+' %)','')}${kv('Antriebsleistung P̄ / η',fmt(r.Pm/r.eta,2),'kW')}
