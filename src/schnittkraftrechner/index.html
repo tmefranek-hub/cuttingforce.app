@@ -65,6 +65,8 @@ main{padding-block:20px 56px}
 .inp input,.inp select,.inp textarea{flex:1;min-width:0;border:0;background:transparent;padding:8px 10px;outline:none}
 .inp select{padding-right:4px}
 .inp textarea{resize:vertical;min-height:72px}
+.negbtn{flex:none;border:0;border-left:1px solid var(--line);background:transparent;color:var(--ink,inherit);font:600 15px var(--f-mono);padding:0 10px;align-self:stretch;cursor:pointer;touch-action:manipulation}
+.negbtn:active{background:var(--line)}
 .inp em{font:normal 12px var(--f-mono);color:var(--muted);padding-right:10px;white-space:nowrap}
 .inp.num input{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .group-lbl{grid-column:1/-1;font:600 12px var(--f-disp);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:6px;padding-top:10px;border-top:1px dashed var(--line)}
@@ -476,7 +478,7 @@ const KUEHL=['Emulsion','Innere Kühlmittelzuführung (IKZ)','Hochdruck-IKZ','Mi
 const VERSCHL=['','Kein nennenswerter Verschleiß','Freiflächenverschleiß','Abrasivverschleiß','Kolkverschleiß','Kerbverschleiß','Aufbauschneidenbildung','Materialanklebung','Schneidkantenausbrüche','Kammrisse','Plastische Verformung','Schneidenbruch'];
 const SPAN=['','Gut (kurze Wendelspäne)','Akzeptabel','Lange Bandspäne','Wirrspäne','Spanstau','Zu stark gebrochen'];
 
-const num=v=>(v===''||v==null)?NaN:parseFloat(String(v).replace(',','.'));
+const num=v=>(v===''||v==null)?NaN:parseFloat(String(v).replace(',','.').replace('−','-'));
 const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString(LOC(),{minimumFractionDigits:d,maximumFractionDigits:d}):'–';
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const clone=o=>JSON.parse(JSON.stringify(o));
@@ -931,9 +933,14 @@ function field(scope,k,label,o={}){
  if(o.opts)ctl=`<select id="${id}" data-k="${k}">${o.opts.map(x=>`<option ${x===v?'selected':''} value="${esc(x)}">${esc(x||'– bitte wählen –')}</option>`).join('')}</select>`;
  else if(o.area)ctl=`<textarea id="${id}" data-k="${k}" placeholder="${esc(o.ph||'')}">${esc(v)}</textarea>`;
  else ctl=`<input id="${id}" data-k="${k}" value="${esc(v)}" ${o.num?'inputmode="decimal" autocomplete="off"':''} ${o.date?'type="date"':''} placeholder="${esc(o.ph||'')}" ${o.list&&o.list.length?`list="${id}-dl" autocomplete="off"`:''} ${o.cat?`data-cat="${o.cat}"`:''}>${o.list&&o.list.length?`<datalist id="${id}-dl">${o.list.map(x=>typeof x==='object'?`<option value="${esc(x.v)}" label="${esc(x.l)}">`:`<option value="${esc(x)}">`).join('')}</datalist>`:''}`;
- return `<label class="fld ${o.wide?'wide':''}" id="w-${id}" ${o.hidden?'hidden':''}><span class="lbl">${label}</span><span class="inp ${o.num?'num':''}">${ctl}${o.u?`<em>${o.u}</em>`:''}</span></label>`;
+ return `<label class="fld ${o.wide?'wide':''}" id="w-${id}" ${o.hidden?'hidden':''}><span class="lbl">${label}</span><span class="inp ${o.num?'num':''}">${ctl}${o.neg?negBtn(id):''}${o.u?`<em>${o.u}</em>`:''}</span></label>`;
 }
 
+/* ± für Felder mit negativen Werten (Handy-Zifferntastatur hat kein Minus) */
+const NEG_KEYS=new Set(['g']);
+const negBtn=id=>`<button type="button" class="negbtn" data-negfor="${id}" aria-label="Vorzeichen wechseln" title="Vorzeichen wechseln">±</button>`;
+function toggleSign(inp){let v=inp.value.trim();v=v.startsWith('-')||v.startsWith('−')?v.slice(1):'-'+v;inp.value=v;inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}));try{inp.focus();inp.setSelectionRange(v.length,v.length);}catch(_){}}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-negfor]');if(!b)return;e.preventDefault();const i=document.getElementById(b.dataset.negfor);if(i)toggleSign(i);});
 function altField(p,k,label,u){
  const f=S.forms[p],isV=k==='vc',mode=isV?(f.vcMode||'vc'):(f.fMode||'fz'),alt=isV?mode==='n':mode==='vf';
  const mk=isV?'vcMode':'fMode',o1=isV?'vc':'fz',o2=isV?'n':'vf',t1=isV?'vc':ALT[p].fl,t2=isV?'n':'vf';
@@ -1091,7 +1098,7 @@ function renderProc(p){
    ${field(p,'kc','Spez. Schnittkraft kc1.1',{num:1,u:'N/mm²'})}${field(p,'mc','Anstiegswert mc',{num:1})}${p==='schaelen'?field(p,'rho','Dichte ρ',{num:1,u:'g/cm³'}):''}
   </div></section>`,
  cut:`<section class="card"><h2>Schnittdaten</h2><p class="hint">Der Rechner rechts aktualisiert sich bei jeder Eingabe.</p>
-  ${(()=>{const PF=([k,l,u])=>((p==='fraesen'&&k==='ae')||(p==='blechkante'&&k==='kr')?posBlock(p):'')+(p==='schaelen'&&k==='ap'?apField(p,l):k==='vc'||k===ALT[p].f?altField(p,k,l,u):field(p,k,l,{num:1,u})+(k==='lam'?'<p class="note wide" style="margin:-6px 0 0">λ = Spanlänge im Schnitt / tatsächliche Spanlänge. Typisch 1,5–3 bei Stahl, ca. 1,2–1,8 bei Aluminium. Bestimmt die Spanlänge lsp = le / λ.</p>':'')),PS=c.params.filter(([k])=>!c.vis||c.vis(k,S.forms[p]));
+  ${(()=>{const PF=([k,l,u])=>((p==='fraesen'&&k==='ae')||(p==='blechkante'&&k==='kr')?posBlock(p):'')+(p==='schaelen'&&k==='ap'?apField(p,l):k==='vc'||k===ALT[p].f?altField(p,k,l,u):field(p,k,l,{num:1,u,neg:NEG_KEYS.has(k)})+(k==='lam'?'<p class="note wide" style="margin:-6px 0 0">λ = Spanlänge im Schnitt / tatsächliche Spanlänge. Typisch 1,5–3 bei Stahl, ca. 1,2–1,8 bei Aluminium. Bestimmt die Spanlänge lsp = le / λ.</p>':'')),PS=c.params.filter(([k])=>!c.vis||c.vis(k,S.forms[p]));
    if(p!=='laengsnaht')return `<div class="fields">${PS.map(PF).join('')}${field(p,'kuehl','Kühlung',{opts:KUEHL})}</div>`;
    /* Längsnaht: Fräser- und Profilgeometrie bis zur Zähnezahl oben, dann Profil, Zahnreihen und Seitenansicht, darunter die Schnittdaten */
    const iz=PS.findIndex(([k])=>k==='z'),top=PS.slice(0,iz+1),rest=PS.slice(iz+1);

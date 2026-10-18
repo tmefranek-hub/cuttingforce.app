@@ -19,6 +19,8 @@
 .sb fieldset{border:0;padding:0;margin:0 0 12px}
 .sb legend{font:600 13px/1 "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.negwrap{display:flex;gap:4px}.negwrap input{flex:1;min-width:0}
+.negbtn{flex:none;min-width:40px;border:1px solid var(--line,#ccc);border-radius:4px;background:transparent;color:inherit;font:600 15px ui-monospace,monospace;cursor:pointer;touch-action:manipulation}
 .fgrid label{display:flex;flex-direction:column;font-size:12.5px;color:var(--muted);gap:3px}
 .fgrid label.wide{grid-column:1/-1}
 .fgrid input,.fgrid select{font:15px/1.2 var(--f-body);padding:8px 9px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:100%;min-width:0}
@@ -111,7 +113,7 @@ svg text.tex{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13.5px}
       <fieldset><legend>Wendeschneidplatte</legend><div class="fgrid">
         <label>Plattendicke s <span class="u">mm</span><input id="s" inputmode="decimal" value="5,56"></label>
         <label>Keilwinkel β <span class="u">°</span><input id="beta" inputmode="decimal" value="72"></label>
-        <label>Spanwinkel γ <span class="u">°</span><input id="g" inputmode="decimal" value="10"></label>
+        <label>Spanwinkel γ <span class="u">°</span><span class="negwrap"><input id="g" inputmode="decimal" value="10"><button type="button" class="negbtn" data-negfor="g" aria-label="Vorzeichen wechseln" title="Vorzeichen wechseln">±</button></span></label>
         <label>Freiwinkel α <span class="u">° (berechnet)</span><input id="alpha" readonly tabindex="-1"></label>
       </div></fieldset>
       <fieldset><legend>Spankammer</legend><div class="fgrid">
@@ -159,7 +161,7 @@ svg text.tex{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13.5px}
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
-const num=v=>{const x=parseFloat(String(v??'').replace(',','.'));return Number.isFinite(x)?x:NaN;};
+const num=v=>{const x=parseFloat(String(v??'').replace(',','.').replace('−','-'));return Number.isFinite(x)?x:NaN;};
 const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString('de-AT',{minimumFractionDigits:d,maximumFractionDigits:d}):'–';
 const RAD=Math.PI/180;
 const ART={fliess:{n:'Fließspan',x:4},lamellen:{n:'Lamellenspan',x:3},reiss:{n:'Reiß-/Bröckelspan',x:2}};
@@ -525,5 +527,6 @@ function initWheel(w){
   renderFormeln();requestAnimationFrame(loop);
 })();
 </script>
+<script>document.addEventListener('click',e=>{const b=e.target.closest('[data-negfor]');if(!b)return;e.preventDefault();const i=document.getElementById(b.dataset.negfor);if(!i)return;let v=i.value.trim();i.value=v.startsWith('-')||v.startsWith('−')?v.slice(1):'-'+v;i.dispatchEvent(new Event('input',{bubbles:true}));i.dispatchEvent(new Event('change',{bubbles:true}));try{i.focus();i.setSelectionRange(i.value.length,i.value.length);}catch(_){}});</script>
 </body>
 </html>
