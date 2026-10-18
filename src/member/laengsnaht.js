@@ -107,10 +107,10 @@ function lnAng(f){const ZL=lnZ(f,'L'),ZR=lnZ(f,'R'),pL=String(f.phRows||'').spli
   if(r.zR>0)for(let j=0;j<r.zR;j++)ins.push({i,nm:r.nm,side:'R',j:j+1,ang:N(r.phR+j*360/r.zR)});});
  return {rows,ins};}
 function lnSetAng(f,key,idx,val){const n=lnRows(f).length,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[idx]=String(val).trim();f[key]=a.slice(0,n).join(';');}
-let LN_DEPTH=null,LN_ROT=0,LN_VIEW='links',LN_PLAY=false,LN_MAT=false,LN_T=0;
+let LN_DEPTH=null,LN_ROT=0,LN_VIEW='beide',LN_PLAY=false,LN_MAT=false,LN_T=0;
 function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Rotationssimulation – Eingriffsbereich des Fräsers</div>
  <div class="toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px">
-  <span style="display:inline-flex;gap:4px;align-items:center;font-size:13px">Ansicht: ${[['links','von links'],['rechts','von rechts'],['beide','beide Seiten']].map(([v,l])=>`<button type="button" class="chip-btn" data-lnview="${v}" aria-pressed="${LN_VIEW===v}">${l}</button>`).join('')}</span>
+  
   <button type="button" class="btn" data-lnplay="1">${LN_PLAY?'❚❚ Pause':'▶ Drehen'}</button>
   <label style="display:flex;align-items:center;gap:6px;flex:1;min-width:180px;font-size:13px">Drehwinkel <input type="range" min="0" max="360" step="0.5" value="${LN_ROT}" data-lnrot="1" style="flex:1"><span id="ln-rotv">${fmt(LN_ROT,1)}°</span></label>
   <div id="ln-cutsel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:1 1 100%;font-size:13px"></div>
