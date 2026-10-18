@@ -342,19 +342,25 @@ function lnToolOpt(f){
   if(mid)mk(['L','R'],row.zL,row.phL,i+'M',row.nm);
   else{mk(['L'],row.zL,row.phL,i+'L',row.nm+' links');mk(['R'],row.zR,row.phR,i+'R',row.nm+' rechts');}});
  /* Beitrag einer Reihe als periodische Kurve: C[y] = Σ_j P_Platte[(y + o_j) mod N], Verschiebung s = φ0/Δψ */
- const curve=(v,r)=>{const Cc=new Float64Array(N);let any=false;
-  v.sides.forEach(sd=>{const e=r.edges.find(x=>x.i===v.i&&x.side===sd);if(!e||!e.incs.length)return;any=true;
-   for(let j=0;j<v.z;j++){const o=Math.round((j*v.p+(mid&&sd==='R'?v.p/2:0))/da);for(let y=0;y<N;y++)Cc[y]+=e.P[(y+o)%N];}});
-  return any?Cc:null;};
- const stats=(curves)=>{let mx=-1e18,mn=1e18;const T=new Float64Array(N);curves.forEach(({c,s})=>{for(let y=0;y<N;y++)T[y]+=c[(y+s)%N];});for(let y=0;y<N;y++){if(T[y]>mx)mx=T[y];if(T[y]<mn)mn=T[y];}return {mx,mn};};
+ /* je Reihe: Gesamtkurve c, Seitendifferenz d = P_links − P_rechts, Anzahl Platten im Eingriff je Seite */
+ const curve=(v,r)=>{const c=new Float64Array(N),d=new Float64Array(N),nL=new Float64Array(N),nR=new Float64Array(N);let any=false;
+  v.sides.forEach(sd=>{const e=r.edges.find(x=>x.i===v.i&&x.side===sd);if(!e||!e.incs.length)return;any=true;const sg=sd==='L'?1:-1,cnt=sd==='L'?nL:nR;
+   for(let j=0;j<v.z;j++){const o=Math.round((j*v.p+(mid&&sd==='R'?v.p/2:0))/da);for(let y=0;y<N;y++){const pv=e.P[(y+o)%N];if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}}});
+  return any?{c,d,nL,nR}:null;};
+ const wS=Math.max(0,num(f.wSide)>=0?num(f.wSide):1);
+ const stats=(curves)=>{let mx=-1e18,mn=1e18,dm=0,lm=0,rm=0;const T=new Float64Array(N),D=new Float64Array(N),L=new Float64Array(N),Rn=new Float64Array(N);
+  curves.forEach(({c,s})=>{for(let y=0;y<N;y++){const q=(y+s)%N;T[y]+=c.c[q];D[y]+=c.d[q];L[y]+=c.nL[q];Rn[y]+=c.nR[q];}});
+  for(let y=0;y<N;y++){if(T[y]>mx)mx=T[y];if(T[y]<mn)mn=T[y];const a=Math.abs(D[y]);if(a>dm)dm=a;if(L[y]>lm)lm=L[y];if(Rn[y]>rm)rm=Rn[y];}return {mx,mn,dm,lm,rm};};
  const seen=new Set(),report=[],changed=new Set();
  res.forEach((r,k)=>{
   const act=vars.map(v=>({v,c:curve(v,r)})).filter(x=>x.c);
   const free=act.filter(x=>!seen.has(x.v.key)&&!x.v.lock);
   const before=stats(act.map(x=>({c:x.c,s:x.v.s})));
   if(free.length){
-   const fixed=new Float64Array(N);act.filter(x=>!free.includes(x)).forEach(x=>{for(let y=0;y<N;y++)fixed[y]+=x.c[(y+x.v.s)%N];});
-   const J=(sv)=>{const T=Float64Array.from(fixed);free.forEach((x,q)=>{const s=sv[q];for(let y=0;y<N;y++)T[y]+=x.c[(y+s)%N];});let mx=-1e18,mn=1e18;for(let y=0;y<N;y++){if(T[y]>mx)mx=T[y];if(T[y]<mn)mn=T[y];}return mx-mn+1e-6*mx;};
+   const fixed=new Float64Array(N),fixD=new Float64Array(N);act.filter(x=>!free.includes(x)).forEach(x=>{for(let y=0;y<N;y++){const q=(y+x.v.s)%N;fixed[y]+=x.c.c[q];fixD[y]+=x.c.d[q];}});
+   /* Ziel: kleine Schwankung der Gesamtleistung + Gewicht · größte Differenz zwischen linker und rechter Seite */
+   const J=(sv)=>{const T=Float64Array.from(fixed),D=Float64Array.from(fixD);free.forEach((x,q)=>{const s=sv[q],cc=x.c.c,dd=x.c.d;for(let y=0;y<N;y++){const i2=(y+s)%N;T[y]+=cc[i2];D[y]+=dd[i2];}});
+    let mx=-1e18,mn=1e18,dm=0;for(let y=0;y<N;y++){if(T[y]>mx)mx=T[y];if(T[y]<mn)mn=T[y];const a=D[y]<0?-D[y]:D[y];if(a>dm)dm=a;}return mx-mn+wS*dm+1e-6*mx;};
    let best=free.map(x=>x.v.s),bJ=J(best);const starts=Math.min(24,4+8*free.length);
    for(let st=0;st<starts;st++){let sv=st===0?best.slice():free.map(x=>Math.floor(Math.random()*x.v.S)),cur=J(sv);
     for(let pass=0;pass<10;pass++){let imp=false;
@@ -412,15 +418,15 @@ function lnProcOpt(f){const C=lnCuts(f),G=lnGeom(f),T=C.tMax,mc=num(f.mc),eta=nu
 function lnApplyProc(f,o){f.nCuts=String(o.n);f.cutT=o.cuts.map(c=>dec(c.t,2)).join(';');f.cutVf=o.cuts.map(c=>dec(Math.floor(c.vf/5)*5,0)).join(';');f.lnCut='0';const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);}
 function lnOptHTML(f){return `<div style="display:grid;grid-template-columns:minmax(0,1fr);gap:14px">
  <div style="border:1px solid var(--line);border-radius:8px;padding:12px"><div style="font:600 15px var(--f-disp);margin-bottom:4px">1 · Werkzeugoptimierer – Winkellage der Wendeplatten</div>
-  <p class="note" style="margin:0 0 8px">Geht Schnitt für Schnitt durch den Prozess und verschiebt die Winkellage φ<sub>0</sub> der Reihen, die in diesem Schnitt das erste Mal im Eingriff sind, so dass die maximale Schnittleistung des Werkzeugs minimiert und die minimale maximiert wird (kleinste Schwankung P<sub>max</sub> − P<sub>min</sub>). Bereits optimierte Reihen bleiben in den folgenden Schnitten fest. Reihen mit geschlossenem Schloss <span style="display:inline-flex;vertical-align:-3px">${lnLockSvg(true)}</span> in der Zähnezahl-Tabelle werden nicht verändert, offenes Schloss <span style="display:inline-flex;vertical-align:-3px">${lnLockSvg(false)}</span> = wird optimiert.</p>
-  <button type="button" class="btn primary" data-lnopt="tool">Winkellagen optimieren</button><div id="ln-optt" style="margin-top:8px">${lnOptTHTML()}</div></div>
+  <p class="note" style="margin:0 0 8px">Geht Schnitt für Schnitt durch den Prozess und verschiebt die Winkellage φ<sub>0</sub> der Reihen, die in diesem Schnitt das erste Mal im Eingriff sind, so dass die maximale Schnittleistung des Werkzeugs minimiert und die minimale maximiert wird (kleinste Schwankung P<sub>max</sub> − P<sub>min</sub>) und linke und rechte Seite möglichst gleich viel schneiden (kleinste Seitendifferenz |P<sub>links</sub> − P<sub>rechts</sub>|, gewichtet mit dem Seitenausgleich). Bereits optimierte Reihen bleiben in den folgenden Schnitten fest. Reihen mit geschlossenem Schloss <span style="display:inline-flex;vertical-align:-3px">${lnLockSvg(true)}</span> in der Zähnezahl-Tabelle werden nicht verändert, offenes Schloss <span style="display:inline-flex;vertical-align:-3px">${lnLockSvg(false)}</span> = wird optimiert.</p>
+  <div class="fields">${field('laengsnaht','wSide','Gewichtung Seitenausgleich (0 = aus)',{num:1})}</div><button type="button" class="btn primary" data-lnopt="tool" style="margin-top:8px">Winkellagen optimieren</button><div id="ln-optt" style="margin-top:8px">${lnOptTHTML()}</div></div>
  <div style="border:1px solid var(--line);border-radius:8px;padding:12px"><div style="font:600 15px var(--f-disp);margin-bottom:4px">2 · Prozessoptimierer – Schnitttiefen und Vorschub</div>
   <p class="note" style="margin:0 0 8px">Legt die Zwischentiefen auf die Grenzen der Wendeplattenreihen, so dass eine Reihe mit ihrer vollen Schneidlänge im Einsatz ist und die nächste noch nicht eingreift. Die tiefste Schnitttiefe (Zieltiefe) bleibt. Je Schnitt wird die Vorschubgeschwindigkeit so bestimmt, dass die Maschinenleistung ausgenutzt wird (P̄/η = P<sub>M</sub>), wobei die Vorschübe aller Schnitte höchstens um die eingestellte Abweichung auseinanderliegen und die größte Spanungsdicke jedes Schnitts mindestens h<sub>min</sub> erreicht; gewählt wird die Aufteilung mit der kürzesten Hauptzeit.</p>
   <div class="fields">${field('laengsnaht','pMach','Maschinenleistung P_M',{num:1,u:'kW'})}${field('laengsnaht','vfTol','Max. Abweichung der Vorschübe',{num:1,u:'%'})}${field('laengsnaht','hMin','Mindest-Spanungsdicke h_min (größte Spanungsdicke je Schnitt)',{num:1,u:'mm'})}</div>
   <button type="button" class="btn primary" data-lnopt="proc" style="margin-top:8px">Schnitte optimieren</button><div id="ln-optp" style="margin-top:8px">${lnOptPHTML(f)}</div></div></div>`;}
 function lnOptTHTML(){const o=LN_OPTT;if(!o)return '';if(o.err)return `<p class="warn">${o.err}</p>`;
- return `<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitt</th><th>Tiefe (mm)</th><th>optimierte Reihen</th><th>P<sub>max</sub> vorher → nachher (kW)</th><th>P<sub>min</sub> vorher → nachher (kW)</th><th>ΔP vorher → nachher</th></tr></thead><tbody>
- ${o.report.map(r=>`<tr><td>${r.k+1}</td><td>${fmt(r.t,1)}</td><td>${r.free.length?r.free.join(', '):'–'}${r.locked.length?`<br><span class="note">gesperrt: ${r.locked.join(', ')}</span>`:''}</td><td>${fmt(r.before.mx,2)} → <b>${fmt(r.after.mx,2)}</b></td><td>${fmt(r.before.mn,2)} → <b>${fmt(r.after.mn,2)}</b></td><td>${fmt(r.before.mx-r.before.mn,2)} → <b>${fmt(r.after.mx-r.after.mn,2)}</b> kW (${fmt((r.after.mx-r.after.mn)/r.Pm*100,1)} %)</td></tr>`).join('')}
+ return `<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitt</th><th>Tiefe (mm)</th><th>optimierte Reihen</th><th>P<sub>max</sub> vorher → nachher (kW)</th><th>P<sub>min</sub> vorher → nachher (kW)</th><th>ΔP vorher → nachher</th><th>max. |P<sub>L</sub> − P<sub>R</sub>| vorher → nachher (kW)</th><th>max. Platten gleichzeitig L / R vorher → nachher</th></tr></thead><tbody>
+ ${o.report.map(r=>`<tr><td>${r.k+1}</td><td>${fmt(r.t,1)}</td><td>${r.free.length?r.free.join(', '):'–'}${r.locked.length?`<br><span class="note">gesperrt: ${r.locked.join(', ')}</span>`:''}</td><td>${fmt(r.before.mx,2)} → <b>${fmt(r.after.mx,2)}</b></td><td>${fmt(r.before.mn,2)} → <b>${fmt(r.after.mn,2)}</b></td><td>${fmt(r.before.mx-r.before.mn,2)} → <b>${fmt(r.after.mx-r.after.mn,2)}</b> kW (${fmt((r.after.mx-r.after.mn)/r.Pm*100,1)} %)</td><td>${fmt(r.before.dm,2)} → <b>${fmt(r.after.dm,2)}</b></td><td>${r.before.lm} / ${r.before.rm} → <b>${r.after.lm} / ${r.after.rm}</b></td></tr>`).join('')}
  </tbody></table></div><p class="note" style="margin:4px 0 0">Die neuen Winkellagen sind in die Zähnezahl-Tabelle übernommen; Leistung und Simulation wurden neu berechnet.</p>`;}
 function lnOptPHTML(f){const o=LN_OPTP;if(!o)return '';if(o.err)return `<p class="warn">${o.err}</p>`;
  const row=x=>`<tr${x.n===o.cur?' style="background:var(--surface-2)"':''}><td>${x.n}${x.n===o.rec?' <b>empfohlen</b>':''}</td><td>${o.l>0?fmt(o.l*x.tsum,1)+' min':fmt(x.tsum*1000,2)+' ‰'}</td><td>${fmt(x.spread*100,1)} %</td><td><button type="button" class="chip-btn" data-lnapply="${x.n}">übernehmen</button></td><td>${x.cuts.map(c=>fmt(c.t,1)).join(' / ')}</td><td>${x.cuts.map(c=>fmt(c.vf,0)).join(' / ')}</td><td>${x.cuts.map(c=>fmt(c.use*100,0)).join(' / ')}</td><td>${x.cuts.map(c=>fmt(c.hm,3)).join(' / ')}</td></tr>`;
