@@ -549,8 +549,12 @@ const PROC={
    const thAll=C.list.reduce((a,c)=>a+l/c.vf,0);
    const h=E.ok?fz*(Math.cos(E.a)-Math.cos(E.e))/(E.e-E.a):NaN,kc=kcOf(f,h);
    const phs=E.ok?(E.e-E.a)*180/Math.PI:NaN,le=E.ok?DS/2*(E.e-E.a):NaN,lsp=le/num(f.lam);
-   const Q=Acut*vf/1000,Pc=Acut*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/DS;
-   return {tCut:cu.t,dCut:cu.d,thAll,n,vf,vfm:vf/1000,bn:G.b,A:Acut,LF:G.LF,hP:G.hP,lFe:G.lF,nF:G.nF,nInc:G.nInc,nIncCut:G.nIncCut,nFg:G.nF*2+2,phs,le,h,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
+   /* Liegt eine aktuelle Leistungsberechnung vor, gelten deren Werte: P̄ und M̄ = arithmetisches Mittel des Summensignals aller Platten.
+      Sonst vorläufige Abschätzung über A·vf·kc. */
+   let LC=null;try{LC=LN_CALC;}catch(e){}
+   const rC=LC&&LC.key===lnCalcKey(f)?LC.cuts[lnSel(f)]:null,okC=rC&&!rC.err;
+   const Q=Acut*vf/1000,Pc=okC?rC.Pm:Acut*vf*kc/6e7,Mc=okC?rC.Mm:Pc*30000/(Math.PI*n),Fc=Mc*2000/DS,kcE=okC&&Q>0?Pc*60000/Q:kc;
+   return {tCut:cu.t,dCut:cu.d,thAll,n,vf,vfm:vf/1000,bn:G.b,A:Acut,LF:G.LF,hP:G.hP,lFe:G.lF,nF:G.nF,nInc:G.nInc,nIncCut:G.nIncCut,nFg:G.nF*2+2,phs,le,h,lsp,kc:kcE,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
  kurbelwelle:{name:'Kurbelwellenfräsen',t1:'Wendeschneidplatte',t2:'Scheibenfräser / Innenfräser',ph1:'z. B. Tangentialplatte',ph2:'z. B. Außenfräser Ø700',
   params:[['dw','Lagerdurchmesser vor Bearbeitung dw','mm'],['ap','Aufmaß radial ap','mm'],['b','Lagerbreite b','mm'],['Dc','Fräserdurchmesser Dc','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc','m/min'],['fz','Zahnvorschub fz (am Lagerumfang)','mm/Z'],['kr','Anstellwinkel κr','°'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['umd','Werkstückumdrehungen je Lager',''],['eta','Wirkungsgrad Maschine η','']],
   short:[['vc','vc'],['fz','fz'],['ap','ap'],['dw','dw']], keys:['Pc','Mc','nw'],
@@ -808,7 +812,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[d
   else{f.phRows='';f.phRowsR='';toast('Platten gleichmäßig aufgeteilt');}
   const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');lnDrawSim();save();return;}
  if(b.dataset.lnap)LN_DEPTH=null;
- if(b.dataset.lncalc){const f=S.forms.laengsnaht;b.disabled=true;b.textContent='Berechne …';setTimeout(()=>{const t0=performance.now();lnPowerAll(f);lnPowRender();b.disabled=false;b.textContent='Berechnen';toast(`Berechnet in ${Math.round(performance.now()-t0)} ms`);},20);return;}
+ if(b.dataset.lncalc){const f=S.forms.laengsnaht;b.disabled=true;b.textContent='Berechne …';setTimeout(()=>{const t0=performance.now();lnPowerAll(f);lnPowRender();renderOut('laengsnaht');b.disabled=false;b.textContent='Berechnen';toast(`Berechnet in ${Math.round(performance.now()-t0)} ms`);},20);return;}
  if(b.dataset.lnpq){LN_PQ=b.dataset.lnpq;lnPowRender();return;}
  if(b.dataset.lnfit){LN_FIT=!LN_FIT;lnPowRender();return;}
  if(b.dataset.lnzoom){LN_ZOOM=+b.dataset.lnzoom;lnPowRender();return;}
@@ -935,7 +939,7 @@ function lnPowResHTML(f){
   ${e.incs.map(q=>`<tr><td>${q.k}</td><td>${fmt(q.y,2)}</td><td>${fmt(q.b,2)}</td><td>${fmt(q.kap,1)}</td><td>${fmt(q.r,1)}</td><td>${fmt(q.ae,2)}</td><td>${fmt(q.phi,2)}</td><td>${fmt(q.le,1)}</td><td>${fmt(q.hmax,4)}</td><td>${fmt(q.Fmax,0)}</td><td>${fmt(q.Fmean,1)}</td></tr>`).join('')}
   </tbody></table></div>
   <p class="note" style="margin:4px 0 0">Jedes Inkrement hat seine eigene Eingriffstiefe a<sub>e</sub> = min(Δ, t − y), seinen Radius r = D/2 − y und damit seinen eigenen Eingriffsbogen φ<sub>e</sub> = arccos(1 − a<sub>e</sub>/r) und seine Eingriffslänge l<sub>e</sub> = r · φ<sub>e</sub>. In jedem Winkelschritt schneidet ein Inkrement nur, solange β ≤ φ<sub>e</sub>.</p>`;}
- h+=`<p class="note" style="margin:8px 0 0">Rechenweg: je Kanteninkrement h = f<sub>z,i</sub> · sin β · sin κ, F<sub>c</sub> = b · k<sub>c1.1</sub> · h<sup>1−m<sub>c</sub></sup> · (1 − γ₀/100), M = Σ F<sub>c</sub> · r, P = M · ω. Gesamtverlauf aus allen ${LN_CALC?S.forms.laengsnaht&&lnAng(S.forms.laengsnaht).ins.length:''} Platten mit ihrer Winkellage überlagert, N<sub>φ</sub> = ${r.N} (Δψ = ${fmt(r.da,2)}°).</p>`;
+ h+=`<p class="note" style="margin:8px 0 0">Rechenweg: je Kanteninkrement h = f<sub>z,i</sub> · sin β · sin κ, F<sub>c</sub> = b · k<sub>c1.1</sub> · h<sup>1−m<sub>c</sub></sup> · (1 − γ₀/100), M = Σ F<sub>c</sub> · r, P = M · ω. Leistung und Drehmoment des Fräsers sind die Summe der momentanen Werte aller Platten: P(ψ) = Σ<sub>q</sub> P<sub>q</sub>(ψ), M(ψ) = Σ<sub>q</sub> M<sub>q</sub>(ψ) über ${r.ins.length} Platten mit ihrer Winkellage. Mittlere Leistung = arithmetisches Mittel des Leistungssignals: P̄ = (1/N<sub>φ</sub>) · Σ<sub>j</sub> P(ψ<sub>j</sub>), ebenso M̄; N<sub>φ</sub> = ${r.N} (Δψ = ${fmt(r.da,2)}°). Diese Mittelwerte werden auch im Schnittkraftrechner rechts angezeigt.</p>`;
  return h;}
 function lnPowRender(){const e=document.getElementById('ln-powres');if(e)e.innerHTML=lnPowResHTML(S.forms.laengsnaht);}
 function lnRefresh(f){const set=(id,h)=>{const e=document.getElementById(id);if(e&&!e.contains(document.activeElement))e.innerHTML=h;};
