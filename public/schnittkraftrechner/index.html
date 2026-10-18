@@ -541,15 +541,16 @@ const PROC={
    const Q=G.A*vf/1000,Pc=G.A*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/Dc;
    return {n,vf,vfm:vf/1000,fb:G.fb,A:G.A,phs,le,h,hout,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
  laengsnaht:{name:'Längsnahtfräsen',t1:'Radius- und Flankenplatten',t2:'Längsnahtfräser (Profilscheibenfräser)',ph1:'z. B. Radiusplatte R8',ph2:'z. B. Längsnahtfräser Ø1000',
-  params:[['Dc','Durchmesser des Fräsers Dc (Flugkreis der Profilspitze)','mm'],['rR','Radius der Radiusplatten rR','mm'],['ap','Notwendige Schnitttiefe ap','mm'],['dU','Schneiden über der Schnitttiefe Δü','mm'],['alphaN','Öffnungswinkel des V αV (gesamt)','°'],['lK','Schneidkantenlänge Flankenplatte lK','mm'],['uF','Überlappung ü (je Plattenende)','mm'],['nIR','Inkremente je Radiusschneide nR',''],['nIF','Inkremente je Flankenschneide nF,i',''],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc (an Dc)','m/min'],['fz','Zahnvorschub fz','mm/Z'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['l','Nahtlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
-  short:[['ap','ap'],['rR','rR'],['vc','vc'],['fz','fz']], keys:['Pc','Q','nF'],
+  params:[['Dc','Durchmesser des Fräsers Dc (Flugkreis der Profilspitze)','mm'],['rR','Radius der Radiusplatten rR','mm'],['dU','Schneiden über der tiefsten Schnitttiefe Δü','mm'],['alphaN','Öffnungswinkel des V αV (gesamt)','°'],['lK','Schneidkantenlänge Flankenplatte lK','mm'],['uF','Überlappung ü (je Plattenende)','mm'],['nIR','Inkremente je Radiusschneide nR',''],['nIF','Inkremente je Flankenschneide nF,i',''],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc (an Dc)','m/min'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['l','Nahtlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
+  short:[['ap','ap'],['nCuts','Schnitte'],['rR','rR'],['vc','vc']], keys:['Pc','Q','nF'],
   formula:'Profil: V mit Öffnungswinkel αV, Spitzenradius rR · Tangentenpunkt yt = rR·(1−sin(αV/2)) · erforderliche Profilhöhe herf = ap + Δü · Schneidlänge im Einsatz lF = lK − 2ü · Flankenplatten je Seite nF = ⌈(herf−yt)/(lF·cos(αV/2))⌉ · Profilhöhe hP = yt + nF·lF·cos(αV/2) · A = ∫ b(y) dy · cos φs = 1 − 2·ap/Dc · vorläufig: Pc = A·vf·kc / 60·10⁶',
-  calc(f){const DS=num(f.Dc),z=num(f.z),vc=num(f.vc),fz=num(f.fz),eta=num(f.eta)||1,l=num(f.l);
-   const G=lnGeom(f),n=vc*1000/(Math.PI*DS),vf=fz*z*n,E=engage(posForm('laengsnaht',f));
+  calc(f){const DS=num(f.Dc),z=num(f.z),vc=num(f.vc),eta=num(f.eta)||1,l=num(f.l),C=lnCuts(f),cu=C.list[lnSel(f)]||{},fz=cu.fz;
+   const G=lnGeom(f),n=vc*1000/(Math.PI*DS),vf=fz*z*n,E=engage(posForm('laengsnaht',f)),Acut=lnArea(G,cu.t)-lnArea(G,cu.tp);
+   const thAll=C.list.reduce((a,c)=>a+l/(c.fz*z*n),0);
    const h=E.ok?fz*(Math.cos(E.a)-Math.cos(E.e))/(E.e-E.a):NaN,kc=kcOf(f,h);
    const phs=E.ok?(E.e-E.a)*180/Math.PI:NaN,le=E.ok?DS/2*(E.e-E.a):NaN,lsp=le/num(f.lam);
-   const Q=G.A*vf/1000,Pc=G.A*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/DS;
-   return {n,vf,vfm:vf/1000,bn:G.b,A:G.A,LF:G.LF,hP:G.hP,lFe:G.lF,nF:G.nF,nInc:G.nInc,nIncCut:G.nIncCut,nFg:G.nF*2+2,phs,le,h,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
+   const Q=Acut*vf/1000,Pc=Acut*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/DS;
+   return {tCut:cu.t,dCut:cu.d,thAll,n,vf,vfm:vf/1000,bn:G.b,A:Acut,LF:G.LF,hP:G.hP,lFe:G.lF,nF:G.nF,nInc:G.nInc,nIncCut:G.nIncCut,nFg:G.nF*2+2,phs,le,h,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
  kurbelwelle:{name:'Kurbelwellenfräsen',t1:'Wendeschneidplatte',t2:'Scheibenfräser / Innenfräser',ph1:'z. B. Tangentialplatte',ph2:'z. B. Außenfräser Ø700',
   params:[['dw','Lagerdurchmesser vor Bearbeitung dw','mm'],['ap','Aufmaß radial ap','mm'],['b','Lagerbreite b','mm'],['Dc','Fräserdurchmesser Dc','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc','m/min'],['fz','Zahnvorschub fz (am Lagerumfang)','mm/Z'],['kr','Anstellwinkel κr','°'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['umd','Werkstückumdrehungen je Lager',''],['eta','Wirkungsgrad Maschine η','']],
   short:[['vc','vc'],['fz','fz'],['ap','ap'],['dw','dw']], keys:['Pc','Mc','nw'],
@@ -570,7 +571,7 @@ function bkGeom(f){const t=num(f.t),c=num(f.c)||0,a=rad(num(f.alpha));
    Radiusplatten: links und rechts je eine Hälfte des Spitzenradius bis zum Tangentenpunkt.
    Flankenplatten: entlang jeder Flanke vom Tangentenpunkt bis zur Profilhöhe ap, gleichmäßig verteilt mit Überlappung ≥ ü. */
 function lnGeom(f){
- const r=num(f.rR),ap=num(f.ap),be=rad(num(f.alphaN)/2),lK=num(f.lK),uF=Math.max(0,num(f.uF)||0),dU=Math.max(0,num(f.dU)||0);
+ const r=num(f.rR),ap=lnApOf(f),be=rad(num(f.alphaN)/2),lK=num(f.lK),uF=Math.max(0,num(f.uF)||0),dU=Math.max(0,num(f.dU)||0);
  const bad={A:NaN,b:NaN,t:ap,LF:NaN,nF:NaN,segs:[],ok:false};
  if(!(r>0&&ap>0&&be>=0&&be<Math.PI/2))return bad;
  const yt=r*(1-Math.sin(be)),xt=r*Math.cos(be),cb=Math.cos(be);
@@ -591,10 +592,29 @@ function lnGeom(f){
   inc.push({pl:'F'+(i+1),k:k+1,y0:yt+s0*cb,y1:yt+s1*cb,x:xt+sm*Math.sin(be),y:yt+sm*cb,ds:(b-a)/nI,kap:be*180/Math.PI});}});
  inc.forEach(q=>{q.inCut=q.y0<ap-1e-9;q.dsCut=q.inCut?q.ds*Math.min(1,(ap-q.y0)/Math.max(1e-12,q.y1-q.y0)):0;});
  return {A,b:2*w(ap),t:ap,yt,xt,r,be,ap,hErf,hP,lF,lK,uF,LF,nF,segs,w,err,ok:!err,tipOnly:hErf<=yt,inc,nR,nI,arcL,dsR:arcL/nR,dsF:lF/nI,nInc:2*inc.length,nIncCut:2*inc.filter(q=>q.inCut).length};}
-function posForm(p,f){return p==='blechkante'?{...f,ae:String(bkGeom(f).fb)}:p==='laengsnaht'?{...f,pos:'gleich',ae:String(lnGeom(f).t)}:f;}
-const RES={bn:['Nutbreite an der Oberfläche','mm',1,'b'],LF:['Flankenlänge je Seite','mm',1,'LF'],hP:['Profilhöhe','mm',1,'hP'],lFe:['Schneidlänge im Einsatz','mm',1,'lF'],nF:['Flankenplatten je Seite','',0,'nF'],nInc:['Inkremente im Profil','',0,'nInk'],nIncCut:['Inkremente im Schnitt','',0,'nInk'],nFg:['Platten im Profil (2 Radius + Flanken)','',0,'n'],fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
+/* Längsnaht: Schnittaufteilung – Anzahl der Schnitte, Schnitttiefen t_k (von der Blechoberfläche) und Zahnvorschub je Schnitt */
+function lnCuts(f){const n=Math.max(1,Math.min(6,Math.round(num(f.nCuts))||1)),T=String(f.cutT||'').split(';'),F=String(f.cutFz||'').split(';'),list=[];let ok=true,prev=0;
+ for(let k=0;k<n;k++){const t=num(T[k]),fz=num(F[k]);if(!(t>prev))ok=false;list.push({k,t,tp:k?list[k-1].t:0,d:t-(k?list[k-1].t:0),fz,tRaw:T[k]??'',fzRaw:F[k]??''});if(t>0)prev=t;}
+ const tMax=Math.max(0,...list.map(c=>c.t>0?c.t:0));return {n,list,ok,tMax};}
+const lnApOf=f=>{const C=lnCuts(f);return C.tMax>0?C.tMax:num(f.ap);};
+const lnSel=f=>Math.max(0,Math.min(lnCuts(f).n-1,Math.round(num(f.lnCut))||0));
+function lnArea(G,t){if(!(t>0)||!G.w)return 0;let A=0;const N=300;for(let k=0;k<N;k++)A+=2*G.w(t*(k+.5)/N)*t/N;return A;}
+/* Radiale Eingriffstiefe einer Schneidenstelle in Höhe y über der Profilspitze beim Schnitt k:
+   das Profil des Vorschnitts ist dasselbe Profil um Δ = t_k − t_(k−1) höher → a_e = min(Δ, t_k − y) */
+const lnAe=(c,y)=>c&&c.t>y?Math.min(c.d,c.t-y):0;
+function lnCutsHTML(f){const C=lnCuts(f),G=lnGeom(f),z=num(f.z),vc=num(f.vc),D=num(f.Dc),n=vc*1000/(Math.PI*D),sel=lnSel(f);
+ const ip=(k,ck,val,lab)=>`<input data-lncut="${k}" data-ck="${ck}" value="${val}" inputmode="decimal" autocomplete="off" style="width:5.5em;padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit" aria-label="${lab}">`;
+ return `<div class="lbl" style="margin:6px 0 4px">Schnittaufteilung</div>
+ <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:6px">Anzahl der Schnitte <select data-lnncut="1" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit">${[1,2,3,4,5,6].map(v=>`<option ${v===C.n?'selected':''}>${v}</option>`).join('')}</select></label>
+ <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitt</th><th>Tiefe t<sub>k</sub> (mm)</th><th>Zustellung Δ (mm)</th><th>f<sub>z,k</sub> (mm/Z)</th><th>v<sub>f</sub> (mm/min)</th><th>A<sub>k</sub> (mm²)</th></tr></thead><tbody>
+ ${C.list.map(c=>`<tr${c.k===sel?' style="background:var(--surface-2)"':''}><td>${c.k+1}</td><td>${ip(c.k,'t',c.tRaw,'Schnitttiefe '+(c.k+1))}</td><td>${c.d>0?fmt(c.d,1):'–'}</td><td>${ip(c.k,'fz',c.fzRaw,'Zahnvorschub Schnitt '+(c.k+1))}</td><td>${c.fz>0&&z>0&&n>0?fmt(c.fz*z*n,0):'–'}</td><td>${c.t>0&&G.ok?fmt(lnArea(G,c.t)-lnArea(G,c.tp),1):'–'}</td></tr>`).join('')}
+ </tbody></table></div>
+ ${C.ok?'':'<p class="warn" style="margin:4px 0 0">Die Schnitttiefen müssen von Schnitt zu Schnitt zunehmen.</p>'}
+ <p class="note" style="margin:4px 0 0">Tiefen von der Blechoberfläche gemessen. Das Profil ist für den tiefsten Schnitt (${fmt(C.tMax,1)} mm) + Δü ausgelegt. A<sub>k</sub> = abgetragener Querschnitt des Schnitts (Nut bei t<sub>k</sub> minus Nut des Vorschnitts).</p>`;}
+function posForm(p,f){if(p==='blechkante')return {...f,ae:String(bkGeom(f).fb)};if(p==='laengsnaht'){const c=lnCuts(f).list[lnSel(f)]||{};return {...f,pos:'gleich',ae:String(c.d)};}return f;}
+const RES={tCut:['Schnitttiefe des gewählten Schnitts','mm',1,'t'],dCut:['Zustellung Δ','mm',1,'Δ'],thAll:['Hauptzeit alle Schnitte','min',2,'th ges'],bn:['Nutbreite an der Oberfläche','mm',1,'b'],LF:['Flankenlänge je Seite','mm',1,'LF'],hP:['Profilhöhe','mm',1,'hP'],lFe:['Schneidlänge im Einsatz','mm',1,'lF'],nF:['Flankenplatten je Seite','',0,'nF'],nInc:['Inkremente im Profil','',0,'nInk'],nIncCut:['Inkremente im Schnitt','',0,'nInk'],nFg:['Platten im Profil (2 Radius + Flanken)','',0,'n'],fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
  Fc:['Schnittkraft','N',0,'Fc'],Ff:['Vorschubkraft','N',0,'Ff'],Mc:['Drehmoment','Nm',1,'Mc'],Q:['Zeitspanvolumen','cm³/min',1,'Q'],Pc:['Schnittleistung','kW',2,'Pc'],Pm:['Antriebsleistung','kW',2,'Pmot'],th:['Hauptzeit','min',2,'th']};
-const RES_ORDER={drehen:['n','vf','h','kc','Fc','Mc','Q','Pc','Pm','th'],fraesen:['n','vf','phs','le','h','hin','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],bohren:['n','vf','fzn','h','kc','Ff','Mc','Q','Pc','Pm','th'],schaelen:['n','vf','vfm','zs','fzc','h','kc','Fc','Mc','Q','Pc','Pm','tph','th'],blechkante:['n','vf','vfm','fb','A','phs','le','h','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],laengsnaht:['nF','nFg','nInc','nIncCut','lFe','hP','LF','bn','A','n','vf','vfm','phs','le','h','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],kurbelwelle:['n','vf','nw','phs','le','h','hmax','lsp','kc','Fc','Mc','Q','Pc','Pm','th']};
+const RES_ORDER={drehen:['n','vf','h','kc','Fc','Mc','Q','Pc','Pm','th'],fraesen:['n','vf','phs','le','h','hin','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],bohren:['n','vf','fzn','h','kc','Ff','Mc','Q','Pc','Pm','th'],schaelen:['n','vf','vfm','zs','fzc','h','kc','Fc','Mc','Q','Pc','Pm','tph','th'],blechkante:['n','vf','vfm','fb','A','phs','le','h','hout','lsp','kc','Fc','Mc','Q','Pc','Pm','th'],laengsnaht:['tCut','dCut','nF','nFg','nInc','nIncCut','lFe','hP','LF','bn','A','n','vf','vfm','phs','le','h','lsp','kc','Fc','Mc','Q','Pc','Pm','th','thAll'],kurbelwelle:['n','vf','nw','phs','le','h','hmax','lsp','kc','Fc','Mc','Q','Pc','Pm','th']};
 const RES_FC_LABEL={fraesen:'Mittl. Umfangskraft',blechkante:'Mittl. Umfangskraft',laengsnaht:'Mittl. Umfangskraft',kurbelwelle:'Mittl. Umfangskraft'};
 /* ---------- Fräserposition / Eingriffswinkel (Boehlerit-Katalog: Berechnung des Eingriffswinkels φs) ---------- */
 const POSN={mitte:'Mittige Anordnung',gleich:'Kanten fräsen – Gleichlauf',gegen:'Kanten fräsen – Gegenlauf',versetzt:'Versetzt fräsen'};
@@ -669,15 +689,15 @@ function lnSetZ(f,side,idx,val){const rows=lnZ(f,side),zc=Math.round(num(f.z)),s
  rows[idx].z=v;let cut=0;for(let j=idx+1;j<rows.length;j++)if(rows[j].z>v){rows[j].z=v;cut++;}
  if(cut&&!msg)msg=`${cut} äußere Reihe${cut>1?'n':''} ${sn} auf ${v} Zähne begrenzt`;
  f[LN_ZK[side]]=rows.map(r=>Number.isFinite(r.z)?r.z:'').join(';');return msg;}
-function lnZHTML(f){const A=lnAng(f),zc=Math.round(num(f.z)),fz=num(f.fz);
+function lnZHTML(f){const A=lnAng(f),zc=Math.round(num(f.z)),fz=(lnCuts(f).list[lnSel(f)]||{}).fz,kS=lnSel(f)+1;
  const inp=(attr,i,side,val,lab,mode)=>`<input ${attr}="${i}" data-side="${side}" value="${val}" inputmode="${mode}" autocomplete="off" style="width:4.2em;padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit" aria-label="${lab}">`;
  const pv=z=>z>0?fmt(360/z,2):'–',fv=z=>z>0&&zc>0&&fz>0?fmt(fz*zc/z,3):'–';
  return `<div class="lbl" style="margin-top:4px">Zähnezahl und Teilung je Plattenreihe – L = links, R = rechts</div>
  <p class="note" style="margin:2px 0 6px">Reihe 1 sind die Radiusplatten, danach die Flankenplatten von innen nach außen. Links und rechts haben eigene Zähnezahlen und damit eigene Teilungen. Je Seite gilt: eine äußere Reihe kann nie mehr Zähne haben als die Reihe darunter – wird eine Reihe verringert, werden alle äußeren Reihen dieser Seite mitbegrenzt.${zc>0?'':' Zähnezahl z des Fräsers eintragen, dann werden die Reihen vorbelegt.'}</p>
  <div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px"><button type="button" class="btn" data-lnmid="1" aria-pressed="${lnMid(f)}">${lnMid(f)?'✓ ':''}Links mittig zwischen rechts</button>${lnMid(f)?'':'<button type="button" class="btn" data-lneq="1">Zähnezahl links = rechts</button>'}<button type="button" class="btn" data-lnspread="1">Gleichmäßig aufteilen</button></div>
- <style>.lnzt th,.lnzt td{padding:6px 5px!important;font-size:13px;white-space:nowrap}</style>${lnMid(f)?`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> (L = R)</th><th>Teilung (°)</th><th>f<sub>z,i</sub> (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th></tr></thead><tbody>
+ <style>.lnzt th,.lnzt td{padding:6px 5px!important;font-size:13px;white-space:nowrap}</style>${lnMid(f)?`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> (L = R)</th><th>Teilung (°)</th><th>f<sub>z,i</sub> S${kS} (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th></tr></thead><tbody>
  ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm,'numeric')}</td><td>${pv(r.zL)}</td><td>${fv(r.zL)}</td><td>${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${fmt(((r.phR%360)+360)%360,3)}</td></tr>`).join('')}
- </tbody></table></div>`:`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> L</th><th>z<sub>i</sub> R</th><th>Teilung L / R (°)</th><th>f<sub>z,i</sub> L / R (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th></tr></thead><tbody>
+ </tbody></table></div>`:`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> L</th><th>z<sub>i</sub> R</th><th>Teilung L / R (°)</th><th>f<sub>z,i</sub> L / R S${kS} (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th></tr></thead><tbody>
  ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm+' links','numeric')}</td><td>${inp('data-zrow',i,'R',Number.isFinite(r.zR)?r.zR:'','Zähnezahl '+r.nm+' rechts','numeric')}</td><td>${pv(r.zL)} / ${pv(r.zR)}</td><td>${fv(r.zL)} / ${fv(r.zR)}</td><td>${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${inp('data-phrow',i,'R',dec(r.phR,3),'Winkelversatz '+r.nm+' rechts','decimal')}</td></tr>`).join('')}
  </tbody></table></div>`}
  <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = f<sub>z</sub> · z / z<sub>i</sub>: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j: θ = φ<sub>0,i</sub> + (j−1)·360°/z<sub>i</sub>, je Seite mit eigener Teilung. ${lnMid(f)?'„Links mittig zwischen rechts“: rechts hat dieselbe Zähnezahl wie links und liegt genau eine halbe Teilung weiter (φ<sub>0,R</sub> = φ<sub>0,L</sub> + Teilung/2).':'Vorgabe φ<sub>0</sub> rechts = φ<sub>0</sub> links + halbe Teilung rechts.'} „Gleichmäßig aufteilen“ wählt Reihe für Reihe den Winkelversatz mit dem größten Mindestabstand zu allen übrigen Platten (alle Reihen, links und rechts) – so ist am Beginn alles gut verteilt. 0° = Bezugsmarke, gezählt in Drehrichtung.</p>`;}
@@ -716,20 +736,21 @@ function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Rotationssi
   <button type="button" class="btn" data-lnview="1">Ansicht von ${LN_VIEW==='links'?'rechts':'links'}</button>
   <button type="button" class="btn" data-lnplay="1">${LN_PLAY?'❚❚ Pause':'▶ Drehen'}</button>
   <label style="display:flex;align-items:center;gap:6px;flex:1;min-width:180px;font-size:13px">Drehwinkel <input type="range" min="0" max="360" step="0.5" value="${LN_ROT}" data-lnrot="1" style="flex:1"><span id="ln-rotv">${fmt(LN_ROT,1)}°</span></label>
-  <label style="display:flex;align-items:center;gap:6px;flex:1 1 100%;font-size:13px;white-space:nowrap">Eintauchtiefe t <input type="range" min="0" max="60" step="0.1" value="0" data-lndepth="1" style="flex:1;min-width:80px"><span id="ln-depthv" style="min-width:4.5em"></span></label>
-  <button type="button" class="btn" data-lnap="1">t = a<sub>p</sub></button>
+  <div id="ln-cutsel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:1 1 100%;font-size:13px"></div>
   <button type="button" class="btn" data-lnmat="1">${LN_MAT?'Positionsmatrix ausblenden':'Positionsmatrix anzeigen'}</button>
  </div><div id="ln-simsvg"></div><div id="ln-mat"></div>`;}
 function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-simsvg');if(!el)return;
- const G=lnGeom(f),A=lnAng(f),DS=num(f.Dc),ap=num(f.ap);
- if(!(DS>0&&ap>0&&G.ok)){el.innerHTML='<p class="note">Fräserdurchmesser Dc, Schnitttiefe ap und Profil eintragen.</p>';return;}
+ const G=lnGeom(f),A=lnAng(f),DS=num(f.Dc),ap=lnApOf(f),C=lnCuts(f),ks=lnSel(f),cu=C.list[ks];
+ {const cs=document.getElementById('ln-cutsel');if(cs)cs.innerHTML='Angezeigter Schnitt: '+C.list.map(c=>`<button type="button" class="chip-btn" data-lnsel="${c.k}" aria-pressed="${c.k===ks}">Schnitt ${c.k+1}${c.t>0?' · '+fmt(c.t,0)+' mm':''}</button>`).join('');}
+ if(!(DS>0&&ap>0&&G.ok&&cu&&cu.t>0&&cu.d>0)){el.innerHTML='<p class="note">Fräserdurchmesser Dc, Profil und die Schnitttiefen (zunehmend) eintragen.</p>';return;}
  /* Alles maßstäblich: Koordinaten in mm um die Fräserachse, X = Lage quer, Y nach unten; Winkel θ von oben in Drehrichtung */
  const RS=DS/2,cb=Math.cos(G.be),mir=LN_VIEW==='rechts'?-1:1,near=LN_VIEW==='links'?'L':'R';
  const COL=['#b3261e','#2e7d32','#7a5a00','#1d5fc4','#6a1b9a','#00838f','#ad1457','#5d4037'];
- const t=Math.max(0,Math.min(G.hP,LN_DEPTH==null?ap:LN_DEPTH));
- {const sl=document.querySelector('[data-lndepth]');if(sl){sl.max=G.hP.toFixed(1);if(document.activeElement!==sl)sl.value=t;}const dv=document.getElementById('ln-depthv');if(dv)dv.textContent=fmt(t,1)+' mm';}
+ const t=cu.t,tp=cu.tp;
  const yLow=i=>i===0?0:G.yt+G.segs[i-1][0]*cb, yHigh=i=>i===0?G.yt:G.yt+G.segs[i-1][1]*cb, yMid=i=>(yLow(i)+yHigh(i))/2;
- const phRow=i=>{if(!(t>yLow(i)))return 0;const c=(RS-t)/(RS-yLow(i));return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;};
+ /* Eingriffswinkel einer Schneidenstelle (Höhe y) aus der radialen Eingriffstiefe a_e gegenüber dem vorgeschnittenen Profil */
+ const phY=y=>{const ae=lnAe(cu,y);if(!(ae>0))return 0;return Math.acos(Math.max(-1,Math.min(1,1-ae/(RS-y))))*180/Math.PI;};
+ const phRow=i=>{let m=0;const a=yLow(i),b=Math.min(yHigh(i),t);for(let q=0;q<=20;q++){const v=phY(a+(b-a)*q/20);if(v>m)m=v;}return m;};
  const PT=(r,deg)=>{const q=deg*Math.PI/180;return [mir*r*Math.sin(q),-r*Math.cos(q)];};
  const ENG=new Set();let eng=0;
  const INS=A.ins.map(q=>{const a=(((q.ang+LN_ROT)%360)+360)%360,ph=phRow(q.i),on=ph>0&&a>=180-ph&&a<=180;if(on){eng++;ENG.add(q.i+q.side+q.j);}return {...q,a,on};})
@@ -738,6 +759,8 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const view=(W,H,k,ox,oy,detail)=>{const S=([x,y])=>[ox+x*k,oy+y*k],f1=v=>v.toFixed(1);let g='';
   const ys=oy+(RS-t)*k;
   g+=`<rect x="0" y="${f1(ys)}" width="${W}" height="${f1(Math.max(0,H-ys))}" fill="var(--surface-2)"/><line x1="0" y1="${f1(ys)}" x2="${W}" y2="${f1(ys)}" stroke="var(--fg)" stroke-width="1"/>`;
+  if(tp>0){const yp=oy+(RS-t+tp)*k;g+=`<rect x="0" y="${f1(ys)}" width="${W}" height="${f1(yp-ys)}" fill="var(--surface)" fill-opacity=".55"/><line x1="0" y1="${f1(yp)}" x2="${W}" y2="${f1(yp)}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="6 3"/>`;
+   if(detail)g+=`<text x="${mir>0?8:W-8}" y="${f1(yp-5)}" font-size="11" text-anchor="${mir>0?'start':'end'}" fill="var(--fg)" style="paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round">Nutgrund Vorschnitt (Schnitt ${ks}, t = ${fmt(tp,1)} mm)</text>`;}
   g+=`<circle cx="${f1(ox)}" cy="${f1(oy)}" r="${f1((RS-G.hP)*k)}" fill="var(--surface)" stroke="var(--fg)" stroke-width="1"/>`;
   A.rows.forEach((r,i)=>{g+=`<circle cx="${f1(ox)}" cy="${f1(oy)}" r="${f1((RS-yMid(i))*k)}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".35" stroke-width=".8"/>`;
    const ph=phRow(i);if(ph>0){const rr=(RS-yMid(i))*k,p1=S(PT(RS-yMid(i),180)),p2=S(PT(RS-yMid(i),180-ph));
@@ -753,7 +776,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const zx0=mir*xr*0.42,zy0=RS-hy*0.45,ox2=Wz/2-zx0*k2,oy2=(Hz-30)/2-zy0*k2;
  let g2=view(Wz,Hz,k2,ox2,oy2,true);
  const yS=oy2+(RS-t)*k2;
- g2+=`<text x="${mir>0?8:Wz-8}" y="${(yS-6).toFixed(1)}" font-size="11" text-anchor="${mir>0?'start':'end'}" fill="var(--muted)">Werkstückoberfläche (t = ${fmt(t,1)} mm)</text>`;
+ g2+=`<text x="${mir>0?8:Wz-8}" y="${(yS-6).toFixed(1)}" font-size="11" text-anchor="${mir>0?'start':'end'}" fill="var(--fg)" style="paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round">Blechoberfläche · Schnitt ${ks+1}: t = ${fmt(t,1)} mm, Δ = ${fmt(cu.d,1)} mm</text>`;
  // Drehrichtung (Pfeil entlang des Flugkreises) und Vorschub
  const rA=RS+6/k2,d1=PT(rA,180+mir*0+ -phM*0.15),d2=PT(rA,180-phM*0.55),S2=([x,y])=>[ox2+x*k2,oy2+y*k2];
  const a1=S2(PT(rA,180-phM*0.95)),a2=S2(PT(rA,180-phM*0.6));
@@ -763,8 +786,10 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const SV=(w,h,body)=>`<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto 8px;background:var(--surface);border:1px solid var(--line);border-radius:6px" role="img"><defs><marker id="lnar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fg)"/></marker></defs><g>${body}</g></svg>`;
  const leg=A.rows.map((r,i)=>`<span><i style="display:inline-block;width:12px;height:6px;background:${COL[i%COL.length]};vertical-align:middle"></i> ${r.nm} (z = ${Number.isFinite(r.zL)?r.zL:'–'} / ${Number.isFinite(r.zR)?r.zR:'–'})</span>`).join('');
  el.innerHTML=SV(Wz,Hz,g2)+`<div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:2px;justify-content:center">${leg}<span>Platten als radiale Striche über ihre Schneidenhöhe · schwarz umrandet: im Eingriff · getönter Bogen: Eingriffsbogen je Reihe</span></div>
- <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Reihe</th><th>schneidet ab Tiefe (mm)</th><th>Eingriffsbogen φ<sub>i</sub> (°)</th><th>Platten im Eingriff (links / rechts)</th></tr></thead><tbody>${A.rows.map((r,i)=>{const L=A.ins.filter(q=>q.i===i&&q.side==='L'&&ENG.has(i+'L'+q.j)).map(q=>q.j),Rr=A.ins.filter(q=>q.i===i&&q.side==='R'&&ENG.has(i+'R'+q.j)).map(q=>q.j);
-  return `<tr${phRow(i)>0?'':' style="opacity:.5"'}><td>${r.nm}</td><td>${fmt(yLow(i),1)}</td><td>${phRow(i)>0?fmt(phRow(i),2):'–'}</td><td>${L.length+Rr.length?`${L.length} (${L.join(', ')||'–'}) / ${Rr.length} (${Rr.join(', ')||'–'})`:'0'}</td></tr>`;}).join('')}</tbody></table></div>`;
+ <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Reihe</th><th>schneidet ab Tiefe (mm)</th><th>a<sub>e,max</sub> (mm)</th><th>Eingriffsbogen φ<sub>i</sub> (°)</th><th>Eingriffslänge l<sub>e,max</sub> (mm)</th><th>Platten im Eingriff (links / rechts)</th></tr></thead><tbody>${A.rows.map((r,i)=>{const L=A.ins.filter(q=>q.i===i&&q.side==='L'&&ENG.has(i+'L'+q.j)).map(q=>q.j),Rr=A.ins.filter(q=>q.i===i&&q.side==='R'&&ENG.has(i+'R'+q.j)).map(q=>q.j);
+  return `<tr${phRow(i)>0?'':' style="opacity:.5"'}><td>${r.nm}</td><td>${fmt(yLow(i),1)}</td><td>${phRow(i)>0?fmt(lnAe(cu,yLow(i)),1):'–'}</td><td>${phRow(i)>0?fmt(phRow(i),2):'–'}</td><td>${phRow(i)>0?fmt((RS-yLow(i))*phRow(i)*Math.PI/180,1):'–'}</td><td>${L.length+Rr.length?`${L.length} (${L.join(', ')||'–'}) / ${Rr.length} (${Rr.join(', ')||'–'})`:'0'}</td></tr>`;}).join('')}</tbody></table></div>
+ <details style="margin-top:6px"><summary style="cursor:pointer;font-size:13px">Eingriff je Inkrement – Schnitt ${ks+1} (rechte Profilhälfte, links spiegelbildlich)</summary><div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Platte</th><th>Inkr.</th><th>y (mm)</th><th>κ (°)</th><th>a<sub>e</sub> (mm)</th><th>φ (°)</th><th>l<sub>e</sub> (mm)</th></tr></thead><tbody>${G.inc.map(q=>{const ph=phY(q.y),ae=lnAe(cu,q.y);return `<tr${ph>0?'':' style="opacity:.45"'}><td>${q.pl==='R'?'Radius':q.pl}</td><td>${q.k}</td><td>${fmt(q.y,2)}</td><td>${fmt(q.kap,1)}</td><td>${ae>0?fmt(ae,2):'–'}</td><td>${ph>0?fmt(ph,2):'–'}</td><td>${ph>0?fmt((RS-q.y)*ph*Math.PI/180,1):'–'}</td></tr>`;}).join('')}</tbody></table></div>
+ <p class="note">a<sub>e</sub> = min(Δ, t<sub>k</sub> − y): Im Bereich der vorgeschnittenen Nut schneidet jede Stelle nur die Zustellung Δ, darüber bis zur Blechoberfläche. l<sub>e</sub> = (R − y)·arccos(1 − a<sub>e</sub>/(R − y)).</p></details>`;
  const mt=document.getElementById('ln-mat');
  if(mt){if(!LN_MAT){mt.innerHTML='';}else{const zmax=Math.max(1,...A.rows.map(r=>Math.max(r.zL>0?r.zL:0,r.zR>0?r.zR:0)));
   const line=(r,i,side)=>{const list=A.ins.filter(q=>q.i===i&&q.side===side);return `<tr><td>${r.nm}</td><td>${side==='L'?'links':'rechts'}</td>${Array.from({length:zmax},(_,j)=>{const q=list[j];return q?(ENG.has(i+side+q.j)?`<td style="font-weight:700;background:var(--surface-2)">${fmt(q.ang,2)}</td>`:`<td>${fmt(q.ang,2)}</td>`):'<td></td>';}).join('')}</tr>`;};
@@ -772,17 +797,20 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
 }
 function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0;LN_T=t;LN_ROT=(LN_ROT+dt*30)%360;
  const r=document.querySelector('[data-lnrot]');if(r)r.value=LN_ROT;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();requestAnimationFrame(lnLoop);}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
  if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht;
   if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
   if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';}else f.lnMid='1';}
   else{f.phRows='';f.phRowsR='';toast('Platten gleichmäßig aufgeteilt');}
   const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');lnDrawSim();save();return;}
  if(b.dataset.lnap)LN_DEPTH=null;
+ if(b.dataset.lnsel!=null){const f=S.forms.laengsnaht;f.lnCut=b.dataset.lnsel;lnRefresh(f);return;}
  if(b.dataset.lnview){LN_VIEW=LN_VIEW==='links'?'rechts':'links';b.textContent='Ansicht von '+(LN_VIEW==='links'?'rechts':'links');}
  if(b.dataset.lnplay){LN_PLAY=!LN_PLAY;b.textContent=LN_PLAY?'❚❚ Pause':'▶ Drehen';if(LN_PLAY){LN_T=0;requestAnimationFrame(lnLoop);}}
  if(b.dataset.lnmat){LN_MAT=!LN_MAT;b.textContent=LN_MAT?'Positionsmatrix ausblenden':'Positionsmatrix anzeigen';}
  lnDrawSim();});
+function lnRefresh(f){const set=(id,h)=>{const e=document.getElementById(id);if(e&&!e.contains(document.activeElement))e.innerHTML=h;};
+ set('ln-prof',lnProfHTML(f));set('ln-z',lnZHTML(f));set('ln-cuts',lnCutsHTML(f));renderOut('laengsnaht');lnDrawSim();save();}
 function lnRenderZ(){const e=document.getElementById('ln-z');if(e&&!e.contains(document.activeElement))e.innerHTML=lnZHTML(S.forms.laengsnaht);}
 /* Längsnaht: Profilzeichnung mit Radius- und Flankenplatten */
 function lnProfHTML(f){
@@ -842,7 +870,7 @@ function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='blechkante')b.pos='gleich';
  if(p==='laengsnaht')b.pos='gleich';
  if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
- if(p==='laengsnaht')Object.assign(b,{Dc:'1000',rR:'8',ap:'40',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
+ if(p==='laengsnaht')Object.assign(b,{Dc:'1000',rR:'8',ap:'90',nCuts:'3',cutT:'40;70;90',cutFz:'',lnCut:'0',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
  return b;}
 const TRIAL0={kunde:'',standort:'',ansprech:'',techniker:'',datum:new Date().toISOString().slice(0,10),vnr:'',maschine:'',mHersteller:'',mTyp:'',mLeistung:'',mDrehmoment:'',steuerung:'',bauteil:'',zeichnung:'',spannung:'',los:'',ziel:''};
 
@@ -1300,7 +1328,8 @@ function renderProc(p){
    if(p!=='laengsnaht')return `<div class="fields">${PS.map(PF).join('')}${field(p,'kuehl','Kühlung',{opts:KUEHL})}</div>`;
    /* Längsnaht: Fräser- und Profilgeometrie bis zur Zähnezahl oben, dann Profil, Zahnreihen und Seitenansicht, darunter die Schnittdaten */
    const iz=PS.findIndex(([k])=>k==='z'),top=PS.slice(0,iz+1),rest=PS.slice(iz+1);
-   return `<div class="fields">${top.map(PF).join('')}</div><div id="ln-prof" style="margin:14px 0">${lnProfHTML(f)}</div><div id="ln-z" style="margin-bottom:14px">${lnZHTML(f)}</div><div id="ln-sim" style="margin-bottom:14px">${lnSimHTML()}</div><div class="lbl" style="margin-bottom:6px">Schnittdaten</div><div class="fields">${rest.map(PF).join('')}${field(p,'kuehl','Kühlung',{opts:KUEHL})}</div>`;})()}
+   const rV=rest.filter(([k])=>k==='vc'),rO=rest.filter(([k])=>k!=='vc');
+   return `<div class="fields">${top.map(PF).join('')}</div><div id="ln-prof" style="margin:14px 0">${lnProfHTML(f)}</div><div id="ln-z" style="margin-bottom:14px">${lnZHTML(f)}</div><h3 style="font:600 17px var(--f-disp);margin:18px 0 8px">Prozessparameter</h3><div class="fields">${rV.map(PF).join('')}</div><div id="ln-cuts" style="margin:10px 0 14px">${lnCutsHTML(f)}</div><div class="fields">${rO.map(PF).join('')}${field(p,'kuehl','Kühlung',{opts:KUEHL})}</div><h3 style="font:600 17px var(--f-disp);margin:18px 0 8px">Simulation</h3><div id="ln-sim" style="margin-bottom:14px">${lnSimHTML()}</div>`;})()}
   </div></section>`,
  eval:`<section class="card"><h2>Ergebnis am Werkzeug</h2><p class="hint">Wird mit dem Parametersatz gespeichert.</p>
   <div class="fields">
@@ -1800,7 +1829,7 @@ document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.cl
 const main=document.getElementById('main');
 main.addEventListener('input',e=>{
  const el=e.target,k=el.dataset.k;
- if(el.dataset.zrow!=null||el.dataset.phrow!=null)return;
+ if(el.dataset.zrow!=null||el.dataset.phrow!=null||el.dataset.lncut!=null||el.dataset.lnncut!=null)return;
  if(el.dataset.lndepth!=null){LN_DEPTH=+el.value;lnDrawSim();return;}
  if(el.dataset.lnrot!=null){LN_ROT=+el.value;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();return;}
  if(el.dataset.catr){const [kind,i,col]=el.dataset.catr.split(':');if(CAT[kind][i]){CAT[kind][i][col]=el.value;saveCat();if(kind==='mat')rebuildMats();}return;}
@@ -1821,9 +1850,13 @@ main.addEventListener('input',e=>{
  if(k==='matRep'){applyRep(p,el.value);save();render();return;}
  if(/^geo/.test(k)){save();render();return;}
  if(el.dataset.cat&&catApply(p,el)){syncAlt(p,S.forms[p]);save();render();toast('Aus Stammdaten übernommen');return;}
- syncAlt(p,S.forms[p]);{const nh=document.getElementById(p+'-nkhint');if(nh)nh.textContent=nkHint(S.forms[p]);}renderOut(p);renderDerived(p);renderPos(p);if(p==='laengsnaht'){const e=document.getElementById('ln-prof');if(e)e.innerHTML=lnProfHTML(S.forms[p]);lnRenderZ();lnDrawSim();}renderNav(p);save();renderHeader();
+ syncAlt(p,S.forms[p]);{const nh=document.getElementById(p+'-nkhint');if(nh)nh.textContent=nkHint(S.forms[p]);}renderOut(p);renderDerived(p);renderPos(p);if(p==='laengsnaht'){const e=document.getElementById('ln-prof');if(e)e.innerHTML=lnProfHTML(S.forms[p]);lnRenderZ();{const c=document.getElementById('ln-cuts');if(c)c.innerHTML=lnCutsHTML(S.forms[p]);}lnDrawSim();}renderNav(p);save();renderHeader();
 });
 main.addEventListener('change',e=>{
+ if(e.target.dataset.lncut!=null||e.target.dataset.lnncut!=null){const f=S.forms.laengsnaht,t=e.target;
+  if(t.dataset.lnncut!=null){f.nCuts=t.value;if(lnSel(f)>=+t.value)f.lnCut=String(+t.value-1);}
+  else{const key=t.dataset.ck==='t'?'cutT':'cutFz',k=+t.dataset.lncut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=t.value.trim();f[key]=a.join(';');}
+  const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);lnRefresh(f);return;}
  if(e.target.dataset.phrow!=null){const f=S.forms.laengsnaht,t=e.target;lnSetAng(f,LN_PK[t.dataset.side||'L'],+t.dataset.phrow,t.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnDrawSim();save();return;}
  if(e.target.dataset.zrow!=null){const f=S.forms.laengsnaht,msg=lnSetZ(f,e.target.dataset.side||'L',+e.target.dataset.zrow,e.target.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');lnDrawSim();save();if(msg)toast(msg);return;}
  if(e.target.dataset.catimp){const inp=e.target,kind=inp.dataset.catimp,f=inp.files&&inp.files[0];if(!f)return;
