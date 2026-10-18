@@ -208,13 +208,13 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[d
 /* ===== Leistungsberechnung über eine Umdrehung (Rechenkern) =====
    Je Schneide (Reihe × Seite) wird eine Platte über ihren Winkel a (0…360°, N_φ Schritte) gerechnet:
    je Kanteninkrement: a_e aus dem Vorschnitt, Eingriffsbogen φ_e = arccos(1 − a_e/r), β = 180° − a ∈ [0, φ_e],
-   h = f_z,i · sin β · sin κ, F_c = b · k_c1.1 · h^(1−m_c) · (1 − γ₀/100), M = Σ F_c · r, P = M · ω.
+   h = f_z,i · sin β · sin κ, F_c = b · k_c1.1 · h^(1−m_c) · (1 − γ₀/100) · K_Vf, M = Σ F_c · r, P = M · ω.
    Die Gesamtkurve entsteht durch Überlagerung aller Platten mit ihrer Winkellage θ (Positionsmatrix).
    Ergebnisobjekt LN_CALC enthält alle Zwischengrößen (je Schneide, je Inkrement, Kurven), damit weitere Größen angezeigt werden können. */
 let LN_SPLIT=false,LN_CALC=null,LN_PQ='P',LN_EDGE=0,LN_FIT=true,LN_ZOOM=360,LN_SRC='tot',LN_TRK='';
 const lnCalcKey=f=>JSON.stringify(['Dc','rR','dU','alphaN','lK','uF','nIR','nIF','z','zRows','zRowsR','phRows','phRowsR','lnMid','vc','nCuts','cutT','cutVf','g','kc','mc','nPhi'].map(k=>f[k]));
 function lnPowerCut(f,k){
- const G=lnGeom(f),A=lnAng(f),C=lnCuts(f),cu=C.list[k],D=num(f.Dc),Rr=D/2,vc=num(f.vc),z=num(f.z),kc11=num(f.kc),mc=num(f.mc),gk=1-(num(f.g)||0)/100;
+ const G=lnGeom(f),A=lnAng(f),C=lnCuts(f),cu=C.list[k],D=num(f.Dc),Rr=D/2,vc=num(f.vc),z=num(f.z),kc11=num(f.kc),mc=num(f.mc),gk=(1-(num(f.g)||0)/100)*kvfOf(f);
  const N=Math.max(36,Math.min(7200,Math.round(num(f.nPhi))||720)),da=360/N,n=vc*1000/(Math.PI*D),om=2*Math.PI*n/60;
  const err=!(D>0&&vc>0&&z>0)?'Fräserdurchmesser, Zähnezahl und vc eintragen.':!(kc11>0&&mc>0)?'Werkstoff (kc1.1, mc) wählen.':!(cu&&cu.t>0&&cu.d>0)?'Schnitttiefen (zunehmend) eintragen.':!(cu.vf>0)?`Vorschubgeschwindigkeit v<sub>f</sub> für Schnitt ${k+1} eintragen.`:!G.ok?'Profil prüfen.':'';
  if(err)return {k,err};
@@ -340,7 +340,7 @@ function lnPowResHTML(f){
   ${e.incs.map(q=>`<tr><td>${q.k}</td><td>${fmt(q.y,2)}</td><td>${fmt(q.b,2)}</td><td>${fmt(q.kap,1)}</td><td>${fmt(q.r,1)}</td><td>${fmt(q.ae,2)}</td><td>${fmt(q.phi,2)}</td><td>${fmt(q.le,1)}</td><td>${fmt(q.hmax,4)}</td><td>${fmt(q.Fmax,0)}</td><td>${fmt(q.Fmean,1)}</td></tr>`).join('')}
   </tbody></table></div>
   <p class="note" style="margin:4px 0 0">Jedes Inkrement hat seine eigene Eingriffstiefe a<sub>e</sub> = min(Δ, t − y), seinen Radius r = D/2 − y und damit seinen eigenen Eingriffsbogen φ<sub>e</sub> = arccos(1 − a<sub>e</sub>/r) und seine Eingriffslänge l<sub>e</sub> = r · φ<sub>e</sub>. In jedem Winkelschritt schneidet ein Inkrement nur, solange β ≤ φ<sub>e</sub>.</p>`;}
- h+=`<p class="note" style="margin:8px 0 0">Rechenweg: je Kanteninkrement h = f<sub>z,i</sub> · sin β · sin κ, F<sub>c</sub> = b · k<sub>c1.1</sub> · h<sup>1−m<sub>c</sub></sup> · (1 − γ₀/100), M = Σ F<sub>c</sub> · r, P = M · ω. Leistung und Drehmoment des Fräsers sind die Summe der momentanen Werte aller Platten: P(ψ) = Σ<sub>q</sub> P<sub>q</sub>(ψ), M(ψ) = Σ<sub>q</sub> M<sub>q</sub>(ψ) über ${r.ins.length} Platten mit ihrer Winkellage. Mittlere Leistung = arithmetisches Mittel des Leistungssignals: P̄ = (1/N<sub>φ</sub>) · Σ<sub>j</sub> P(ψ<sub>j</sub>), ebenso M̄; N<sub>φ</sub> = ${r.N} (Δψ = ${fmt(r.da,2)}°). Diese Mittelwerte werden auch im Schnittkraftrechner rechts angezeigt.</p>`;
+ h+=`<p class="note" style="margin:8px 0 0">Rechenweg: je Kanteninkrement h = f<sub>z,i</sub> · sin β · sin κ, F<sub>c</sub> = b · k<sub>c1.1</sub> · h<sup>1−m<sub>c</sub></sup> · (1 − γ₀/100) · K<sub>Vf</sub>, M = Σ F<sub>c</sub> · r, P = M · ω. Leistung und Drehmoment des Fräsers sind die Summe der momentanen Werte aller Platten: P(ψ) = Σ<sub>q</sub> P<sub>q</sub>(ψ), M(ψ) = Σ<sub>q</sub> M<sub>q</sub>(ψ) über ${r.ins.length} Platten mit ihrer Winkellage. Mittlere Leistung = arithmetisches Mittel des Leistungssignals: P̄ = (1/N<sub>φ</sub>) · Σ<sub>j</sub> P(ψ<sub>j</sub>), ebenso M̄; N<sub>φ</sub> = ${r.N} (Δψ = ${fmt(r.da,2)}°). Diese Mittelwerte werden auch im Schnittkraftrechner rechts angezeigt.</p>`;
  return h;}
 /* ===== Optimierer ===== */
 const lnLocked=(f,i,sd)=>String(f.phLock||'').split(',').includes(i+sd);
@@ -395,7 +395,7 @@ function lnToolOpt(f){
  f.phRows=pL.slice(0,n).join(';');if(!mid)f.phRowsR=pR.slice(0,n).join(';');
  return {report,at:new Date()};}
 /* Mittlere Schnittleistung eines Schnitts (tp → t) bei Vorschubgeschwindigkeit vf – analytisch gemittelt, unabhängig von der Winkellage */
-function lnMeanPow(f,tp,t,vf){const G=lnGeom(f),A=lnAng(f),D=num(f.Dc),Rr=D/2,vc=num(f.vc),n=vc*1000/(Math.PI*D),om=2*Math.PI*n/60,kc11=num(f.kc),mc=num(f.mc),gk=1-(num(f.g)||0)/100,c={t,tp,d:t-tp};
+function lnMeanPow(f,tp,t,vf){const G=lnGeom(f),A=lnAng(f),D=num(f.Dc),Rr=D/2,vc=num(f.vc),n=vc*1000/(Math.PI*D),om=2*Math.PI*n/60,kc11=num(f.kc),mc=num(f.mc),gk=(1-(num(f.g)||0)/100)*kvfOf(f),c={t,tp,d:t-tp};
  let M=0;const NB=48;
  A.rows.forEach((row,i)=>{const pl=i===0?'R':'F'+i;['L','R'].forEach(sd=>{const zi=sd==='L'?row.zL:row.zR;if(!(zi>0))return;const feff=vf/(n*zi);
   G.inc.filter(q=>q.pl===pl).forEach(q=>{const top=Math.min(q.y1,t);if(!(top>q.y0))return;const b=q.ds*(top-q.y0)/(q.y1-q.y0),ym=(q.y0+top)/2,ae=lnAe(c,ym);if(!(ae>0))return;
