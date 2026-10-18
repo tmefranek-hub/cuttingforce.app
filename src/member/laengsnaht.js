@@ -586,24 +586,34 @@ function lnProfHTML(f){
  const arc=sg=>{const a=[];for(let i=0;i<=30;i++){const t=(Math.PI/2-G.be)*i/30;a.push([X(sg*G.r*Math.sin(t)),Y(G.r*(1-Math.cos(t)))]);}return a.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');};
  const fp=(sg,sv)=>[X(sg*(G.xt+sv*sb)),Y(G.yt+sv*cb)];
  const tick=(sg,sv,len)=>{const [x,y]=sv==null?[X(0),Y(0)]:fp(sg,sv),nx=sv==null?0:sg*cb,ny=sv==null?1:sb;return `<line x1="${(x-nx*len).toFixed(1)}" y1="${(y-ny*len).toFixed(1)}" x2="${(x+nx*len).toFixed(1)}" y2="${(y+ny*len).toFixed(1)}" stroke="var(--fg)" stroke-width="1.2"/>`;};
- if(!G.tipOnly){g+=`<path d="${arc(-1)}" fill="none" stroke="#b3261e" stroke-width="${SW}" stroke-linecap="butt"/><path d="${arc(1)}" fill="none" stroke="#1d5fc4" stroke-width="${SW}" stroke-linecap="butt"/>`;
-  g+=tick(1,null,6);}
- G.segs.forEach(([a,b],i)=>{[-1,1].forEach(sg=>{const col=i%2?'#7a5a00':'#2e7d32',p1=fp(sg,a),p2=fp(sg,b);
-  g+=`<line x1="${p1[0].toFixed(1)}" y1="${p1[1].toFixed(1)}" x2="${p2[0].toFixed(1)}" y2="${p2[1].toFixed(1)}" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt"/>`;
-  g+=tick(sg,a,6);if(i===G.segs.length-1)g+=tick(sg,b,6);
-  if(sg>0)g+=`<text x="${((p1[0]+p2[0])/2+cb*12).toFixed(1)}" y="${((p1[1]+p2[1])/2+4).toFixed(1)}" font-size="11" fill="var(--fg)">F${i+1}</text>`;});});
- // Inkrementgrenzen (feine Striche quer zur Schneide)
- const itick=(x,y,nx,ny)=>`<line x1="${(x-nx*3.5).toFixed(1)}" y1="${(y-ny*3.5).toFixed(1)}" x2="${(x+nx*3.5).toFixed(1)}" y2="${(y+ny*3.5).toFixed(1)}" stroke="var(--surface)" stroke-width="1"/>`;
- [-1,1].forEach(sg=>{
-  if(!G.tipOnly)for(let k=1;k<G.nR;k++){const t=(Math.PI/2-G.be)*k/G.nR;g+=itick(X(sg*G.r*Math.sin(t)),Y(G.r*(1-Math.cos(t))),sg*Math.sin(t),Math.cos(t));}
-  G.segs.forEach(([a,b])=>{for(let k=1;k<G.nI;k++){const sv=a+(b-a)*k/G.nI,[x,y]=fp(sg,sv);g+=itick(x,y,sg*cb,sb);}});});
+ /* Schneiden inkrementweise zeichnen: jedes Inkrement als eigener Abschnitt, abwechselnd kräftig/hell, Grenzen als dunkle Querstriche */
+ const drawEdges=(Xf,Yf,sw,tl,lab)=>{let o='';const ln=(p1,p2,c,op)=>`<line x1="${p1[0].toFixed(1)}" y1="${p1[1].toFixed(1)}" x2="${p2[0].toFixed(1)}" y2="${p2[1].toFixed(1)}" stroke="${c}" stroke-opacity="${op}" stroke-width="${sw}" stroke-linecap="butt"/>`;
+  const tk=(x,y,nx,ny,L,w)=>`<line x1="${(x-nx*L).toFixed(1)}" y1="${(y-ny*L).toFixed(1)}" x2="${(x+nx*L).toFixed(1)}" y2="${(y+ny*L).toFixed(1)}" stroke="var(--fg)" stroke-width="${w}"/>`;
+  const ap2=(sg,t)=>[Xf(sg*G.r*Math.sin(t)),Yf(G.r*(1-Math.cos(t)))],fp2=(sg,sv)=>[Xf(sg*(G.xt+sv*sb)),Yf(G.yt+sv*cb)];
+  [-1,1].forEach(sg=>{
+   if(!G.tipOnly){const col=sg<0?'#b3261e':'#1d5fc4',T=Math.PI/2-G.be;
+    for(let q=0;q<G.nR;q++){const ta=T*q/G.nR,tb=T*(q+1)/G.nR;let d='';for(let m=0;m<=6;m++){const pp=ap2(sg,ta+(tb-ta)*m/6);d+=(m?'L':'M')+pp[0].toFixed(1)+' '+pp[1].toFixed(1);}
+     o+=`<path d="${d}" fill="none" stroke="${col}" stroke-opacity="${q%2?.45:1}" stroke-width="${sw}"/>`;}
+    for(let q=0;q<=G.nR;q++){const t=T*q/G.nR,pp=ap2(sg,t);o+=tk(pp[0],pp[1],sg*Math.sin(t),Math.cos(t),q===0||q===G.nR?tl*1.6:tl,q===0||q===G.nR?1.2:.7);}}
+   G.segs.forEach(([a,b],i)=>{const col=i%2?'#7a5a00':'#2e7d32';
+    for(let q=0;q<G.nI;q++){const s0=a+(b-a)*q/G.nI,s1=a+(b-a)*(q+1)/G.nI;o+=ln(fp2(sg,s0),fp2(sg,s1),col,q%2?.45:1);}
+    for(let q=0;q<=G.nI;q++){const sv=a+(b-a)*q/G.nI,pp=fp2(sg,sv);o+=tk(pp[0],pp[1],sg*cb,sb,q===0||q===G.nI?tl*1.6:tl,q===0||q===G.nI?1.2:.7);}
+    if(lab&&sg>0){const p1=fp2(sg,a),p2=fp2(sg,b);o+=`<text x="${((p1[0]+p2[0])/2+cb*14).toFixed(1)}" y="${((p1[1]+p2[1])/2+4).toFixed(1)}" font-size="11" fill="var(--fg)">F${i+1}</text>`;}});});
+  return o;};
+ g+=drawEdges(X,Y,SW,4,true);
+ /* Detailausschnitt Profilspitze (vergrößert), damit auch die Inkremente der Radiusschneide sichtbar sind */
+ {const hD=Math.min(hP,Math.max(G.yt+(G.segs.length?Math.min(G.lF,8):0),G.r*1.6)),bwD=G.w(hD)+2,iw=170,ih=150,ix=8,iy=H-ih-8,kI=Math.min((iw-24)/(2*bwD),(ih-30)/hD),mag=kI/k;
+  if(mag>1.6){const cxI=ix+iw/2,yI=iy+ih-14,XI=x=>cxI+x*kI,YI=y=>yI-y*kI;
+   g+=`<defs><clipPath id="lnclipD"><rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="4"/></clipPath></defs><rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="4" fill="var(--surface)" stroke="var(--line)"/>`;
+   g+=`<g clip-path="url(#lnclipD)">${drawEdges(XI,YI,Math.max(SW,kI*0.9),5,false)}</g><text x="${ix+6}" y="${iy+13}" font-size="10.5" fill="var(--muted)">Detail Spitze ${fmt(mag,1)}:1</text>`;
+   const r1=[X(-bwD),Y(hD)],r2=[X(bwD),Y(0)];g+=`<rect x="${r1[0].toFixed(1)}" y="${r1[1].toFixed(1)}" width="${(r2[0]-r1[0]).toFixed(1)}" height="${(r2[1]-r1[1]+2).toFixed(1)}" fill="none" stroke="var(--muted)" stroke-width=".7" stroke-dasharray="3 2"/>`;}}
  // Bemaßung
  const dim=(x1,y1,x2,y2,t,dx,dy,anc)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#1d5fc4" stroke-width=".9" marker-start="url(#lnar)" marker-end="url(#lnar)"/><text x="${(x1+x2)/2+dx}" y="${(y1+y2)/2+dy}" font-size="12" fill="#1d5fc4" text-anchor="${anc||'middle'}">${t}</text>`;
  const xr=X(G.w(hP))+26;g+=dim(xr+78,Y(hP),xr+78,Y(0),`h<tspan font-size="9" dy="3">P</tspan><tspan dy="-3"> = ${fmt(hP,1)}</tspan>`,6,4,'start');g+=`<line x1="${X(G.b/2)}" y1="${Y(0)}" x2="${xr+6}" y2="${Y(0)}" stroke="#1d5fc4" stroke-width=".6" stroke-dasharray="3 2"/>`+dim(xr,Y(ap),xr,Y(0),`a<tspan font-size="9" dy="3">p</tspan><tspan dy="-3"> = ${fmt(ap,1)}</tspan>`,6,4,'start');
  g+=dim(X(-G.b/2),Y(ap)-14,X(G.b/2),Y(ap)-14,'b = '+fmt(G.b,1),0,-5);
  g+=`<text x="${X(0)}" y="${Y(0)+18}" font-size="12" fill="var(--fg)" text-anchor="middle">r<tspan font-size="9" dy="3">R</tspan><tspan dy="-3"> = ${fmt(G.r,1)} (je ½ links/rechts)</tspan></text>`;
  g+=`<text x="${X(0)}" y="${Y(ap*0.55)}" font-size="12" fill="var(--fg)" text-anchor="middle">α<tspan font-size="9" dy="3">V</tspan><tspan dy="-3"> = ${fmt(num(f.alphaN),1)}°</tspan></text>`;
- const leg=`<div class="ps-leg" style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;margin-top:6px"><span><i style="display:inline-block;width:14px;height:5px;background:#b3261e;vertical-align:middle"></i> Radiusplatte links</span><span><i style="display:inline-block;width:14px;height:5px;background:#1d5fc4;vertical-align:middle"></i> Radiusplatte rechts</span><span><i style="display:inline-block;width:14px;height:5px;background:#2e7d32;vertical-align:middle"></i>/<i style="display:inline-block;width:14px;height:5px;background:#7a5a00;vertical-align:middle"></i> Flankenplatten (Schneidlänge im Einsatz)</span><span>Querstriche: Plattenstöße, dort überlappen die Schneidkanten um je ü</span><span>helle Striche: Inkrementgrenzen</span></div>`;
+ const leg=`<div class="ps-leg" style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;margin-top:6px"><span><i style="display:inline-block;width:14px;height:5px;background:#b3261e;vertical-align:middle"></i> Radiusplatte links</span><span><i style="display:inline-block;width:14px;height:5px;background:#1d5fc4;vertical-align:middle"></i> Radiusplatte rechts</span><span><i style="display:inline-block;width:14px;height:5px;background:#2e7d32;vertical-align:middle"></i>/<i style="display:inline-block;width:14px;height:5px;background:#7a5a00;vertical-align:middle"></i> Flankenplatten (Schneidlänge im Einsatz)</span><span>Abschnitte hell/kräftig und feine Querstriche: Inkremente; kräftige Querstriche: Plattenstöße, dort überlappen die Schneidkanten um je ü</span></div>`;
  const incInfo=`<p class="note" style="margin:6px 0 4px">Inkremente: Radiusschneide ${G.nR} × ${fmt(G.dsR,2)} mm (Bogen je ½: ${fmt(G.arcL,2)} mm), Flankenschneide ${G.nI} × ${fmt(G.dsF,2)} mm. Im Gesamtprofil ${G.nInc} Inkremente, davon ${G.nIncCut} im Schnitt (unter a<sub>p</sub>).</p>
   <details style="margin:4px 0 8px"><summary style="cursor:pointer;font-size:13px">Inkrementtabelle (rechte Profilhälfte, links spiegelbildlich)</summary><div class="tbl-wrap"><table><thead><tr><th>Platte</th><th>Inkr.</th><th>Höhe über Spitze (mm)</th><th>x (mm)</th><th>Länge ds (mm)</th><th>κ lokal (°)</th><th>im Schnitt (mm)</th></tr></thead><tbody>${G.inc.map(q=>`<tr${q.inCut?'':' style="opacity:.5"'}><td>${q.pl==='R'?'Radius':q.pl}</td><td>${q.k}</td><td>${fmt(q.y0,2)} – ${fmt(q.y1,2)}</td><td>${fmt(q.x,2)}</td><td>${fmt(q.ds,2)}</td><td>${fmt(q.kap,1)}</td><td>${fmt(q.dsCut,2)}</td></tr>`).join('')}</tbody></table></div></details>`;
  const rows=G.segs.map(([a,b],i)=>`<tr><td>F${i+1}</td><td>${fmt(a-G.uF,1)} – ${fmt(b+G.uF,1)}</td><td>${fmt(a,1)} – ${fmt(b,1)}</td><td>${fmt(G.yt+a*cb,1)} – ${fmt(G.yt+b*cb,1)}</td></tr>`).join('');
