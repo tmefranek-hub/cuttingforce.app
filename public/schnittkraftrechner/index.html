@@ -797,7 +797,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
 }
 function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0;LN_T=t;LN_ROT=(LN_ROT+dt*30)%360;
  const r=document.querySelector('[data-lnrot]');if(r)r.value=LN_ROT;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();requestAnimationFrame(lnLoop);}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
  if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht;
   if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
   if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';}else f.lnMid='1';}
@@ -808,6 +808,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[d
  if(b.dataset.lnpq){LN_PQ=b.dataset.lnpq;lnPowRender();return;}
  if(b.dataset.lnfit){LN_FIT=!LN_FIT;lnPowRender();return;}
  if(b.dataset.lnzoom){LN_ZOOM=+b.dataset.lnzoom;lnPowRender();return;}
+ if(b.dataset.lnsrc){LN_SRC=b.dataset.lnsrc;lnPowRender();return;}
  if(b.dataset.lnedge!=null){LN_EDGE=+b.dataset.lnedge;lnPowRender();return;}
  if(b.dataset.lnsel!=null){const f=S.forms.laengsnaht;f.lnCut=b.dataset.lnsel;lnRefresh(f);return;}
  if(b.dataset.lnview){LN_VIEW=LN_VIEW==='links'?'rechts':'links';b.textContent='Ansicht von '+(LN_VIEW==='links'?'rechts':'links');}
@@ -820,7 +821,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[d
    h = f_z,i · sin β · sin κ, F_c = b · k_c1.1 · h^(1−m_c) · (1 − γ₀/100), M = Σ F_c · r, P = M · ω.
    Die Gesamtkurve entsteht durch Überlagerung aller Platten mit ihrer Winkellage θ (Positionsmatrix).
    Ergebnisobjekt LN_CALC enthält alle Zwischengrößen (je Schneide, je Inkrement, Kurven), damit weitere Größen angezeigt werden können. */
-let LN_CALC=null,LN_PQ='P',LN_EDGE=0,LN_FIT=true,LN_ZOOM=360;
+let LN_CALC=null,LN_PQ='P',LN_EDGE=0,LN_FIT=true,LN_ZOOM=360,LN_SRC='tot',LN_IE=0,LN_IJ=1;
 const lnCalcKey=f=>JSON.stringify(['Dc','rR','dU','alphaN','lK','uF','nIR','nIF','z','zRows','zRowsR','phRows','phRowsR','lnMid','vc','nCuts','cutT','cutFz','g','kc','mc','nPhi'].map(k=>f[k]));
 function lnPowerCut(f,k){
  const G=lnGeom(f),A=lnAng(f),C=lnCuts(f),cu=C.list[k],D=num(f.Dc),Rr=D/2,vc=num(f.vc),z=num(f.z),kc11=num(f.kc),mc=num(f.mc),gk=1-(num(f.g)||0)/100;
@@ -843,12 +844,12 @@ function lnPowerCut(f,k){
   edges.push({i,side,nm:row.nm,z:zi,feff,incs,P,M,F,H,hmax:Math.max(0,...incs.map(q=>q.hmax)),aemax:Math.max(0,...incs.map(q=>q.ae)),phimax:Math.max(0,...incs.map(q=>q.phi)),
    Pm:Ps/N,Pmax:Pmx,Mm:Ms/N,Mmax:Mmx,Prow:Ps/N*zi});});});
  // Überlagerung aller Platten über den Fräserdrehwinkel ψ
- const Pt=new Float64Array(N),Mt=new Float64Array(N),Ne=new Float64Array(N);
+ const Pt=new Float64Array(N),Mt=new Float64Array(N),Ne=new Float64Array(N),Ht=new Float64Array(N);
  const byKey={};edges.forEach(e=>byKey[e.i+e.side]=e);
  A.ins.forEach(q=>{const e=byKey[q.i+q.side];if(!e)return;const o=Math.round(q.ang/da);
-  for(let j=0;j<N;j++){const idx=(j+o)%N,pv=e.P[idx];if(pv){Pt[j]+=pv;Mt[j]+=e.M[idx];Ne[j]++;}}});
+  for(let j=0;j<N;j++){const idx=(j+o)%N,pv=e.P[idx];if(pv){Pt[j]+=pv;Mt[j]+=e.M[idx];Ne[j]++;if(e.H[idx]>Ht[j])Ht[j]=e.H[idx];}}});
  let Ps=0,Ms=0,Pmx=0,Mmx=0,Nmx=0,Nsum=0,Pmn=1e18,Mmn=1e18,Nmn=1e9;for(let j=0;j<N;j++){Ps+=Pt[j];Ms+=Mt[j];Nsum+=Ne[j];if(Pt[j]>Pmx)Pmx=Pt[j];if(Mt[j]>Mmx)Mmx=Mt[j];if(Ne[j]>Nmx)Nmx=Ne[j];if(Pt[j]<Pmn)Pmn=Pt[j];if(Mt[j]<Mmn)Mmn=Mt[j];if(Ne[j]<Nmn)Nmn=Ne[j];}
- return {k,t:cu.t,d:cu.d,fz:cu.fz,N,da,n,vf,om,edges,Pt,Mt,Ne,Pm:Ps/N,Pmax:Pmx,Pmin:Pmn,Mm:Ms/N,Mmax:Mmx,Mmin:Mmn,Nm:Nsum/N,Nmax:Nmx,Nmin:Nmn,hmax:Math.max(0,...edges.map(e=>e.hmax)),eta:num(f.eta)||1};}
+ return {k,t:cu.t,d:cu.d,fz:cu.fz,N,da,n,vf,om,edges,Ht,ins:A.ins.map(q=>({i:q.i,side:q.side,j:q.j,ang:q.ang})),Pt,Mt,Ne,Pm:Ps/N,Pmax:Pmx,Pmin:Pmn,Mm:Ms/N,Mmax:Mmx,Mmin:Mmn,Nm:Nsum/N,Nmax:Nmx,Nmin:Nmn,hmax:Math.max(0,...edges.map(e=>e.hmax)),eta:num(f.eta)||1};}
 function lnPowerAll(f){const C=lnCuts(f);LN_CALC={key:lnCalcKey(f),at:new Date(),cuts:C.list.map(c=>lnPowerCut(f,c.k))};}
 /* Liniendiagramm (eine Reihe, eine y-Achse) mit Mittelwertlinie, Fadenkreuz und Tooltip */
 const LN_CH={};
@@ -862,7 +863,7 @@ function lnChart(id,xs,ys,o){const W=560,H=230,L=52,Rm=12,T=14,B=34,xmin=o.xmin?
  g+=`<line x1="${L}" x2="${W-Rm}" y1="${f1(Y(y0))}" y2="${f1(Y(y0))}" stroke="var(--muted)" stroke-width="1"/>`;
  let d='';xs.forEach((x,j)=>{if(x<xmin||x>xmax)return;d+=(d?'L':'M')+f1(X(x))+' '+f1(Y(ys[j]));});
  g+=`<path d="${d}" fill="none" stroke="#1d5fc4" stroke-width="2" stroke-linejoin="round"/>`;
- if(o.mean!=null){g+=`<line x1="${L}" x2="${W-Rm}" y1="${f1(Y(o.mean))}" y2="${f1(Y(o.mean))}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="5 4"/><text x="${W-Rm-4}" y="${f1(Y(o.mean)-5)}" font-size="11" text-anchor="end" fill="var(--fg)" style="paint-order:stroke;stroke:var(--surface);stroke-width:3px">Mittelwert ${fmt(o.mean,o.dec)} ${o.unit}</text>`;}
+ if(o.mean!=null){g+=`<line x1="${L}" x2="${W-Rm}" y1="${f1(Y(o.mean))}" y2="${f1(Y(o.mean))}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="5 4"/><text x="${W-Rm-4}" y="${f1(Y(o.mean)-5)}" font-size="11" text-anchor="end" fill="var(--fg)" style="paint-order:stroke;stroke:var(--surface);stroke-width:3px">${o.meanLab||'Mittelwert'} ${fmt(o.mean,o.dec)} ${o.unit}</text>`;}
  g+=`<text x="${L}" y="${H-4}" font-size="11" fill="var(--muted)">${o.xlabel}</text><text x="6" y="11" font-size="11" fill="var(--muted)">${o.ylabel}${y0>0?' – Achse beginnt bei '+fmt(y0,o.dec)+' '+o.unit:''}</text>`;
  g+=`<g class="ln-hov" style="display:none"><line y1="${T}" y2="${H-B}" stroke="var(--fg)" stroke-width="1"/><circle r="4" fill="#1d5fc4" stroke="var(--surface)" stroke-width="2"/></g>`;
  LN_CH[id]={xs,ys,X,Y,L,W,Rm,o,xmin,xmax};
@@ -888,9 +889,24 @@ function lnPowResHTML(f){
  let h=`${stale?'<p class="warn" style="margin:0 0 6px">Eingaben wurden geändert – Ergebnis gilt für den letzten Stand. Neu berechnen.</p>':''}<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin-bottom:8px">Schnitt: ${chips}</div>`;
  if(!r||r.err)return h+`<p class="warn" style="font-weight:600">Für den Graphen fehlt noch: ${r?r.err:'Kein Ergebnis.'}</p>`;
  const kv=(k,v,u,hl)=>`<div style="border:${hl?2:1}px solid ${hl?'var(--fg)':'var(--line)'};border-radius:6px;padding:8px 10px"><div style="font-size:12px;color:var(--muted)">${k}</div><div style="font:600 19px var(--f-disp)">${v} <small style="font:400 11px var(--f-body);color:var(--muted)">${u}</small></div></div>`;
- const xs=Array.from({length:r.N},(_,j)=>j*r.da),isP=LN_PQ==='P';
- h+=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;margin:4px 0 6px">Verlauf über 0 … 2π: <button type="button" class="chip-btn" data-lnpq="P" aria-pressed="${isP}">Leistung</button><button type="button" class="chip-btn" data-lnpq="M" aria-pressed="${!isP}">Drehmoment</button><span style="flex:1"></span>Bereich: ${[[360,'2π'],[90,'90°'],[30,'30°'],[10,'10°']].map(([v,l])=>`<button type="button" class="chip-btn" data-lnzoom="${v}" aria-pressed="${LN_ZOOM===v}">${l}</button>`).join('')}<button type="button" class="chip-btn" data-lnfit="1" aria-pressed="${!LN_FIT}">Achse ab 0</button></div>`;
- h+=lnChart('tot',xs,Array.from(isP?r.Pt:r.Mt),{xlabel:'Fräserdrehwinkel ψ',ylabel:isP?'Schnittleistung P (kW)':'Drehmoment M (Nm)',unit:isP?'kW':'Nm',dec:isP?2:0,mean:isP?r.Pm:r.Mm,fit:LN_FIT,xmin:0,xmax:LN_ZOOM,xticks:LN_ZOOM===360?[0,90,180,270,360]:[0,LN_ZOOM/4,LN_ZOOM/2,3*LN_ZOOM/4,LN_ZOOM],xfmt:LN_ZOOM===360?(x=>x===0?'0':x===90?'π/2':x===180?'π':x===270?'3π/2':x===360?'2π':fmt(x,1)+'°'):(x=>fmt(x,Number.isInteger(x)?0:1)+'°')});
+ const xs=Array.from({length:r.N},(_,j)=>j*r.da),isP=LN_PQ==='P',isH=LN_PQ==='H',act=r.edges.map((e,j)=>({e,j})).filter(x=>x.e.incs.length);
+ if(LN_SRC==='ins'&&!act.some(x=>x.j===LN_IE)&&act.length)LN_IE=act[0].j;
+ const eI=r.edges[LN_IE],insL=eI?r.ins.filter(q=>q.i===eI.i&&q.side===eI.side):[];if(LN_IJ>insL.length)LN_IJ=1;
+ const qI=insL.find(q=>q.j===LN_IJ);
+ let ysel,meanSel,lab;
+ if(LN_SRC==='ins'&&eI&&qI){const o=Math.round(qI.ang/r.da),src=isH?eI.H:isP?eI.P:eI.M;ysel=new Float64Array(r.N);for(let j=0;j<r.N;j++)ysel[j]=src[(j+o)%r.N]*(isP&&!isH?1000:1);
+  meanSel=isH?eI.hmax:(isP?eI.Pm*1000:eI.Mm);lab=`${eI.nm} ${eI.side==='L'?'links':'rechts'}, Platte ${qI.j} (θ = ${fmt(qI.ang,2)}°)`;}
+ else{ysel=isH?r.Ht:isP?r.Pt:r.Mt;meanSel=isH?r.hmax:isP?r.Pm:r.Mm;lab='Fräser gesamt';}
+ const sI=LN_SRC==='ins'&&eI&&qI,unitS=isH?'mm':isP?(sI?'W':'kW'):'Nm';
+ h+=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin:4px 0 6px">Anzeige: <button type="button" class="chip-btn" data-lnsrc="tot" aria-pressed="${!sI}">Fräser gesamt</button><button type="button" class="chip-btn" data-lnsrc="ins" aria-pressed="${!!sI}">Einzelne Wendeplatte</button>
+  ${LN_SRC==='ins'?`<select data-lnie="1" style="padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit">${act.map(x=>`<option value="${x.j}" ${x.j===LN_IE?'selected':''}>${x.e.nm} ${x.e.side==='L'?'links':'rechts'}</option>`).join('')}</select>
+  <select data-lnij="1" style="padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit">${insL.map(q=>`<option value="${q.j}" ${q.j===LN_IJ?'selected':''}>Platte ${q.j} · ${fmt(q.ang,2)}°</option>`).join('')}</select>`:''}</div>`;
+ h+=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;margin:4px 0 6px">Verlauf über 0 … 2π: <button type="button" class="chip-btn" data-lnpq="P" aria-pressed="${isP&&!isH}">Leistung</button><button type="button" class="chip-btn" data-lnpq="M" aria-pressed="${LN_PQ==='M'}">Drehmoment</button><button type="button" class="chip-btn" data-lnpq="H" aria-pressed="${isH}">Max. aktuelle Spanungsdicke</button><span style="flex:1"></span>Bereich: ${[[360,'2π'],[90,'90°'],[30,'30°'],[10,'10°']].map(([v,l])=>`<button type="button" class="chip-btn" data-lnzoom="${v}" aria-pressed="${LN_ZOOM===v}">${l}</button>`).join('')}<button type="button" class="chip-btn" data-lnfit="1" aria-pressed="${!LN_FIT}">Achse ab 0</button></div>`;
+ let zx0=0;if(sI&&LN_ZOOM<360){const on=[...ysel].map((v,j)=>v>0?j:-1).filter(j=>j>=0);if(on.length){const c=(xs[on[0]]+xs[on[on.length-1]])/2;zx0=Math.max(0,Math.min(360-LN_ZOOM,c-LN_ZOOM/2));zx0=Math.round(zx0*2)/2;}}
+ h+=lnChart('tot',xs,Array.from(ysel),{xlabel:'Fräserdrehwinkel ψ',ylabel:(isH?'max. aktuelle Spanungsdicke h(ψ) (mm)':isP?`Schnittleistung P (${unitS})`:'Drehmoment M (Nm)')+' – '+lab,unit:unitS,dec:isH?3:isP?(sI?0:2):(sI?1:0),mean:meanSel,meanLab:isH?'h_max':'Mittelwert',fit:LN_FIT&&!sI&&!isH,xmin:zx0,xmax:zx0+LN_ZOOM,xticks:LN_ZOOM===360?[0,90,180,270,360]:[0,LN_ZOOM/4,LN_ZOOM/2,3*LN_ZOOM/4,LN_ZOOM].map(v=>zx0+v),xfmt:LN_ZOOM===360?(x=>x===0?'0':x===90?'π/2':x===180?'π':x===270?'3π/2':x===360?'2π':fmt(x,1)+'°'):(x=>fmt(x,Number.isInteger(x)?0:1)+'°')});
+ if(isH&&!sI)h+=`<p class="note" style="margin:4px 0 10px">Je Drehwinkel ψ die größte aktuelle Spanungsdicke aller Platten im Eingriff (h = f<sub>z,i</sub> · sin β · sin κ). Höchstwert h<sub>max</sub> = ${fmt(r.hmax,3)} mm.</p>`;
+ if(sI){const pk=[...ysel].reduce((a,v,j)=>v>a.v?{v,j}:a,{v:-1,j:0}),on=[...ysel].map((v,j)=>v>0?j:-1).filter(j=>j>=0);
+  h+=`<p class="note" style="margin:4px 0 10px">${lab}: P̄ = ${fmt(eI.Pm*1000,1)} W, P<sub>max</sub> = ${fmt(eI.Pmax*1000,0)} W bei ψ = ${fmt(xs[pk.j],1)}°, M<sub>max</sub> = ${fmt(eI.Mmax,1)} Nm, h<sub>max</sub> = ${fmt(eI.hmax,3)} mm, im Eingriff ${on.length?`von ψ = ${fmt(xs[on[0]],1)}° bis ${fmt(xs[on[on.length-1]],1)}°`:'–'} (${fmt(on.length*r.da,1)}° je Umdrehung).</p>`;}
  h+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px">
   ${kv('Mittlere Schnittleistung P̄',fmt(r.Pm,2),'kW',1)}${kv('Max. / min. Schnittleistung',fmt(r.Pmax,2)+' / '+fmt(r.Pmin,2),'kW')}${kv('Schwankung ΔP (ΔP/P̄)',fmt(r.Pmax-r.Pmin,2)+' kW ('+fmt((r.Pmax-r.Pmin)/r.Pm*100,1)+' %)','')}${kv('Antriebsleistung P̄ / η',fmt(r.Pm/r.eta,2),'kW')}
   ${kv('Mittleres Drehmoment M̄',fmt(r.Mm,0),'Nm',1)}${kv('Max. / min. Drehmoment',fmt(r.Mmax,0)+' / '+fmt(r.Mmin,0),'Nm')}${kv('Schwankung ΔM',fmt(r.Mmax-r.Mmin,0),'Nm')}${kv('Max. Spanungsdicke',fmt(r.hmax,3),'mm',1)}
@@ -1953,6 +1969,7 @@ main.addEventListener('input',e=>{
  syncAlt(p,S.forms[p]);{const nh=document.getElementById(p+'-nkhint');if(nh)nh.textContent=nkHint(S.forms[p]);}renderOut(p);renderDerived(p);renderPos(p);if(p==='laengsnaht'){const e=document.getElementById('ln-prof');if(e)e.innerHTML=lnProfHTML(S.forms[p]);lnRenderZ();{const c=document.getElementById('ln-cuts');if(c)c.innerHTML=lnCutsHTML(S.forms[p]);}lnDrawSim();if(k!=='nPhi')lnPowRender();else lnPowRender();}renderNav(p);save();renderHeader();
 });
 main.addEventListener('change',e=>{
+ if(e.target.dataset.lnie!=null||e.target.dataset.lnij!=null){if(e.target.dataset.lnie!=null){LN_IE=+e.target.value;LN_IJ=1;}else LN_IJ=+e.target.value;lnPowRender();return;}
  if(e.target.dataset.lncut!=null||e.target.dataset.lnncut!=null){const f=S.forms.laengsnaht,t=e.target;
   if(t.dataset.lnncut!=null){f.nCuts=t.value;if(lnSel(f)>=+t.value)f.lnCut=String(+t.value-1);}
   else{const key=t.dataset.ck==='t'?'cutT':'cutFz',k=+t.dataset.lncut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=t.value.trim();f[key]=a.join(';');}
