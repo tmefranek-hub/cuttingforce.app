@@ -230,8 +230,12 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnpiton],[
  if(b.dataset.lnap)LN_DEPTH=null;
  if(b.dataset.lnlock){const f=S.forms.laengsnaht,k=b.dataset.lnlock,a=String(f.phLock||'').split(',').filter(Boolean),ix=a.indexOf(k);if(ix>=0)a.splice(ix,1);else a.push(k);f.phLock=a.join(',');const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);save();return;}
  if(b.dataset.lnopt){const f=S.forms.laengsnaht,kind=b.dataset.lnopt,lbl=b.textContent;b.disabled=true;b.textContent='Optimiere …';setTimeout(()=>{const t0=performance.now();
-  if(kind==='tool'){LN_OPTF=null;LN_OPTT=lnToolOpt(f);if(!LN_OPTT.err&&f.pitOn==='1')LN_OPTF=lnPitchOpt(f);if(!LN_OPTT.err){lnPowerAll(f);lnRefresh(f);}lnOptCard(f);}else{LN_OPTP=lnProcOpt(f);}
-  lnOptRender();b.disabled=false;b.textContent=lbl;toast(`Optimiert in ${Math.round(performance.now()-t0)} ms`);},20);return;}
+  const fin=()=>{if(kind==='tool'){if(!LN_OPTT.err){lnPowerAll(f);lnRefresh(f);}lnOptCard(f);}lnOptRender();b.disabled=false;b.textContent=lbl;const ms=performance.now()-t0;toast(`Optimiert in ${ms<2000?Math.round(ms)+' ms':fmt(ms/1000,1)+' s'}`);};
+  if(kind==='tool'){LN_OPTF=null;LN_OPTT=lnToolOpt(f);
+   if(!LN_OPTT.err&&f.pitOn==='1'){const g=lnPitchOptGen(f);const step=()=>{const ts=performance.now();let r;do r=g.next();while(!r.done&&performance.now()-ts<50);
+     if(r.done){LN_OPTF=r.value;fin();}else{b.textContent=`Ungleichteilung … ${Math.round(r.value*100)} %`;setTimeout(step,0);}};b.textContent='Ungleichteilung … 0 %';setTimeout(step,0);return;}}
+  else LN_OPTP=lnProcOpt(f);
+  fin();},20);return;}
  if(b.dataset.lnapply){const f=S.forms.laengsnaht,o=LN_OPTP&&LN_OPTP.list.find(x=>x.n===+b.dataset.lnapply);if(!o)return;lnApplyProc(f,o);LN_OPTP.cur=o.n;const cc=document.getElementById('ln-cuts');if(cc)cc.innerHTML=lnCutsHTML(f);lnPowerAll(f);lnRefresh(f);lnOptRender();toast(`${o.n} Schnitte übernommen`);return;}
  if(b.dataset.lnpiton!=null){const f=S.forms.laengsnaht;f.pitOn=b.dataset.lnpiton;save();lnOptCard(f);return;}
  if(b.dataset.lnpitbal!=null){const f=S.forms.laengsnaht;f.pitBal=b.dataset.lnpitbal;save();lnOptCard(f);return;}
@@ -485,7 +489,18 @@ let LN_OPTF=null;
    mindestens zweimal wiederholt und der Fräser ausgewuchtet bleibt; erstes Element 0, |Δθ| ≤ Δθmax).
    Ziel über alle Schnitte: J = max_Schnitt [ (P_max − P_min)/P̄ + größte Spektrallinie/P̄ ] → Leistungsschwankung klein und keine ausgeprägte Frequenz.
    Leistungssignal je Schnitt = Summe der verschobenen Plattenkurven; Spektrum über die verschobenen Kantenspektren (e^{i·2πk·o/N}). Beides wird bei jeder Änderung inkrementell nachgeführt. */
-function lnPitchOpt(f){
+/* FFT beliebiger Länge (Mixed-Radix, Primfaktoren rekursiv): liefert Amplituden 2|X_k|/N für k = 1 … N/2 eines reellen Signals */
+const LN_FFTW={};
+function lnFFTAmp(x){const N=x.length;let W=LN_FFTW[N];if(!W){W={c:new Float64Array(N),s:new Float64Array(N)};for(let i=0;i<N;i++){W.c[i]=Math.cos(2*Math.PI*i/N);W.s[i]=-Math.sin(2*Math.PI*i/N);}LN_FFTW[N]=W;}
+ const sp=n=>{for(let p=2;p*p<=n;p++)if(n%p===0)return p;return n;};
+ const rec=(re,im,n)=>{if(n===1)return [re,im];const p=sp(n),m=n/p,st=N/n,Y=[];
+  for(let r=0;r<p;r++){const a=new Float64Array(m),b=new Float64Array(m);for(let j=0;j<m;j++){a[j]=re[j*p+r];b[j]=im[j*p+r];}Y.push(rec(a,b,m));}
+  const oR=new Float64Array(n),oI=new Float64Array(n);
+  for(let k=0;k<n;k++){let sr=0,si=0;const km=k%m;for(let r=0;r<p;r++){const ix=(r*k*st)%N,c=W.c[ix],s=W.s[ix],yr=Y[r][0][km],yi=Y[r][1][km];sr+=yr*c-yi*s;si+=yr*s+yi*c;}oR[k]=sr;oI[k]=si;}
+  return [oR,oI];};
+ const [R,I]=rec(Float64Array.from(x),new Float64Array(N),N),K=Math.floor(N/2),A=new Float64Array(K+1);for(let k=1;k<=K;k++)A[k]=2*Math.hypot(R[k],I[k])/N;return A;}
+function lnPitchOpt(f){const g=lnPitchOptGen(f);let r;do r=g.next();while(!r.done);return r.value;}
+function* lnPitchOptGen(f){
  const C=lnCuts(f),A=lnAng(f),mid=lnMid(f),res=C.list.map(c=>lnPowerCut(f,c.k));
  const bad=res.find(r=>r.err);if(bad)return {err:`Schnitt ${bad.k+1}: ${bad.err}`};
  const N=res[0].N,da=res[0].da,mMax=Math.max(2,Math.round(num(f.pitM))||4),dmax=Number.isFinite(num(f.pitMax))&&num(f.pitMax)>0?num(f.pitMax):1,D=Math.max(1,Math.round(dmax/da));
@@ -498,35 +513,38 @@ function lnPitchOpt(f){
    const mm=mOf(z);vars.push({key,i,sides,z,p:360/z,ph,nm,m:mm,lock:lock||!mm,why:!mm?(bal?`z = ${z}: kein sich wiederholendes Muster möglich – bleibt gleich geteilt (Auswuchten ausschalten, um auch diese Reihe ungleich zu teilen)`:`z = ${z}: Musterlänge m_max zu klein`):lock?'gesperrt':'',d:Array.from({length:mm||1},(_,q)=>mm?Math.round(lnDvAt(dv,q)/da):0)});};
   if(mid)add(['L','R'],row.zL,row.phL,i+'M',row.nm,row.dvL);else{add(['L'],row.zL,row.phL,i+'L',row.nm+' links',row.dvL);add(['R'],row.zR,row.phR,i+'R',row.nm+' rechts',row.dvR);}});
  const K=Math.floor(N/2);
- const spec=res.map(r=>{const M={};r.edges.forEach(e=>{if(!e.incs.length)return;const re=new Float64Array(K+1),im=new Float64Array(K+1);
-   for(let k=1;k<=K;k++){let a=0,b=0;const w=2*Math.PI*k/N;for(let y=0;y<N;y++){const v=e.P[y];if(!v)continue;a+=v*Math.cos(w*y);b-=v*Math.sin(w*y);}re[k]=a;im[k]=b;}M[e.i+e.side]={re,im,P:e.P};});return M;});
+ const curv=res.map(r=>{const M={};r.edges.forEach(e=>{if(e.incs.length)M[e.i+e.side]=e.P;});return M;});
  vars.forEach(v=>{v.pl=[];v.sides.forEach(sd=>{const ph=sd==='R'&&mid?v.ph+v.p/2:v.ph;for(let j=0;j<v.z;j++)v.pl.push({sd,q:v.m?j%v.m:0,o0:Math.round((ph+j*v.p)/da)});});
+  v.byQ=Array.from({length:Math.max(1,v.m)},(_,q)=>v.pl.filter(pp=>pp.q===q));
   v.hN=Math.max(0,...res.flatMap(r=>r.edges.filter(e=>e.i===v.i&&v.sides.includes(e.side)).map(e=>e.hmax)));});
  /* Vorschubfaktor einer Platte aus dem Muster: Lücke zur vorauslaufenden Platte / Teilung */
  const ffOf=(v,q)=>v.m?1+(v.d[(q+1)%v.m]-v.d[q])*da/v.p:1;
  const dhOf=v=>{if(!v.m)return 0;let a=1e9,b=-1e9;for(let q=0;q<v.m;q++){const x=ffOf(v,q);if(x<a)a=x;if(x>b)b=x;}return v.hN*(b-a);};
- const T=res.map(()=>new Float64Array(N)),S=res.map(()=>({re:new Float64Array(K+1),im:new Float64Array(K+1)}));
- const addV=(v,sg)=>{res.forEach((r,c)=>{v.pl.forEach(pp=>{const E=spec[c][v.i+pp.sd];if(!E)return;const o=((pp.o0+v.d[pp.q])%N+N)%N,Tc=T[c],P=E.P;
-   const g=sg*Math.pow(ffOf(v,pp.q),1-mc);for(let y=0;y<N;y++){const pv=P[(y+o)%N];if(pv)Tc[y]+=g*pv;}
-   const Sr=S[c].re,Si=S[c].im;for(let k=1;k<=K;k++){const w=2*Math.PI*k*o/N,cw=Math.cos(w),sw=Math.sin(w);Sr[k]+=g*(E.re[k]*cw-E.im[k]*sw);Si[k]+=g*(E.re[k]*sw+E.im[k]*cw);}});});};
+ /* Summensignal je Schnitt wird inkrementell nachgeführt; das Spektrum kommt per FFT aus dem Summensignal */
+ const T=res.map(()=>new Float64Array(N));
+ const addPl=(v,pp,sg)=>{const o=((pp.o0+v.d[pp.q])%N+N)%N,g=sg*Math.pow(ffOf(v,pp.q),1-mc);res.forEach((r,c)=>{const P=curv[c][v.i+pp.sd];if(!P)return;const Tc=T[c];
+   for(let y=0,ix=o;y<N;y++,ix++){if(ix===N)ix=0;const pv=P[ix];if(pv)Tc[y]+=g*pv;}});};
+ const addV=(v,sg)=>v.pl.forEach(pp=>addPl(v,pp,sg));
+ /* Änderung von d[q] betrifft nur Platten mit Musterindex q (Lage und Lücke) und q−1 (Lücke) */
+ const addQ=(v,q,sg)=>{const q2=(q-1+v.m)%v.m;v.byQ[q].forEach(pp=>addPl(v,pp,sg));if(q2!==q)v.byQ[q2].forEach(pp=>addPl(v,pp,sg));};
  vars.forEach(v=>addV(v,1));
- const amp=(c,k)=>2*Math.hypot(S[c].re[k],S[c].im[k])/N;
- const met=c=>{const Tc=T[c];let mn=1e18,mx=-1e18,sm=0;for(let y=0;y<N;y++){const x=Tc[y];if(x<mn)mn=x;if(x>mx)mx=x;sm+=x;}const Pm=sm/N;let bk=1,ba=0;for(let k=1;k<=K;k++){const a=amp(c,k);if(a>ba){ba=a;bk=k;}}return {Pm,dP:mx-mn,Pmax:mx,Pmin:mn,k:bk,a:ba};};
+ const met=c=>{const Tc=T[c];let mn=1e18,mx=-1e18,sm=0;for(let y=0;y<N;y++){const x=Tc[y];if(x<mn)mn=x;if(x>mx)mx=x;sm+=x;}const Pm=sm/N,A=lnFFTAmp(Tc);let bk=1,ba=0;for(let k=1;k<=K;k++)if(A[k]>ba){ba=A[k];bk=k;}return {Pm,dP:mx-mn,Pmax:mx,Pmin:mn,k:bk,a:ba,A};};
  /* Ziel: schlechtester Schnitt + Mittel aller Schnitte; Strafterm, wenn ein Schnitt um mehr als 20 % schlechter wird als vorher */
  const X=()=>res.map((r,c)=>{const m=met(c);return m.Pm>0?(m.dP+m.a)/m.Pm:0;});let X0=null;
  const J=()=>{const x=X();let w=0,sm=0,pen=0;x.forEach((v,c)=>{if(v>w)w=v;sm+=v;if(X0&&v>1.2*X0[c])pen+=v-1.2*X0[c];});return w+sm/x.length+10*pen;};
- const snap=()=>res.map((r,c)=>{const m=met(c);return {...m,rel:m.a/m.Pm,hz:m.k*r.n/60,spec:Array.from({length:K},(_,q)=>amp(c,q+1)/m.Pm*100)};});
+ const snap=()=>res.map((r,c)=>{const m=met(c);return {Pm:m.Pm,dP:m.dP,Pmax:m.Pmax,Pmin:m.Pmin,k:m.k,a:m.a,rel:m.a/m.Pm,hz:m.k*r.n/60,spec:Array.from({length:K},(_,q)=>m.A[q+1]/m.Pm*100)};});
  X0=X();const before=snap(),J0=J(),free=vars.filter(v=>!v.lock);
  if(!free.length)return {err:bal?'Keine offene Reihe, deren Zähnezahl ein sich wiederholendes Muster zulässt (z/m ≥ 2). Mit „Auswuchten: aus“ können auch solche Reihen ungleich geteilt werden.':'Keine offene Reihe mit Ungleichteilung möglich.',vars};
- let bestJ=J0,best=free.map(v=>v.d.slice());const setD=(v,q,val)=>{addV(v,-1);v.d[q]=val;addV(v,1);};
- for(let st=0;st<4;st++){
+ let bestJ=J0,best=free.map(v=>v.d.slice());const setD=(v,q,val)=>{addQ(v,q,-1);v.d[q]=val;addQ(v,q,1);};
+ const STARTS=4,PASSES=5,tot=STARTS*PASSES*free.reduce((a,v)=>a+v.m-1,0)||1;let done=0;
+ for(let st=0;st<STARTS;st++){
   if(st>0)free.forEach(v=>{addV(v,-1);const keep=v.d.slice();for(let q=1;q<v.m;q++)v.d[q]=Math.round((Math.random()*2-1)*D);if(dhOf(v)>dhTol+1e-12)v.d=keep;addV(v,1);});
   let cur=J();
-  for(let pass=0;pass<5;pass++){let imp=false;
+  for(let pass=0;pass<PASSES;pass++){let imp=false;
    for(const v of free)for(let q=1;q<v.m;q++){let bv=cur,bs=v.d[q];const old=v.d[q];
     for(let t=-D;t<=D;t++){if(t===old)continue;v.d[q]=t;const okC=dhOf(v)<=dhTol+1e-12;v.d[q]=old;if(!okC)continue;setD(v,q,t);const val=J();setD(v,q,old);if(val<bv-1e-9){bv=val;bs=t;}}
-    setD(v,q,bs);if(bv<cur-1e-9){cur=bv;imp=true;}}
-   if(!imp)break;}
+    setD(v,q,bs);if(bv<cur-1e-9){cur=bv;imp=true;}done++;yield done/tot;}
+   if(!imp){done+=(PASSES-pass-1)*free.reduce((a,v)=>a+v.m-1,0);break;}}
   if(cur<bestJ-1e-9){bestJ=cur;best=free.map(v=>v.d.slice());}}
  free.forEach((v,q)=>{addV(v,-1);v.d=best[q];addV(v,1);});
  const after=snap();
