@@ -593,7 +593,7 @@ function lnGeom(f){
  inc.forEach(q=>{q.inCut=q.y0<ap-1e-9;q.dsCut=q.inCut?q.ds*Math.min(1,(ap-q.y0)/Math.max(1e-12,q.y1-q.y0)):0;});
  return {A,b:2*w(ap),t:ap,yt,xt,r,be,ap,tW,hProc,hErf,hP,lF,lK,uF,LF,nF,segs,w,err,ok:!err,tipOnly:hErf<=yt,inc,nR,nI,arcL,dsR:arcL/nR,dsF:lF/nI,nInc:2*inc.length,nIncCut:2*inc.filter(q=>q.inCut).length};}
 /* Längsnaht: Schnittaufteilung – Anzahl der Schnitte, Schnitttiefen t_k (von der Blechoberfläche) und Zahnvorschub je Schnitt */
-function lnCuts(f){const n=Math.max(1,Math.min(6,Math.round(num(f.nCuts))||1)),T=String(f.cutT||'').split(';'),F=String(f.cutVf||'').split(';'),zc=num(f.z),nn=num(f.vc)*1000/(Math.PI*num(f.Dc)),list=[];let ok=true,prev=0;
+function lnCuts(f){const n=Math.max(1,Math.min(10,Math.round(num(f.nCuts))||1)),T=String(f.cutT||'').split(';'),F=String(f.cutVf||'').split(';'),zc=num(f.z),nn=num(f.vc)*1000/(Math.PI*num(f.Dc)),list=[];let ok=true,prev=0;
  for(let k=0;k<n;k++){const t=num(T[k]),vf=num(F[k]),fz=vf/(zc*nn);if(!(t>prev))ok=false;list.push({k,t,tp:k?list[k-1].t:0,d:t-(k?list[k-1].t:0),vf,fz,tRaw:T[k]??'',vfRaw:F[k]??''});if(t>0)prev=t;}
  const tMax=Math.max(0,...list.map(c=>c.t>0?c.t:0));return {n,list,ok,tMax};}
 const lnApOf=f=>{const C=lnCuts(f);return C.tMax>0?C.tMax:num(f.ap);};
@@ -602,15 +602,19 @@ function lnArea(G,t){if(!(t>0)||!G.w)return 0;let A=0;const N=300;for(let k=0;k<
 /* Radiale Eingriffstiefe einer Schneidenstelle in Höhe y über der Profilspitze beim Schnitt k:
    das Profil des Vorschnitts ist dasselbe Profil um Δ = t_k − t_(k−1) höher → a_e = min(Δ, t_k − y) */
 const lnAe=(c,y)=>c&&c.t>y?Math.min(c.d,c.t-y):0;
+/* Abgeleitete Werte der Schnitttabelle aktualisieren, ohne die Eingabefelder neu zu zeichnen (Fokus bleibt) */
+function lnCutsCells(f){const C=lnCuts(f),G=lnGeom(f),st=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+ C.list.forEach(c=>{st('ln-cd-'+c.k,c.d>0?fmt(c.d,1):'–');st('ln-cf-'+c.k,c.fz>0?fmt(c.fz,3):'–');st('ln-ca-'+c.k,c.t>0&&G.ok?fmt(lnArea(G,c.t)-lnArea(G,c.tp),1):'–');});
+ const w=document.getElementById('ln-cwarn');if(w)w.hidden=C.ok;st('ln-ctmax',fmt(C.tMax,1));}
 function lnCutsHTML(f){const C=lnCuts(f),G=lnGeom(f),z=num(f.z),vc=num(f.vc),D=num(f.Dc),n=vc*1000/(Math.PI*D),sel=lnSel(f);
  const ip=(k,ck,val,lab)=>`<input data-lncut="${k}" data-ck="${ck}" value="${val}" inputmode="decimal" autocomplete="off" style="width:5.5em;padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit" aria-label="${lab}">`;
  return `<div class="lbl" style="margin:6px 0 4px">Schnittaufteilung</div>
- <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:6px">Anzahl der Schnitte <select data-lnncut="1" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit">${[1,2,3,4,5,6].map(v=>`<option ${v===C.n?'selected':''}>${v}</option>`).join('')}</select></label>
+ <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:6px">Anzahl der Schnitte <select data-lnncut="1" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit">${[1,2,3,4,5,6,7,8,9,10].map(v=>`<option ${v===C.n?'selected':''}>${v}</option>`).join('')}</select></label>
  <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitt</th><th>Tiefe t<sub>k</sub> (mm)</th><th>Zustellung Δ (mm)</th><th>v<sub>f,k</sub> Fräser (mm/min)</th><th>f<sub>z,k</sub> (mm/Z)</th><th>A<sub>k</sub> (mm²)</th></tr></thead><tbody>
- ${C.list.map(c=>`<tr${c.k===sel?' style="background:var(--surface-2)"':''}><td>${c.k+1}</td><td>${ip(c.k,'t',c.tRaw,'Schnitttiefe '+(c.k+1))}</td><td>${c.d>0?fmt(c.d,1):'–'}</td><td>${ip(c.k,'vf',c.vfRaw,'Vorschubgeschwindigkeit Schnitt '+(c.k+1))}</td><td>${c.fz>0?fmt(c.fz,3):'–'}</td><td>${c.t>0&&G.ok?fmt(lnArea(G,c.t)-lnArea(G,c.tp),1):'–'}</td></tr>`).join('')}
+ ${C.list.map(c=>`<tr${c.k===sel?' style="background:var(--surface-2)"':''}><td>${c.k+1}</td><td>${ip(c.k,'t',c.tRaw,'Schnitttiefe '+(c.k+1))}</td><td id="ln-cd-${c.k}">${c.d>0?fmt(c.d,1):'–'}</td><td>${ip(c.k,'vf',c.vfRaw,'Vorschubgeschwindigkeit Schnitt '+(c.k+1))}</td><td id="ln-cf-${c.k}">${c.fz>0?fmt(c.fz,3):'–'}</td><td id="ln-ca-${c.k}">${c.t>0&&G.ok?fmt(lnArea(G,c.t)-lnArea(G,c.tp),1):'–'}</td></tr>`).join('')}
  </tbody></table></div>
- ${C.ok?'':'<p class="warn" style="margin:4px 0 0">Die Schnitttiefen müssen von Schnitt zu Schnitt zunehmen.</p>'}
- <p class="note" style="margin:4px 0 0">Tiefen von der Blechoberfläche gemessen. Das Profil ist für den tiefsten Schnitt (${fmt(C.tMax,1)} mm) + Δü ausgelegt. A<sub>k</sub> = abgetragener Querschnitt des Schnitts (Nut bei t<sub>k</sub> minus Nut des Vorschnitts). Vorschub als Vorschubgeschwindigkeit des Fräsers v<sub>f,k</sub>; daraus f<sub>z,k</sub> = v<sub>f,k</sub> / (z · n) und je Plattenreihe f<sub>z,i</sub> = v<sub>f,k</sub> / (n · z<sub>i</sub>).</p>`;}
+ <p class="warn" id="ln-cwarn" style="margin:4px 0 0"${C.ok?' hidden':''}>Die Schnitttiefen müssen von Schnitt zu Schnitt zunehmen.</p>
+ <p class="note" style="margin:4px 0 0">Tiefen von der Blechoberfläche gemessen. Das Profil ist für den tiefsten Schnitt (<span id="ln-ctmax">${fmt(C.tMax,1)}</span> mm) + Δü ausgelegt. A<sub>k</sub> = abgetragener Querschnitt des Schnitts (Nut bei t<sub>k</sub> minus Nut des Vorschnitts). Vorschub als Vorschubgeschwindigkeit des Fräsers v<sub>f,k</sub>; daraus f<sub>z,k</sub> = v<sub>f,k</sub> / (z · n) und je Plattenreihe f<sub>z,i</sub> = v<sub>f,k</sub> / (n · z<sub>i</sub>).</p>`;}
 function posForm(p,f){if(p==='blechkante')return {...f,ae:String(bkGeom(f).fb)};if(p==='laengsnaht'){const c=lnCuts(f).list[lnSel(f)]||{};return {...f,pos:'gleich',ae:String(c.d)};}return f;}
 const RES={tCut:['Schnitttiefe des gewählten Schnitts','mm',1,'t'],dCut:['Zustellung Δ','mm',1,'Δ'],thAll:['Hauptzeit alle Schnitte','min',2,'th ges'],bn:['Nutbreite an der Oberfläche','mm',1,'b'],LF:['Flankenlänge je Seite','mm',1,'LF'],hP:['Profilhöhe','mm',1,'hP'],lFe:['Schneidlänge im Einsatz','mm',1,'lF'],nF:['Flankenplatten je Seite','',0,'nF'],nInc:['Inkremente im Profil','',0,'nInk'],nIncCut:['Inkremente im Schnitt','',0,'nInk'],nFg:['Platten im Profil (2 Radius + Flanken)','',0,'n'],fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
  Fc:['Schnittkraft','N',0,'Fc'],Ff:['Vorschubkraft','N',0,'Ff'],Mc:['Drehmoment','Nm',1,'Mc'],Q:['Zeitspanvolumen','cm³/min',1,'Q'],Pc:['Schnittleistung','kW',2,'Pc'],Pm:['Antriebsleistung','kW',2,'Pmot'],th:['Hauptzeit','min',2,'th']};
@@ -1954,7 +1958,9 @@ document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.cl
 const main=document.getElementById('main');
 main.addEventListener('input',e=>{
  const el=e.target,k=el.dataset.k;
- if(el.dataset.zrow!=null||el.dataset.phrow!=null||el.dataset.lncut!=null||el.dataset.lnncut!=null)return;
+ if(el.dataset.lncut!=null){const f=S.forms.laengsnaht,key=el.dataset.ck==='t'?'cutT':'cutVf',k=+el.dataset.lncut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=el.value.trim();f[key]=a.join(';');
+  const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);lnRefresh(f);lnCutsCells(f);return;}
+ if(el.dataset.zrow!=null||el.dataset.phrow!=null||el.dataset.lnncut!=null)return;
  if(el.dataset.lndepth!=null){LN_DEPTH=+el.value;lnDrawSim();return;}
  if(el.dataset.lnrot!=null){LN_ROT=+el.value;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();return;}
  if(el.dataset.catr){const [kind,i,col]=el.dataset.catr.split(':');if(CAT[kind][i]){CAT[kind][i][col]=el.value;saveCat();if(kind==='mat')rebuildMats();}return;}
@@ -1980,7 +1986,8 @@ main.addEventListener('input',e=>{
 main.addEventListener('change',e=>{
  if(e.target.dataset.lntrk!=null){LN_TRK=e.target.value;lnPowRender();return;}
  if(e.target.dataset.lncut!=null||e.target.dataset.lnncut!=null){const f=S.forms.laengsnaht,t=e.target;
-  if(t.dataset.lnncut!=null){f.nCuts=t.value;if(lnSel(f)>=+t.value)f.lnCut=String(+t.value-1);}
+  if(t.dataset.lnncut!=null){f.nCuts=t.value;if(lnSel(f)>=+t.value)f.lnCut=String(+t.value-1);const n0=String(f.cutT||'').split(';');if(n0.length<+t.value){/* neue Schnitte mit Tiefe und vf vorbelegen */const T=n0.slice(),V=String(f.cutVf||'').split(';');for(let k=T.length;k<+t.value;k++){const prev=num(T[k-1])||0,pv=num(V[k-1]);T.push(dec(prev+10,1));V.push(Number.isFinite(pv)?dec(pv,0):'');}f.cutT=T.join(';');f.cutVf=V.join(';');}
+   const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);const cc=document.getElementById('ln-cuts');if(cc)cc.innerHTML=lnCutsHTML(f);lnRefresh(f);const sel=document.querySelector('[data-lnncut]');if(sel)sel.focus();return;}
   else{const key=t.dataset.ck==='t'?'cutT':'cutVf',k=+t.dataset.lncut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=t.value.trim();f[key]=a.join(';');}
   const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);lnRefresh(f);return;}
  if(e.target.dataset.phrow!=null){const f=S.forms.laengsnaht,t=e.target;lnSetAng(f,LN_PK[t.dataset.side||'L'],+t.dataset.phrow,t.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnDrawSim();save();return;}
