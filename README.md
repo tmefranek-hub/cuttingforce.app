@@ -95,3 +95,10 @@ wrangler.jsonc                   Cloudflare-Worker-Konfiguration
 
 - Eigener Inhalt statt Platzhaltertexte (Impressum/Datenschutz: Adresse, E-Mail)
 - LinkedIn-Link auf der Startseite ergänzen
+
+## Quellcode und Build
+
+- Lesbarer Quellcode liegt in `src/` (Seiten `src/<app>/index.html`, Mitglieder-Module `src/member/*.js`).
+- `public/` enthält die **minifizierte Auslieferung** – dort nicht direkt bearbeiten.
+- Nach jeder Änderung in `src/`: `node scripts/build.mjs` (benötigt esbuild: `npm i -D esbuild`), dann committen.
+- Mitglieder-Module (`/app/m/*`, z. B. Längsnahtfräsen mit Leistungsberechnung und Optimierern) liefert der Worker nur mit gültiger Anmeldung aus; Gäste laden sie nie.
