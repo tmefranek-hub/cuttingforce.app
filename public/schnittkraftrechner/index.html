@@ -917,15 +917,20 @@ function lnPowResHTML(f){
   ${kv('Platten im Eingriff min / Ø / max',fmt(r.Nmin,0)+' / '+fmt(r.Nm,1)+' / '+fmt(r.Nmax,0),'')}${kv('Drehzahl n',fmt(r.n,1),'1/min')}${kv('Vorschubgeschw. vf',fmt(r.vf,0),'mm/min')}</div>`;
  // je Schneide
  const E=r.edges,es=Math.min(LN_EDGE,E.length-1);
- h+=`<div class="lbl" style="margin:14px 0 4px">Je Schneide (alle Platten einer Reihe und Seite sind gleich belastet) – Zeile anklicken für den Leistungsgraph</div>
- <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schneide</th><th>z<sub>i</sub></th><th>f<sub>z,i</sub> (mm)</th><th>a<sub>e,max</sub> (mm)</th><th>φ<sub>max</sub> (°)</th><th>h<sub>max</sub> (mm)</th><th>P̄ je Platte (W)</th><th>P<sub>max</sub> je Platte (kW)</th><th>M<sub>max</sub> je Platte (Nm)</th><th>P̄ Reihe (kW)</th></tr></thead><tbody>
+ h+=`<div class="lbl" style="margin:14px 0 4px">Je Schneide (alle Platten einer Reihe und Seite sind gleich belastet) – Zeile anklicken für Leistungsgraph und Eingriff je Inkrement</div>
+ <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schneide</th><th>z<sub>i</sub></th><th>f<sub>z,i</sub> (mm)</th><th>a<sub>e,max</sub> (mm)</th><th>φ<sub>e,max</sub> (°)</th><th>h<sub>max</sub> (mm)</th><th>P̄ je Platte (W)</th><th>P<sub>max</sub> je Platte (kW)</th><th>M<sub>max</sub> je Platte (Nm)</th><th>P̄ Reihe (kW)</th></tr></thead><tbody>
  ${E.map((e,j)=>`<tr data-lnedge="${j}" style="cursor:pointer${j===es?';background:var(--surface-2);font-weight:600':''}${e.incs.length?'':';opacity:.45'}"><td>${e.nm} ${e.side==='L'?'links':'rechts'}</td><td>${e.z}</td><td>${fmt(e.feff,3)}</td><td>${fmt(e.aemax,1)}</td><td>${fmt(e.phimax,1)}</td><td>${fmt(e.hmax,3)}</td><td>${fmt(e.Pm*1000,1)}</td><td>${fmt(e.Pmax,3)}</td><td>${fmt(e.Mmax,1)}</td><td>${fmt(e.Prow,2)}</td></tr>`).join('')}
  </tbody></table></div>`;
  const e=E[es];
  if(e){const a0=Math.max(0,180-e.phimax-3),idx=xs.map((x,j)=>j).filter(j=>xs[j]>=a0&&xs[j]<=180.0001);
   h+=`<div class="lbl" style="margin:12px 0 4px">Leistungsgraph ${e.nm} ${e.side==='L'?'links':'rechts'} – eine Platte während ihres Eingriffs</div>`;
   h+=lnChart('edge',idx.map(j=>180-xs[j]),idx.map(j=>e.P[j]*1000),{xlabel:'Winkel ab Nutgrund β (°), Eintritt bei β = φmax',ylabel:'Leistung je Platte (W)',unit:'W',dec:1,mean:null,xmin:0,xmax:Math.max(1,e.phimax+3),xticks:[0,Math.round(e.phimax/2),Math.round(e.phimax)],xfmt:x=>fmt(x,0)+'°'});
-  h+=`<p class="note" style="margin:4px 0 0">h<sub>max</sub> = ${fmt(e.hmax,3)} mm am Eintritt · P̄ je Platte über eine Umdrehung = ${fmt(e.Pm*1000,1)} W · M̄ je Platte = ${fmt(e.Mm,2)} Nm · ${e.incs.length} Inkremente im Schnitt.</p>`;}
+  h+=`<p class="note" style="margin:4px 0 0">h<sub>max</sub> = ${fmt(e.hmax,3)} mm am Eintritt · P̄ je Platte über eine Umdrehung = ${fmt(e.Pm*1000,1)} W · M̄ je Platte = ${fmt(e.Mm,2)} Nm · ${e.incs.length} Inkremente im Schnitt.</p>
+  <div class="lbl" style="margin:10px 0 4px">Eingriff je Inkrement – ${e.nm} ${e.side==='L'?'links':'rechts'}, Schnitt ${r.k+1}</div>
+  <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Inkr.</th><th>y (mm)</th><th>b (mm)</th><th>κ (°)</th><th>r (mm)</th><th>a<sub>e</sub> (mm)</th><th>φ<sub>e</sub> (°)</th><th>l<sub>e</sub> (mm)</th><th>h<sub>max</sub> (mm)</th><th>F<sub>c,max</sub> (N)</th><th>F̄<sub>c</sub> (N)</th></tr></thead><tbody>
+  ${e.incs.map(q=>`<tr><td>${q.k}</td><td>${fmt(q.y,2)}</td><td>${fmt(q.b,2)}</td><td>${fmt(q.kap,1)}</td><td>${fmt(q.r,1)}</td><td>${fmt(q.ae,2)}</td><td>${fmt(q.phi,2)}</td><td>${fmt(q.le,1)}</td><td>${fmt(q.hmax,4)}</td><td>${fmt(q.Fmax,0)}</td><td>${fmt(q.Fmean,1)}</td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="note" style="margin:4px 0 0">Jedes Inkrement hat seine eigene Eingriffstiefe a<sub>e</sub> = min(Δ, t − y), seinen Radius r = D/2 − y und damit seinen eigenen Eingriffsbogen φ<sub>e</sub> = arccos(1 − a<sub>e</sub>/r) und seine Eingriffslänge l<sub>e</sub> = r · φ<sub>e</sub>. In jedem Winkelschritt schneidet ein Inkrement nur, solange β ≤ φ<sub>e</sub>.</p>`;}
  h+=`<p class="note" style="margin:8px 0 0">Rechenweg: je Kanteninkrement h = f<sub>z,i</sub> · sin β · sin κ, F<sub>c</sub> = b · k<sub>c1.1</sub> · h<sup>1−m<sub>c</sub></sup> · (1 − γ₀/100), M = Σ F<sub>c</sub> · r, P = M · ω. Gesamtverlauf aus allen ${LN_CALC?S.forms.laengsnaht&&lnAng(S.forms.laengsnaht).ins.length:''} Platten mit ihrer Winkellage überlagert, N<sub>φ</sub> = ${r.N} (Δψ = ${fmt(r.da,2)}°).</p>`;
  return h;}
 function lnPowRender(){const e=document.getElementById('ln-powres');if(e)e.innerHTML=lnPowResHTML(S.forms.laengsnaht);}
