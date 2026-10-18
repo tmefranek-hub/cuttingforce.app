@@ -546,7 +546,7 @@ const PROC={
   formula:'Profil: V mit Öffnungswinkel αV, Spitzenradius rR · Tangentenpunkt yt = rR·(1−sin(αV/2)) · erforderliche Profilhöhe herf = ap + Δü · Schneidlänge im Einsatz lF = lK − 2ü · Flankenplatten je Seite nF = ⌈(herf−yt)/(lF·cos(αV/2))⌉ · Profilhöhe hP = yt + nF·lF·cos(αV/2) · A = ∫ b(y) dy · cos φs = 1 − 2·ap/Dc · vorläufig: Pc = A·vf·kc / 60·10⁶',
   calc(f){const DS=num(f.Dc),z=num(f.z),vc=num(f.vc),eta=num(f.eta)||1,l=num(f.l),C=lnCuts(f),cu=C.list[lnSel(f)]||{},fz=cu.fz;
    const G=lnGeom(f),n=vc*1000/(Math.PI*DS),vf=fz*z*n,E=engage(posForm('laengsnaht',f)),Acut=lnArea(G,cu.t)-lnArea(G,cu.tp);
-   const thAll=C.list.reduce((a,c)=>a+l/(c.fz*z*n),0);
+   const thAll=C.list.reduce((a,c)=>a+l/c.vf,0);
    const h=E.ok?fz*(Math.cos(E.a)-Math.cos(E.e))/(E.e-E.a):NaN,kc=kcOf(f,h);
    const phs=E.ok?(E.e-E.a)*180/Math.PI:NaN,le=E.ok?DS/2*(E.e-E.a):NaN,lsp=le/num(f.lam);
    const Q=Acut*vf/1000,Pc=Acut*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/DS;
@@ -593,8 +593,8 @@ function lnGeom(f){
  inc.forEach(q=>{q.inCut=q.y0<ap-1e-9;q.dsCut=q.inCut?q.ds*Math.min(1,(ap-q.y0)/Math.max(1e-12,q.y1-q.y0)):0;});
  return {A,b:2*w(ap),t:ap,yt,xt,r,be,ap,hErf,hP,lF,lK,uF,LF,nF,segs,w,err,ok:!err,tipOnly:hErf<=yt,inc,nR,nI,arcL,dsR:arcL/nR,dsF:lF/nI,nInc:2*inc.length,nIncCut:2*inc.filter(q=>q.inCut).length};}
 /* Längsnaht: Schnittaufteilung – Anzahl der Schnitte, Schnitttiefen t_k (von der Blechoberfläche) und Zahnvorschub je Schnitt */
-function lnCuts(f){const n=Math.max(1,Math.min(6,Math.round(num(f.nCuts))||1)),T=String(f.cutT||'').split(';'),F=String(f.cutFz||'').split(';'),list=[];let ok=true,prev=0;
- for(let k=0;k<n;k++){const t=num(T[k]),fz=num(F[k]);if(!(t>prev))ok=false;list.push({k,t,tp:k?list[k-1].t:0,d:t-(k?list[k-1].t:0),fz,tRaw:T[k]??'',fzRaw:F[k]??''});if(t>0)prev=t;}
+function lnCuts(f){const n=Math.max(1,Math.min(6,Math.round(num(f.nCuts))||1)),T=String(f.cutT||'').split(';'),F=String(f.cutVf||'').split(';'),zc=num(f.z),nn=num(f.vc)*1000/(Math.PI*num(f.Dc)),list=[];let ok=true,prev=0;
+ for(let k=0;k<n;k++){const t=num(T[k]),vf=num(F[k]),fz=vf/(zc*nn);if(!(t>prev))ok=false;list.push({k,t,tp:k?list[k-1].t:0,d:t-(k?list[k-1].t:0),vf,fz,tRaw:T[k]??'',vfRaw:F[k]??''});if(t>0)prev=t;}
  const tMax=Math.max(0,...list.map(c=>c.t>0?c.t:0));return {n,list,ok,tMax};}
 const lnApOf=f=>{const C=lnCuts(f);return C.tMax>0?C.tMax:num(f.ap);};
 const lnSel=f=>Math.max(0,Math.min(lnCuts(f).n-1,Math.round(num(f.lnCut))||0));
@@ -606,11 +606,11 @@ function lnCutsHTML(f){const C=lnCuts(f),G=lnGeom(f),z=num(f.z),vc=num(f.vc),D=n
  const ip=(k,ck,val,lab)=>`<input data-lncut="${k}" data-ck="${ck}" value="${val}" inputmode="decimal" autocomplete="off" style="width:5.5em;padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit" aria-label="${lab}">`;
  return `<div class="lbl" style="margin:6px 0 4px">Schnittaufteilung</div>
  <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:6px">Anzahl der Schnitte <select data-lnncut="1" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit">${[1,2,3,4,5,6].map(v=>`<option ${v===C.n?'selected':''}>${v}</option>`).join('')}</select></label>
- <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitt</th><th>Tiefe t<sub>k</sub> (mm)</th><th>Zustellung Δ (mm)</th><th>f<sub>z,k</sub> (mm/Z)</th><th>v<sub>f</sub> (mm/min)</th><th>A<sub>k</sub> (mm²)</th></tr></thead><tbody>
- ${C.list.map(c=>`<tr${c.k===sel?' style="background:var(--surface-2)"':''}><td>${c.k+1}</td><td>${ip(c.k,'t',c.tRaw,'Schnitttiefe '+(c.k+1))}</td><td>${c.d>0?fmt(c.d,1):'–'}</td><td>${ip(c.k,'fz',c.fzRaw,'Zahnvorschub Schnitt '+(c.k+1))}</td><td>${c.fz>0&&z>0&&n>0?fmt(c.fz*z*n,0):'–'}</td><td>${c.t>0&&G.ok?fmt(lnArea(G,c.t)-lnArea(G,c.tp),1):'–'}</td></tr>`).join('')}
+ <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitt</th><th>Tiefe t<sub>k</sub> (mm)</th><th>Zustellung Δ (mm)</th><th>v<sub>f,k</sub> Fräser (mm/min)</th><th>f<sub>z,k</sub> (mm/Z)</th><th>A<sub>k</sub> (mm²)</th></tr></thead><tbody>
+ ${C.list.map(c=>`<tr${c.k===sel?' style="background:var(--surface-2)"':''}><td>${c.k+1}</td><td>${ip(c.k,'t',c.tRaw,'Schnitttiefe '+(c.k+1))}</td><td>${c.d>0?fmt(c.d,1):'–'}</td><td>${ip(c.k,'vf',c.vfRaw,'Vorschubgeschwindigkeit Schnitt '+(c.k+1))}</td><td>${c.fz>0?fmt(c.fz,3):'–'}</td><td>${c.t>0&&G.ok?fmt(lnArea(G,c.t)-lnArea(G,c.tp),1):'–'}</td></tr>`).join('')}
  </tbody></table></div>
  ${C.ok?'':'<p class="warn" style="margin:4px 0 0">Die Schnitttiefen müssen von Schnitt zu Schnitt zunehmen.</p>'}
- <p class="note" style="margin:4px 0 0">Tiefen von der Blechoberfläche gemessen. Das Profil ist für den tiefsten Schnitt (${fmt(C.tMax,1)} mm) + Δü ausgelegt. A<sub>k</sub> = abgetragener Querschnitt des Schnitts (Nut bei t<sub>k</sub> minus Nut des Vorschnitts).</p>`;}
+ <p class="note" style="margin:4px 0 0">Tiefen von der Blechoberfläche gemessen. Das Profil ist für den tiefsten Schnitt (${fmt(C.tMax,1)} mm) + Δü ausgelegt. A<sub>k</sub> = abgetragener Querschnitt des Schnitts (Nut bei t<sub>k</sub> minus Nut des Vorschnitts). Vorschub als Vorschubgeschwindigkeit des Fräsers v<sub>f,k</sub>; daraus f<sub>z,k</sub> = v<sub>f,k</sub> / (z · n) und je Plattenreihe f<sub>z,i</sub> = v<sub>f,k</sub> / (n · z<sub>i</sub>).</p>`;}
 function posForm(p,f){if(p==='blechkante')return {...f,ae:String(bkGeom(f).fb)};if(p==='laengsnaht'){const c=lnCuts(f).list[lnSel(f)]||{};return {...f,pos:'gleich',ae:String(c.d)};}return f;}
 const RES={tCut:['Schnitttiefe des gewählten Schnitts','mm',1,'t'],dCut:['Zustellung Δ','mm',1,'Δ'],thAll:['Hauptzeit alle Schnitte','min',2,'th ges'],bn:['Nutbreite an der Oberfläche','mm',1,'b'],LF:['Flankenlänge je Seite','mm',1,'LF'],hP:['Profilhöhe','mm',1,'hP'],lFe:['Schneidlänge im Einsatz','mm',1,'lF'],nF:['Flankenplatten je Seite','',0,'nF'],nInc:['Inkremente im Profil','',0,'nInk'],nIncCut:['Inkremente im Schnitt','',0,'nInk'],nFg:['Platten im Profil (2 Radius + Flanken)','',0,'n'],fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Fasenbreite','mm',1,'b'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
  Fc:['Schnittkraft','N',0,'Fc'],Ff:['Vorschubkraft','N',0,'Ff'],Mc:['Drehmoment','Nm',1,'Mc'],Q:['Zeitspanvolumen','cm³/min',1,'Q'],Pc:['Schnittleistung','kW',2,'Pc'],Pm:['Antriebsleistung','kW',2,'Pmot'],th:['Hauptzeit','min',2,'th']};
@@ -700,7 +700,7 @@ function lnZHTML(f){const A=lnAng(f),zc=Math.round(num(f.z)),fz=(lnCuts(f).list[
  </tbody></table></div>`:`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> L</th><th>z<sub>i</sub> R</th><th>Teilung L / R (°)</th><th>f<sub>z,i</sub> L / R S${kS} (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th></tr></thead><tbody>
  ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm+' links','numeric')}</td><td>${inp('data-zrow',i,'R',Number.isFinite(r.zR)?r.zR:'','Zähnezahl '+r.nm+' rechts','numeric')}</td><td>${pv(r.zL)} / ${pv(r.zR)}</td><td>${fv(r.zL)} / ${fv(r.zR)}</td><td>${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${inp('data-phrow',i,'R',dec(r.phR,3),'Winkelversatz '+r.nm+' rechts','decimal')}</td></tr>`).join('')}
  </tbody></table></div>`}
- <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = f<sub>z</sub> · z / z<sub>i</sub>: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j: θ = φ<sub>0,i</sub> + (j−1)·360°/z<sub>i</sub>, je Seite mit eigener Teilung. ${lnMid(f)?'„Links mittig zwischen rechts“: rechts hat dieselbe Zähnezahl wie links und liegt genau eine halbe Teilung weiter (φ<sub>0,R</sub> = φ<sub>0,L</sub> + Teilung/2).':'Vorgabe φ<sub>0</sub> rechts = φ<sub>0</sub> links + halbe Teilung rechts.'} „Gleichmäßig aufteilen“ wählt Reihe für Reihe den Winkelversatz mit dem größten Mindestabstand zu allen übrigen Platten (alle Reihen, links und rechts) – so ist am Beginn alles gut verteilt. 0° = Bezugsmarke, gezählt in Drehrichtung.</p>`;}
+ <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = v<sub>f</sub> / (n · z<sub>i</sub>) mit v<sub>f</sub> des gewählten Schnitts: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j: θ = φ<sub>0,i</sub> + (j−1)·360°/z<sub>i</sub>, je Seite mit eigener Teilung. ${lnMid(f)?'„Links mittig zwischen rechts“: rechts hat dieselbe Zähnezahl wie links und liegt genau eine halbe Teilung weiter (φ<sub>0,R</sub> = φ<sub>0,L</sub> + Teilung/2).':'Vorgabe φ<sub>0</sub> rechts = φ<sub>0</sub> links + halbe Teilung rechts.'} „Gleichmäßig aufteilen“ wählt Reihe für Reihe den Winkelversatz mit dem größten Mindestabstand zu allen übrigen Platten (alle Reihen, links und rechts) – so ist am Beginn alles gut verteilt. 0° = Bezugsmarke, gezählt in Drehrichtung.</p>`;}
 /* Winkellage aller Platten: Reihe i, Seite L/R, Platte j */
 /* Gleichmäßige Aufteilung: Reihe für Reihe den Winkelversatz wählen, der den kleinsten Winkelabstand
    zu allen bereits gesetzten Platten (alle Reihen, links und rechts) möglichst groß macht. Ergebnis wird zwischengespeichert. */
@@ -822,13 +822,13 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[d
    Die Gesamtkurve entsteht durch Überlagerung aller Platten mit ihrer Winkellage θ (Positionsmatrix).
    Ergebnisobjekt LN_CALC enthält alle Zwischengrößen (je Schneide, je Inkrement, Kurven), damit weitere Größen angezeigt werden können. */
 let LN_CALC=null,LN_PQ='P',LN_EDGE=0,LN_FIT=true,LN_ZOOM=360,LN_SRC='tot',LN_IE=0,LN_IJ=1;
-const lnCalcKey=f=>JSON.stringify(['Dc','rR','dU','alphaN','lK','uF','nIR','nIF','z','zRows','zRowsR','phRows','phRowsR','lnMid','vc','nCuts','cutT','cutFz','g','kc','mc','nPhi'].map(k=>f[k]));
+const lnCalcKey=f=>JSON.stringify(['Dc','rR','dU','alphaN','lK','uF','nIR','nIF','z','zRows','zRowsR','phRows','phRowsR','lnMid','vc','nCuts','cutT','cutVf','g','kc','mc','nPhi'].map(k=>f[k]));
 function lnPowerCut(f,k){
  const G=lnGeom(f),A=lnAng(f),C=lnCuts(f),cu=C.list[k],D=num(f.Dc),Rr=D/2,vc=num(f.vc),z=num(f.z),kc11=num(f.kc),mc=num(f.mc),gk=1-(num(f.g)||0)/100;
  const N=Math.max(36,Math.min(7200,Math.round(num(f.nPhi))||720)),da=360/N,n=vc*1000/(Math.PI*D),om=2*Math.PI*n/60;
- const err=!(D>0&&vc>0&&z>0)?'Fräserdurchmesser, Zähnezahl und vc eintragen.':!(kc11>0&&mc>0)?'Werkstoff (kc1.1, mc) wählen.':!(cu&&cu.t>0&&cu.d>0)?'Schnitttiefen (zunehmend) eintragen.':!(cu.fz>0)?`Zahnvorschub für Schnitt ${k+1} eintragen.`:!G.ok?'Profil prüfen.':'';
+ const err=!(D>0&&vc>0&&z>0)?'Fräserdurchmesser, Zähnezahl und vc eintragen.':!(kc11>0&&mc>0)?'Werkstoff (kc1.1, mc) wählen.':!(cu&&cu.t>0&&cu.d>0)?'Schnitttiefen (zunehmend) eintragen.':!(cu.vf>0)?`Vorschubgeschwindigkeit v<sub>f</sub> für Schnitt ${k+1} eintragen.`:!G.ok?'Profil prüfen.':'';
  if(err)return {k,err};
- const vf=cu.fz*z*n,edges=[];
+ const vf=cu.vf,edges=[];
  A.rows.forEach((row,i)=>{['L','R'].forEach(side=>{const zi=side==='L'?row.zL:row.zR;if(!(zi>0))return;
   const feff=cu.fz*z/zi,pl=i===0?'R':'F'+i,incs=[];
   G.inc.filter(q=>q.pl===pl).forEach(q=>{const top=Math.min(q.y1,cu.t);if(!(top>q.y0))return;const frac=(top-q.y0)/(q.y1-q.y0),b=q.ds*frac,ym=(q.y0+top)/2,ae=lnAe(cu,ym);if(!(ae>0))return;
@@ -986,7 +986,7 @@ function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='blechkante')b.pos='gleich';
  if(p==='laengsnaht')b.pos='gleich';
  if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
- if(p==='laengsnaht')Object.assign(b,{Dc:'1000',rR:'8',ap:'90',nCuts:'3',cutT:'40;70;90',cutFz:'0,25;0,2;0,15',lnCut:'0',nPhi:'720',vc:'150',g:'6',lam:'2',eta:'0,8',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
+ if(p==='laengsnaht')Object.assign(b,{Dc:'1000',rR:'8',ap:'90',nCuts:'3',cutT:'40;70;90',cutVf:'480;380;290',lnCut:'0',nPhi:'720',vc:'150',g:'6',lam:'2',eta:'0,8',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
  return b;}
 const TRIAL0={kunde:'',standort:'',ansprech:'',techniker:'',datum:new Date().toISOString().slice(0,10),vnr:'',maschine:'',mHersteller:'',mTyp:'',mLeistung:'',mDrehmoment:'',steuerung:'',bauteil:'',zeichnung:'',spannung:'',los:'',ziel:''};
 
@@ -1972,7 +1972,7 @@ main.addEventListener('change',e=>{
  if(e.target.dataset.lnie!=null||e.target.dataset.lnij!=null){if(e.target.dataset.lnie!=null){LN_IE=+e.target.value;LN_IJ=1;}else LN_IJ=+e.target.value;lnPowRender();return;}
  if(e.target.dataset.lncut!=null||e.target.dataset.lnncut!=null){const f=S.forms.laengsnaht,t=e.target;
   if(t.dataset.lnncut!=null){f.nCuts=t.value;if(lnSel(f)>=+t.value)f.lnCut=String(+t.value-1);}
-  else{const key=t.dataset.ck==='t'?'cutT':'cutFz',k=+t.dataset.lncut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=t.value.trim();f[key]=a.join(';');}
+  else{const key=t.dataset.ck==='t'?'cutT':'cutVf',k=+t.dataset.lncut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=t.value.trim();f[key]=a.join(';');}
   const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);lnRefresh(f);return;}
  if(e.target.dataset.phrow!=null){const f=S.forms.laengsnaht,t=e.target;lnSetAng(f,LN_PK[t.dataset.side||'L'],+t.dataset.phrow,t.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnDrawSim();save();return;}
  if(e.target.dataset.zrow!=null){const f=S.forms.laengsnaht,msg=lnSetZ(f,e.target.dataset.side||'L',+e.target.dataset.zrow,e.target.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');lnDrawSim();save();if(msg)toast(msg);return;}
