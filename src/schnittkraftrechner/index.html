@@ -646,7 +646,7 @@ function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='laengsnaht')b.pos='gleich';
  if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
  b.kVf=KVF_DEF[p]||'1';b.kV='';b.kVer='1';
- if(p==='laengsnaht')Object.assign(b,{Dc:'1000',rR:'8',ap:'90',nCuts:'3',cutT:'40;70;90',cutVf:'480;380;290',pMach:'30',vfTol:'20',hMin:'0,05',wSide:'1',pitOn:'0',pitM:'4',pitMax:'1',pitDh:'0,02',lnCut:'0',nPhi:'720',vc:'150',g:'6',lam:'2',eta:'0,8',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
+ if(p==='laengsnaht')Object.assign(b,{Dc:'1000',rR:'8',ap:'90',nCuts:'3',cutT:'40;70;90',cutVf:'480;380;290',pMach:'30',vfTol:'20',hMin:'0,05',wSide:'1',pitOn:'0',pitM:'4',pitMax:'1',pitDh:'0,02',pitBal:'1',lnCut:'0',nPhi:'720',vc:'150',g:'6',lam:'2',eta:'0,8',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
  return b;}
 const TRIAL0={kunde:'',standort:'',ansprech:'',techniker:'',datum:new Date().toISOString().slice(0,10),vnr:'',maschine:'',mHersteller:'',mTyp:'',mLeistung:'',mDrehmoment:'',steuerung:'',bauteil:'',zeichnung:'',spannung:'',los:'',ziel:''};
 
