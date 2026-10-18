@@ -112,6 +112,7 @@ function lnAng(f){const ZL=lnZ(f,'L'),ZR=lnZ(f,'R'),pL=String(f.phRows||'').spli
   if(r.zR>0)for(let j=0;j<r.zR;j++)ins.push({i,nm:r.nm,side:'R',j:j+1,ang:N(r.phR+j*360/r.zR+lnDvAt(r.dvR,j)),fzf:gf(r.dvR,j,r.zR)});});
  return {rows,ins};}
 function lnSetAng(f,key,idx,val){const n=lnRows(f).length,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[idx]=String(val).trim();f[key]=a.slice(0,n).join(';');}
+let LN_POS=false,LN_POSROW='all';
 let LN_DEPTH=null,LN_ROT=0,LN_VIEW='beide',LN_PLAY=false,LN_MAT=false,LN_T=0;
 function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Rotationssimulation – Eingriffsbereich des Fräsers</div>
  <div class="toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px">
@@ -120,6 +121,7 @@ function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Rotationssi
   <label style="display:flex;align-items:center;gap:6px;flex:1;min-width:180px;font-size:13px">Drehwinkel <input type="range" min="0" max="360" step="0.5" value="${LN_ROT}" data-lnrot="1" style="flex:1"><span id="ln-rotv">${fmt(LN_ROT,1)}°</span></label>
   <div id="ln-cutsel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:1 1 100%;font-size:13px"></div>
   <button type="button" class="btn" data-lnmat="1">${LN_MAT?'Positionsmatrix ausblenden':'Positionsmatrix anzeigen'}</button>
+  <button type="button" class="btn" data-lnpos="1">${LN_POS?'Positionen je Reihe ausblenden':'Positionen je Reihe'}</button>
  </div><div id="ln-powctl">${LN_CTL}</div><div id="ln-simsvg"></div>`;}
 function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-simsvg');if(!el)return;
  const G=lnGeom(f),A=lnAng(f),DS=num(f.Dc),ap=lnApOf(f),C=lnCuts(f),ks=lnSel(f),cu=C.list[ks];
@@ -196,11 +198,29 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
   const line=(r,i,side)=>{const list=A.ins.filter(q=>q.i===i&&q.side===side);return `<tr><td>${r.nm}</td><td>${side==='L'?'links':'rechts'}</td>${Array.from({length:zmax},(_,j)=>{const q=list[j];return q?(ENG.has(i+side+q.j)?`<td style="font-weight:700;background:var(--surface-2)">${fmt(q.ang,2)}</td>`:`<td>${fmt(q.ang,2)}</td>`):'<td></td>';}).join('')}</tr>`;};
   mt.innerHTML=`<div class="lbl" style="margin-top:10px">Positionsmatrix – Winkellage θ (°) jeder Platte, 0° = Bezugsmarke, in Drehrichtung</div><div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Seite</th>${Array.from({length:zmax},(_,j)=>`<th>${j+1}</th>`).join('')}</tr></thead><tbody>${A.rows.map((r,i)=>line(r,i,'L')+line(r,i,'R')).join('')}</tbody></table></div><p class="note">${A.ins.length} Platten im Fräser. Fett hinterlegt: im Eingriff bei Drehwinkel ${fmt(LN_ROT,1)}° und Tiefe ${fmt(t,1)} mm.</p>`;}}
 }
+/* Positionen je Reihe: alle Wendeplatten mit Winkellage, Abweichung (Ungleichteilung), Lücke zur vorauslaufenden Platte, f_z und h_max */
+function lnPosData(f){const A=lnAng(f),C=lnCuts(f),ks=lnSel(f),cu=C.list[ks]||{},z=num(f.z),calc=LN_CALC&&LN_CALC.key===lnCalcKey(f)?LN_CALC.cuts[ks]:null,out=[];
+ A.rows.forEach((r,i)=>['L','R'].forEach(sd=>{const zi=sd==='L'?r.zL:r.zR;if(!(zi>0))return;const p=360/zi,dv=sd==='L'?r.dvL:r.dvR,feff=cu.fz>0&&z>0?cu.fz*z/zi:NaN,e=calc?calc.edges.find(x=>x.i===i&&x.side===sd):null;
+  A.ins.filter(q=>q.i===i&&q.side===sd).forEach(q=>{const ff=q.fzf||1;out.push({i,nm:r.nm,side:sd,j:q.j,zi,ang:q.ang,dth:lnDvAt(dv,q.j-1),gap:ff*p,p,ff,fz:feff*ff,h:e&&e.incs.length?e.hmax*ff:(e?0:NaN)});});}));
+ return {rows:A.rows,list:out,ks,calc:!!calc};}
+function lnPosHTML(f){const D=lnPosData(f),sel=LN_POSROW,list=sel==='all'?D.list:D.list.filter(x=>x.i===+sel);
+ const chips=`<button type="button" class="chip-btn" data-lnposrow="all" aria-pressed="${sel==='all'}">Alle Reihen</button>`+D.rows.map((r,i)=>`<button type="button" class="chip-btn" data-lnposrow="${i}" aria-pressed="${String(i)===String(sel)}">${r.nm}</button>`).join('');
+ const sg=v=>(v>1e-9?'+':'')+fmt(Math.abs(v)<1e-9?0:v,2);
+ return `<div class="lbl" style="margin:14px 0 4px">Positionen je Reihe – Winkellage θ jeder Platte (0° = Bezugsmarke, in Drehrichtung)</div>
+ <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin-bottom:6px">${chips}<button type="button" class="btn" data-lnposcsv="1" style="margin-left:auto">Als CSV herunterladen</button></div>
+ <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>Seite</th><th>Platte</th><th>θ (°)</th><th>Δθ Ungleichteilung (°)</th><th>Lücke zur vorauslaufenden Platte (°)</th><th>f<sub>z</sub>-Faktor</th><th>f<sub>z</sub> Schnitt ${D.ks+1} (mm)</th><th>h<sub>max</sub> Schnitt ${D.ks+1} (mm)</th></tr></thead><tbody>
+ ${list.map(x=>`<tr><td>${x.nm}</td><td>${x.side==='L'?'links':'rechts'}</td><td>${x.j}</td><td>${fmt(x.ang,3)}</td><td>${sg(x.dth)}</td><td>${fmt(x.gap,3)}</td><td>${fmt(x.ff,4)}</td><td>${Number.isFinite(x.fz)?fmt(x.fz,4):'–'}</td><td>${Number.isFinite(x.h)?fmt(x.h,4):'–'}</td></tr>`).join('')}</tbody></table></div>
+ <p class="note" style="margin:4px 0 0">${list.length} Platten${sel==='all'?' im Fräser':' in dieser Reihe'}. Teilung je Reihe = 360°/z<sub>i</sub>; die Lücke zur vorauslaufenden Platte bestimmt den Zahnvorschub der Platte (f<sub>z</sub> = f<sub>z,i</sub> · Lücke/Teilung).${D.calc?'':' h<sub>max</sub> erscheint nach „Berechnen“.'}</p>`;}
+function lnPosCSV(f){const D=lnPosData(f),c=v=>Number.isFinite(v)?String(+v.toFixed(4)).replace('.',','):'';
+ const L=['Reihe;Seite;Platte;Zähnezahl;Teilung (°);Theta (°);Delta Theta (°);Lücke zur vorauslaufenden Platte (°);fz-Faktor;fz Schnitt '+(D.ks+1)+' (mm);hmax Schnitt '+(D.ks+1)+' (mm)'];
+ D.list.forEach(x=>L.push([x.nm,x.side==='L'?'links':'rechts',x.j,x.zi,c(x.p),c(x.ang),c(x.dth),c(x.gap),c(x.ff),c(x.fz),c(x.h)].join(';')));
+ const bl=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='laengsnaht-positionen.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
+function lnPosRender(){const e=document.getElementById('ln-pos');if(e)e.innerHTML=LN_POS?lnPosHTML(S.forms.laengsnaht):'';}
 function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0;LN_T=t;LN_ROT=(LN_ROT+dt*30)%360;
  const r=document.querySelector('[data-lnrot]');if(r)r.value=LN_ROT;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();requestAnimationFrame(lnLoop);}
 document.addEventListener('change',e=>{const c=e.target.closest&&e.target.closest('[data-lnpiton]');if(!c)return;const f=S.forms.laengsnaht;f.pitOn=c.checked?'1':'0';save();lnOptCard(f);});
 function lnOptCard(f){const o=document.getElementById('ln-opt');if(o)o.innerHTML=lnOptHTML(f);}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnpos],[data-lnposrow],[data-lnposcsv],[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
  if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht;
   if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
   if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';}else f.lnMid='1';}
@@ -212,6 +232,9 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnpitreset
   if(kind==='tool'){LN_OPTF=null;LN_OPTT=lnToolOpt(f);if(!LN_OPTT.err&&f.pitOn==='1')LN_OPTF=lnPitchOpt(f);if(!LN_OPTT.err){lnPowerAll(f);lnRefresh(f);}lnOptCard(f);}else{LN_OPTP=lnProcOpt(f);}
   lnOptRender();b.disabled=false;b.textContent=lbl;toast(`Optimiert in ${Math.round(performance.now()-t0)} ms`);},20);return;}
  if(b.dataset.lnapply){const f=S.forms.laengsnaht,o=LN_OPTP&&LN_OPTP.list.find(x=>x.n===+b.dataset.lnapply);if(!o)return;lnApplyProc(f,o);LN_OPTP.cur=o.n;const cc=document.getElementById('ln-cuts');if(cc)cc.innerHTML=lnCutsHTML(f);lnPowerAll(f);lnRefresh(f);lnOptRender();toast(`${o.n} Schnitte übernommen`);return;}
+ if(b.dataset.lnpos){LN_POS=!LN_POS;b.textContent=LN_POS?'Positionen je Reihe ausblenden':'Positionen je Reihe';lnPosRender();return;}
+ if(b.dataset.lnposrow){LN_POSROW=b.dataset.lnposrow;lnPosRender();return;}
+ if(b.dataset.lnposcsv){lnPosCSV(S.forms.laengsnaht);return;}
  if(b.dataset.lnpitreset){const f=S.forms.laengsnaht;f.dvL='';f.dvR='';LN_OPTF=null;lnPowerAll(f);lnRefresh(f);lnOptCard(f);toast('Gleichteilung wiederhergestellt');return;}
  if(b.dataset.lncalc){const f=S.forms.laengsnaht;b.disabled=true;b.textContent='Berechne …';setTimeout(()=>{const t0=performance.now();lnPowerAll(f);lnPowRender();renderOut('laengsnaht');b.disabled=false;b.textContent='Berechnen';toast(`Berechnet in ${Math.round(performance.now()-t0)} ms`);},20);return;}
  if(b.dataset.lnpq){LN_PQ=b.dataset.lnpq;lnPowRender();return;}
@@ -308,7 +331,7 @@ function lnPowHTML(f){const res=lnPowResHTML(f);return `<p class="note" style="m
  <div class="fields">${field('laengsnaht','nPhi','Winkelinkremente je Umdrehung Nφ',{num:1})}</div>
  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><button type="button" class="btn primary" data-lncalc="1">Berechnen</button></div>
  <div id="ln-sim" style="margin-bottom:2px">${lnSimHTML()}</div>
- <div id="ln-powres">${res}</div><div id="ln-simtab"></div><div id="ln-mat"></div>`;}
+ <div id="ln-powres">${res}</div><div id="ln-simtab"></div><div id="ln-mat"></div><div id="ln-pos">${LN_POS?lnPosHTML(f):''}</div>`;}
 let LN_CTL='';
 function lnPowResHTML(f){
  LN_CTL='';
@@ -537,7 +560,7 @@ function lnOptPHTML(f){const o=LN_OPTP;if(!o)return '';if(o.err)return `<p class
  <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitte</th><th>Hauptzeit${o.l>0?'':' (rel.)'}</th><th>v<sub>f,max</sub>/v<sub>f,min</sub> − 1</th><th></th><th>Tiefen t<sub>k</sub> (mm)</th><th>v<sub>f,k</sub> (mm/min)</th><th>Leistungsausnutzung (%)</th><th>h<sub>max</sub> je Schnitt (mm)</th></tr></thead><tbody>${o.list.map(row).join('')}</tbody></table></div>${o.miss.length?`<p class="warn" style="margin:4px 0 0">Keine zulässige Aufteilung für ${o.miss.join(', ')} Schnitt${o.miss.length>1?'e':''}: Mindest-Spanungsdicke ${fmt(o.hMin,3)} mm, Maschinenleistung und Vorschubtoleranz lassen sich dort nicht gleichzeitig einhalten.</p>`:''}${!o.list.length?'<p class="warn">Keine Aufteilung erfüllt alle Bedingungen – Mindest-Spanungsdicke senken, Toleranz erhöhen oder Maschinenleistung anpassen.</p>':''}
  <p class="note" style="margin:4px 0 0">Die Vorschübe liegen höchstens ${fmt(o.tol*100,0)} % auseinander (v<sub>f,max</sub> ≤ ${fmt(1+o.tol,2)} · v<sub>f,min</sub>); ein Schnitt, der schneller fahren könnte, wird begrenzt und nutzt die Maschinenleistung dann nicht ganz (Ausnutzung &lt; 100 %). Je Schnittanzahl ist die Aufteilung mit der kürzesten Hauptzeit gezeigt${o.l>0?' (Nahtlänge '+fmt(o.l,0)+' mm)':' (ohne Nahtlänge relativ)'}; „empfohlen“ = kürzeste Hauptzeit insgesamt. Hervorgehoben: aktuelle Anzahl der Schnitte (${o.cur}). „Übernehmen“ setzt Anzahl, Tiefen und Vorschübe (auf 5 mm/min abgerundet) und rechnet neu.</p>`;}
 function lnOptRender(){const f=S.forms.laengsnaht,a=document.getElementById('ln-optt'),b=document.getElementById('ln-optp'),c=document.getElementById('ln-optf');if(a)a.innerHTML=lnOptTHTML();if(b)b.innerHTML=lnOptPHTML(f);if(c)c.innerHTML=lnOptFHTML(f);}
-function lnPowRender(){const e=document.getElementById('ln-powres');if(e)e.innerHTML=lnPowResHTML(S.forms.laengsnaht);const c=document.getElementById('ln-powctl');if(c)c.innerHTML=LN_CTL;lnMark();}
+function lnPowRender(){const e=document.getElementById('ln-powres');if(e)e.innerHTML=lnPowResHTML(S.forms.laengsnaht);const c=document.getElementById('ln-powctl');if(c)c.innerHTML=LN_CTL;lnPosRender();lnMark();}
 function lnRefresh(f){const set=(id,h)=>{const e=document.getElementById(id);if(e&&!e.contains(document.activeElement))e.innerHTML=h;};
  set('ln-prof',lnProfHTML(f));set('ln-z',lnZHTML(f));set('ln-cuts',lnCutsHTML(f));renderOut('laengsnaht');lnDrawSim();lnPowRender();save();}
 function lnRenderZ(){const e=document.getElementById('ln-z');if(e&&!e.contains(document.activeElement))e.innerHTML=lnZHTML(S.forms.laengsnaht);}
