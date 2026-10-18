@@ -541,10 +541,10 @@ const PROC={
    const Q=G.A*vf/1000,Pc=G.A*vf*kc/6e7,Mc=Pc*30000/(Math.PI*n),Fc=Mc*2000/Dc;
    return {n,vf,vfm:vf/1000,fb:G.fb,A:G.A,phs,le,h,hout,lsp,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,th:l/vf};}},
  laengsnaht:{name:'Längsnahtfräsen',t1:'Radius- und Flankenplatten',t2:'Längsnahtfräser (Profilscheibenfräser)',ph1:'z. B. Radiusplatte R8',ph2:'z. B. Längsnahtfräser Ø1000',
-  params:[['Dc','Durchmesser des Fräsers Dc','mm'],['DS','Flugkreis Profilspitze (Radiusplatten) DS','mm'],['rR','Radius der Radiusplatten rR','mm'],['ap','Notwendige Schnitttiefe ap','mm'],['dU','Schneiden über der Schnitttiefe Δü','mm'],['alphaN','Öffnungswinkel des V αV (gesamt)','°'],['lK','Schneidkantenlänge Flankenplatte lK','mm'],['uF','Überlappung ü (je Plattenende)','mm'],['nIR','Inkremente je Radiusschneide nR',''],['nIF','Inkremente je Flankenschneide nF,i',''],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc (an DS)','m/min'],['fz','Zahnvorschub fz','mm/Z'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['l','Nahtlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
+  params:[['Dc','Durchmesser des Fräsers Dc (Flugkreis der Profilspitze)','mm'],['rR','Radius der Radiusplatten rR','mm'],['ap','Notwendige Schnitttiefe ap','mm'],['dU','Schneiden über der Schnitttiefe Δü','mm'],['alphaN','Öffnungswinkel des V αV (gesamt)','°'],['lK','Schneidkantenlänge Flankenplatte lK','mm'],['uF','Überlappung ü (je Plattenende)','mm'],['nIR','Inkremente je Radiusschneide nR',''],['nIF','Inkremente je Flankenschneide nF,i',''],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc (an Dc)','m/min'],['fz','Zahnvorschub fz','mm/Z'],['g','Spanwinkel γ₀','°'],['lam','Spanstauchungsfaktor λ',''],['l','Nahtlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
   short:[['ap','ap'],['rR','rR'],['vc','vc'],['fz','fz']], keys:['Pc','Q','nF'],
-  formula:'Profil: V mit Öffnungswinkel αV, Spitzenradius rR · Tangentenpunkt yt = rR·(1−sin(αV/2)) · erforderliche Profilhöhe herf = ap + Δü · Schneidlänge im Einsatz lF = lK − 2ü · Flankenplatten je Seite nF = ⌈(herf−yt)/(lF·cos(αV/2))⌉ · Profilhöhe hP = yt + nF·lF·cos(αV/2) · A = ∫ b(y) dy · cos φs = 1 − 2·ap/DS · vorläufig: Pc = A·vf·kc / 60·10⁶',
-  calc(f){const DS=num(f.DS),z=num(f.z),vc=num(f.vc),fz=num(f.fz),eta=num(f.eta)||1,l=num(f.l);
+  formula:'Profil: V mit Öffnungswinkel αV, Spitzenradius rR · Tangentenpunkt yt = rR·(1−sin(αV/2)) · erforderliche Profilhöhe herf = ap + Δü · Schneidlänge im Einsatz lF = lK − 2ü · Flankenplatten je Seite nF = ⌈(herf−yt)/(lF·cos(αV/2))⌉ · Profilhöhe hP = yt + nF·lF·cos(αV/2) · A = ∫ b(y) dy · cos φs = 1 − 2·ap/Dc · vorläufig: Pc = A·vf·kc / 60·10⁶',
+  calc(f){const DS=num(f.Dc),z=num(f.z),vc=num(f.vc),fz=num(f.fz),eta=num(f.eta)||1,l=num(f.l);
    const G=lnGeom(f),n=vc*1000/(Math.PI*DS),vf=fz*z*n,E=engage(posForm('laengsnaht',f));
    const h=E.ok?fz*(Math.cos(E.a)-Math.cos(E.e))/(E.e-E.a):NaN,kc=kcOf(f,h);
    const phs=E.ok?(E.e-E.a)*180/Math.PI:NaN,le=E.ok?DS/2*(E.e-E.a):NaN,lsp=le/num(f.lam);
@@ -721,8 +721,8 @@ function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Rotationssi
   <button type="button" class="btn" data-lnmat="1">${LN_MAT?'Positionsmatrix ausblenden':'Positionsmatrix anzeigen'}</button>
  </div><div id="ln-simsvg"></div><div id="ln-mat"></div>`;}
 function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-simsvg');if(!el)return;
- const G=lnGeom(f),A=lnAng(f),DS=num(f.DS),ap=num(f.ap);
- if(!(DS>0&&ap>0&&G.ok)){el.innerHTML='<p class="note">Flugkreis DS, Schnitttiefe ap und Profil eintragen.</p>';return;}
+ const G=lnGeom(f),A=lnAng(f),DS=num(f.Dc),ap=num(f.ap);
+ if(!(DS>0&&ap>0&&G.ok)){el.innerHTML='<p class="note">Fräserdurchmesser Dc, Schnitttiefe ap und Profil eintragen.</p>';return;}
  /* Alles maßstäblich: Koordinaten in mm um die Fräserachse, X = Lage quer, Y nach unten; Winkel θ von oben in Drehrichtung */
  const RS=DS/2,cb=Math.cos(G.be),mir=LN_VIEW==='rechts'?-1:1,near=LN_VIEW==='links'?'L':'R';
  const COL=['#b3261e','#2e7d32','#7a5a00','#1d5fc4','#6a1b9a','#00838f','#ad1457','#5d4037'];
@@ -842,7 +842,7 @@ function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='blechkante')b.pos='gleich';
  if(p==='laengsnaht')b.pos='gleich';
  if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
- if(p==='laengsnaht')Object.assign(b,{Dc:'1000',DS:'1000',rR:'8',ap:'40',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
+ if(p==='laengsnaht')Object.assign(b,{Dc:'1000',rR:'8',ap:'40',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
  return b;}
 const TRIAL0={kunde:'',standort:'',ansprech:'',techniker:'',datum:new Date().toISOString().slice(0,10),vnr:'',maschine:'',mHersteller:'',mTyp:'',mLeistung:'',mDrehmoment:'',steuerung:'',bauteil:'',zeichnung:'',spannung:'',los:'',ziel:''};
 
