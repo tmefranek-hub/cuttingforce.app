@@ -95,8 +95,8 @@ function lnSpreadCalc(zL,zR,mid){const key=zL.join(',')+'|'+zR.join(',')+'|'+mid
   else{const ph=best(z);L.push(ph);for(let j=0;j<z;j++)placed.push(ph+j*360/z);
    const zr=zR[i],pr=best(zr);Rr.push(pr);for(let j=0;j<zr;j++)placed.push(pr+j*360/zr);}});
  return LN_SPC[key]={L,R:Rr};}
-/* Ungleichteilung: Abweichungsmuster Δθ (°) je Reihe und Seite, Länge m, wiederholt um den Umfang (dvL/dvR: Reihen ';', Werte ',') */
-function lnDv(f,side,i){const key=side==='R'&&!lnMid(f)?'dvR':'dvL',rows=String(f[key]||'').split(';'),a=String(rows[i]||'').split(',').map(v=>num(v)).filter(v=>Number.isFinite(v));return a.some(v=>v!==0)?a:[];}
+/* Ungleichteilung: Abweichungsmuster Δθ (°) je Reihe und Seite, Länge m, wiederholt um den Umfang (dvL/dvR: Reihen ';', Werte '/', Dezimalkomma) */
+function lnDv(f,side,i){const key=side==='R'&&!lnMid(f)?'dvR':'dvL',rows=String(f[key]||'').split(';'),a=String(rows[i]||'').split('/').map(v=>num(v)).filter(v=>Number.isFinite(v));return a.some(v=>v!==0)?a:[];}
 const lnDvAt=(dv,j)=>dv.length?dv[j%dv.length]:0;
 function lnAng(f){const ZL=lnZ(f,'L'),ZR=lnZ(f,'R'),pL=String(f.phRows||'').split(';'),pR=String(f.phRowsR||'').split(';');
  /* Vorgabe „gleichmäßig aufgeteilt“: Reihe i um i/(2n) einer Teilung versetzt, rechts eine halbe Teilung weiter –
@@ -106,8 +106,10 @@ function lnAng(f){const ZL=lnZ(f,'L'),ZR=lnZ(f,'R'),pL=String(f.phRows||'').spli
   const phL=Number.isFinite(a)?a:SP.L[i],phR=mid?phL+pLv/2:(Number.isFinite(b)?b:SP.R[i]);
   return {nm:r.nm,zL,zR,phL,phR,dvL:lnDv(f,'L',i),dvR:mid?lnDv(f,'L',i):lnDv(f,'R',i)};});
  const ins=[],N=x=>((x%360)+360)%360;
- rows.forEach((r,i)=>{if(r.zL>0)for(let j=0;j<r.zL;j++)ins.push({i,nm:r.nm,side:'L',j:j+1,ang:N(r.phL+j*360/r.zL+lnDvAt(r.dvL,j))});
-  if(r.zR>0)for(let j=0;j<r.zR;j++)ins.push({i,nm:r.nm,side:'R',j:j+1,ang:N(r.phR+j*360/r.zR+lnDvAt(r.dvR,j))});});
+ /* fzf = (Winkelabstand zur vorauslaufenden Platte derselben Reihe und Seite) / Teilung → f_z der Platte = fzf · f_z,i (Ungleichteilung) */
+ const gf=(dv,j,z)=>dv.length?1+(lnDvAt(dv,j+1)-lnDvAt(dv,j))*z/360:1;
+ rows.forEach((r,i)=>{if(r.zL>0)for(let j=0;j<r.zL;j++)ins.push({i,nm:r.nm,side:'L',j:j+1,ang:N(r.phL+j*360/r.zL+lnDvAt(r.dvL,j)),fzf:gf(r.dvL,j,r.zL)});
+  if(r.zR>0)for(let j=0;j<r.zR;j++)ins.push({i,nm:r.nm,side:'R',j:j+1,ang:N(r.phR+j*360/r.zR+lnDvAt(r.dvR,j)),fzf:gf(r.dvR,j,r.zR)});});
  return {rows,ins};}
 function lnSetAng(f,key,idx,val){const n=lnRows(f).length,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[idx]=String(val).trim();f[key]=a.slice(0,n).join(';');}
 let LN_DEPTH=null,LN_ROT=0,LN_VIEW='beide',LN_PLAY=false,LN_MAT=false,LN_T=0;
@@ -196,7 +198,9 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
 }
 function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0;LN_T=t;LN_ROT=(LN_ROT+dt*30)%360;
  const r=document.querySelector('[data-lnrot]');if(r)r.value=LN_ROT;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();requestAnimationFrame(lnLoop);}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
+document.addEventListener('change',e=>{const c=e.target.closest&&e.target.closest('[data-lnpiton]');if(!c)return;const f=S.forms.laengsnaht;f.pitOn=c.checked?'1':'0';save();lnOptCard(f);});
+function lnOptCard(f){const o=document.getElementById('ln-opt');if(o)o.innerHTML=lnOptHTML(f);}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
  if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht;
   if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
   if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';}else f.lnMid='1';}
@@ -205,9 +209,10 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[d
  if(b.dataset.lnap)LN_DEPTH=null;
  if(b.dataset.lnlock){const f=S.forms.laengsnaht,k=b.dataset.lnlock,a=String(f.phLock||'').split(',').filter(Boolean),ix=a.indexOf(k);if(ix>=0)a.splice(ix,1);else a.push(k);f.phLock=a.join(',');const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);save();return;}
  if(b.dataset.lnopt){const f=S.forms.laengsnaht,kind=b.dataset.lnopt,lbl=b.textContent;b.disabled=true;b.textContent='Optimiere …';setTimeout(()=>{const t0=performance.now();
-  if(kind==='tool'){LN_OPTT=lnToolOpt(f);if(!LN_OPTT.err){lnPowerAll(f);lnRefresh(f);}}else{LN_OPTP=lnProcOpt(f);}
+  if(kind==='tool'){LN_OPTF=null;LN_OPTT=lnToolOpt(f);if(!LN_OPTT.err&&f.pitOn==='1')LN_OPTF=lnPitchOpt(f);if(!LN_OPTT.err){lnPowerAll(f);lnRefresh(f);}lnOptCard(f);}else{LN_OPTP=lnProcOpt(f);}
   lnOptRender();b.disabled=false;b.textContent=lbl;toast(`Optimiert in ${Math.round(performance.now()-t0)} ms`);},20);return;}
  if(b.dataset.lnapply){const f=S.forms.laengsnaht,o=LN_OPTP&&LN_OPTP.list.find(x=>x.n===+b.dataset.lnapply);if(!o)return;lnApplyProc(f,o);LN_OPTP.cur=o.n;const cc=document.getElementById('ln-cuts');if(cc)cc.innerHTML=lnCutsHTML(f);lnPowerAll(f);lnRefresh(f);lnOptRender();toast(`${o.n} Schnitte übernommen`);return;}
+ if(b.dataset.lnpitreset){const f=S.forms.laengsnaht;f.dvL='';f.dvR='';LN_OPTF=null;lnPowerAll(f);lnRefresh(f);lnOptCard(f);toast('Gleichteilung wiederhergestellt');return;}
  if(b.dataset.lncalc){const f=S.forms.laengsnaht;b.disabled=true;b.textContent='Berechne …';setTimeout(()=>{const t0=performance.now();lnPowerAll(f);lnPowRender();renderOut('laengsnaht');b.disabled=false;b.textContent='Berechnen';toast(`Berechnet in ${Math.round(performance.now()-t0)} ms`);},20);return;}
  if(b.dataset.lnpq){LN_PQ=b.dataset.lnpq;lnPowRender();return;}
  if(b.dataset.lnfit){LN_FIT=!LN_FIT;lnPowRender();return;}
@@ -227,7 +232,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnview],[d
    Die Gesamtkurve entsteht durch Überlagerung aller Platten mit ihrer Winkellage θ (Positionsmatrix).
    Ergebnisobjekt LN_CALC enthält alle Zwischengrößen (je Schneide, je Inkrement, Kurven), damit weitere Größen angezeigt werden können. */
 let LN_SPLIT=false,LN_CALC=null,LN_PQ='P',LN_EDGE=0,LN_FIT=true,LN_ZOOM=360,LN_SRC='tot',LN_TRK='';
-const lnCalcKey=f=>JSON.stringify(['Dc','rR','dU','alphaN','lK','uF','nIR','nIF','z','zRows','zRowsR','phRows','phRowsR','lnMid','vc','nCuts','cutT','cutVf','g','kc','mc','nPhi'].map(k=>f[k]));
+const lnCalcKey=f=>JSON.stringify(['Dc','rR','dU','alphaN','lK','uF','nIR','nIF','z','zRows','zRowsR','phRows','phRowsR','lnMid','vc','nCuts','cutT','cutVf','g','kc','mc','nPhi','dvL','dvR','kVf','kV','kVer','tW'].map(k=>f[k]));
 function lnPowerCut(f,k){
  const G=lnGeom(f),A=lnAng(f),C=lnCuts(f),cu=C.list[k],D=num(f.Dc),Rr=D/2,vc=num(f.vc),z=num(f.z),kc11=num(f.kc),mc=num(f.mc),gk=(1-(num(f.g)||0)/100)*kvfOf(f)*kverOf(f);
  const N=Math.max(36,Math.min(7200,Math.round(num(f.nPhi))||720)),da=360/N,n=vc*1000/(Math.PI*D),om=2*Math.PI*n/60;
@@ -251,10 +256,10 @@ function lnPowerCut(f,k){
  // Überlagerung aller Platten über den Fräserdrehwinkel ψ
  const Pt=new Float64Array(N),Mt=new Float64Array(N),Ne=new Float64Array(N),Ht=new Float64Array(N);
  const byKey={};edges.forEach(e=>byKey[e.i+e.side]=e);
- A.ins.forEach(q=>{const e=byKey[q.i+q.side];if(!e)return;const o=Math.round(q.ang/da);
-  for(let j=0;j<N;j++){const idx=(j+o)%N,pv=e.P[idx];if(pv){Pt[j]+=pv;Mt[j]+=e.M[idx];Ne[j]++;if(e.H[idx]>Ht[j])Ht[j]=e.H[idx];}}});
+ A.ins.forEach(q=>{const e=byKey[q.i+q.side];if(!e)return;const o=Math.round(q.ang/da),ff=q.fzf||1,sc=Math.pow(ff,1-mc);
+  for(let j=0;j<N;j++){const idx=(j+o)%N,pv=e.P[idx];if(pv){Pt[j]+=pv*sc;Mt[j]+=e.M[idx]*sc;Ne[j]++;const hh=e.H[idx]*ff;if(hh>Ht[j])Ht[j]=hh;}}});
  let Ps=0,Ms=0,Pmx=0,Mmx=0,Nmx=0,Nsum=0,Pmn=1e18,Mmn=1e18,Nmn=1e9;for(let j=0;j<N;j++){Ps+=Pt[j];Ms+=Mt[j];Nsum+=Ne[j];if(Pt[j]>Pmx)Pmx=Pt[j];if(Mt[j]>Mmx)Mmx=Mt[j];if(Ne[j]>Nmx)Nmx=Ne[j];if(Pt[j]<Pmn)Pmn=Pt[j];if(Mt[j]<Mmn)Mmn=Mt[j];if(Ne[j]<Nmn)Nmn=Ne[j];}
- return {k,t:cu.t,d:cu.d,fz:cu.fz,N,da,n,vf,om,edges,Ht,ins:A.ins.map(q=>({i:q.i,side:q.side,j:q.j,ang:q.ang})),Pt,Mt,Ne,Pm:Ps/N,Pmax:Pmx,Pmin:Pmn,Mm:Ms/N,Mmax:Mmx,Mmin:Mmn,Nm:Nsum/N,Nmax:Nmx,Nmin:Nmn,hmax:Math.max(0,...edges.map(e=>e.hmax)),eta:num(f.eta)||1};}
+ return {k,t:cu.t,d:cu.d,fz:cu.fz,N,da,n,vf,om,edges,Ht,ins:A.ins.map(q=>({i:q.i,side:q.side,j:q.j,ang:q.ang,fzf:q.fzf||1})),mc,Pt,Mt,Ne,Pm:Ps/N,Pmax:Pmx,Pmin:Pmn,Mm:Ms/N,Mmax:Mmx,Mmin:Mmn,Nm:Nsum/N,Nmax:Nmx,Nmin:Nmn,hmax:Math.max(0,...Ht),eta:num(f.eta)||1};}
 function lnPowerAll(f){const C=lnCuts(f);LN_CALC={key:lnCalcKey(f),at:new Date(),cuts:C.list.map(c=>lnPowerCut(f,c.k))};}
 /* Liniendiagramm (eine Reihe, eine y-Achse) mit Mittelwertlinie, Fadenkreuz und Tooltip */
 const LN_CH={};
@@ -320,11 +325,11 @@ function lnPowResHTML(f){
  if(!tracks.some(t=>t.key===LN_TRK)&&tracks.length)LN_TRK=tracks[0].key;
  const tr=LN_SRC==='trk'?tracks.find(t=>t.key===LN_TRK):null;
  let ysel,meanSel,lab,nOn=null,extra=null;const split=!!(tr&&tr.sides.length===2&&LN_SPLIT);
- const trackSum=(i,sides)=>{const y=new Float64Array(r.N);sides.forEach(sd=>{const e=r.edges.find(x=>x.i===i&&x.side===sd);if(!e)return;r.ins.filter(q=>q.i===i&&q.side===sd).forEach(q=>{const o=Math.round(q.ang/r.da),src=isH?e.H:isP?e.P:e.M;for(let j=0;j<r.N;j++){const v=src[(j+o)%r.N];if(isH){if(v>y[j])y[j]=v;}else y[j]+=v;}});});return y;};
+ const trackSum=(i,sides)=>{const y=new Float64Array(r.N);sides.forEach(sd=>{const e=r.edges.find(x=>x.i===i&&x.side===sd);if(!e)return;r.ins.filter(q=>q.i===i&&q.side===sd).forEach(q=>{const o=Math.round(q.ang/r.da),src=isH?e.H:isP?e.P:e.M,ff=q.fzf||1,sc=isH?ff:Math.pow(ff,1-r.mc);for(let j=0;j<r.N;j++){const v=src[(j+o)%r.N]*sc;if(isH){if(v>y[j])y[j]=v;}else y[j]+=v;}});});return y;};
  if(tr){ysel=new Float64Array(r.N);nOn=new Float64Array(r.N);let zs=0;
   tr.sides.forEach(sd=>{const e=r.edges.find(x=>x.i===tr.i&&x.side===sd);if(!e)return;zs+=e.z;
-   r.ins.filter(q=>q.i===tr.i&&q.side===sd).forEach(q=>{const o=Math.round(q.ang/r.da),src=isH?e.H:isP?e.P:e.M;
-    for(let j=0;j<r.N;j++){const v=src[(j+o)%r.N];if(isH){if(v>ysel[j])ysel[j]=v;}else ysel[j]+=v;if(e.P[(j+o)%r.N]>0)nOn[j]++;}});});
+   r.ins.filter(q=>q.i===tr.i&&q.side===sd).forEach(q=>{const o=Math.round(q.ang/r.da),src=isH?e.H:isP?e.P:e.M,ff=q.fzf||1,sc=isH?ff:Math.pow(ff,1-r.mc);
+    for(let j=0;j<r.N;j++){const v=src[(j+o)%r.N]*sc;if(isH){if(v>ysel[j])ysel[j]=v;}else ysel[j]+=v;if(e.P[(j+o)%r.N]>0)nOn[j]++;}});});
   let sm=0,mx=0;for(let j=0;j<r.N;j++){sm+=ysel[j];if(ysel[j]>mx)mx=ysel[j];}meanSel=isH?mx:sm/r.N;lab=`Spur ${tr.nm} (${zs} Platten)`;
   if(split){ysel=trackSum(tr.i,['L']);extra=[{ys:trackSum(tr.i,['R']),color:'#c2560c',label:'rechts'}];lab=`Spur ${r.edges.find(e=>e.i===tr.i).nm} – links und rechts getrennt`;}}
  else{ysel=isH?r.Ht:isP?r.Pt:r.Mt;meanSel=isH?r.hmax:isP?r.Pm:r.Mm;lab='Fräser gesamt';}
@@ -378,7 +383,7 @@ function lnToolOpt(f){
  /* je Reihe: Gesamtkurve c, Seitendifferenz d = P_links − P_rechts, Anzahl Platten im Eingriff je Seite */
  const curve=(v,r)=>{const c=new Float64Array(N),d=new Float64Array(N),nL=new Float64Array(N),nR=new Float64Array(N);let any=false;
   v.sides.forEach(sd=>{const e=r.edges.find(x=>x.i===v.i&&x.side===sd);if(!e||!e.incs.length)return;any=true;const sg=sd==='L'?1:-1,cnt=sd==='L'?nL:nR;
-   const dvv=sd==='R'?A.rows[v.i].dvR:A.rows[v.i].dvL;for(let j=0;j<v.z;j++){const o=Math.round((j*v.p+lnDvAt(dvv,j)+(mid&&sd==='R'?v.p/2:0))/da);for(let y=0;y<N;y++){const pv=e.P[(y+o)%N];if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}}});
+   const dvv=sd==='R'?A.rows[v.i].dvR:A.rows[v.i].dvL,mcT=num(f.mc)||0;for(let j=0;j<v.z;j++){const o=Math.round((j*v.p+lnDvAt(dvv,j)+(mid&&sd==='R'?v.p/2:0))/da),sc=dvv.length?Math.pow(1+(lnDvAt(dvv,j+1)-lnDvAt(dvv,j))/v.p,1-mcT):1;for(let y=0;y<N;y++){const pv=e.P[(y+o)%N]*sc;if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}}});
   return any?{c,d,nL,nR}:null;};
  const wS=Math.max(0,num(f.wSide)>=0?num(f.wSide):1);
  const stats=(curves)=>{let mx=-1e18,mn=1e18,dm=0,lm=0,rm=0;const T=new Float64Array(N),D=new Float64Array(N),L=new Float64Array(N),Rn=new Float64Array(N);
@@ -448,72 +453,76 @@ function lnProcOpt(f){const C=lnCuts(f),G=lnGeom(f),T=C.tMax,mc=num(f.mc),eta=nu
  const rec1=list.reduce((a,o)=>!a||o.tsum<a.tsum?o:a,null);
  const nMax=Math.min(10,L-1),miss=[];for(let k=1;k<=nMax;k++)if(!best[k])miss.push(k);
  return {list,Pav,PM,eta,T,bound:B,cur:C.n,tol,rec:rec1?rec1.n:0,l:num(f.l),hMin,miss};}
-/* Optimierer 3 – Ungleichteilung: Abweichungsmuster Δθ (Länge m, |Δθ| ≤ Δθmax, erstes Element 0) je offener Reihe so wählen,
-   dass die größte Spektrallinie (Ordnung k = Vielfache der Drehfrequenz) des Leistungssignals über alle Schnitte minimal wird.
-   Spektrum je Platte = Spektrum der Plattenkurve · e^{i·2πk·o/N} (o = Winkellage in Schritten) → schnelle Auswertung im Frequenzbereich. */
 let LN_OPTF=null;
+/* Teil des Werkzeugoptimierers (nur wenn ausdrücklich gewählt): kleine Ungleichteilung.
+   Je offener Reihe ein Abweichungsmuster Δθ (Länge m = größter Teiler von z mit m ≤ m_max und z/m ≥ 2, damit sich das Muster
+   mindestens zweimal wiederholt und der Fräser ausgewuchtet bleibt; erstes Element 0, |Δθ| ≤ Δθmax).
+   Ziel über alle Schnitte: J = max_Schnitt [ (P_max − P_min)/P̄ + größte Spektrallinie/P̄ ] → Leistungsschwankung klein und keine ausgeprägte Frequenz.
+   Leistungssignal je Schnitt = Summe der verschobenen Plattenkurven; Spektrum über die verschobenen Kantenspektren (e^{i·2πk·o/N}). Beides wird bei jeder Änderung inkrementell nachgeführt. */
 function lnPitchOpt(f){
  const C=lnCuts(f),A=lnAng(f),mid=lnMid(f),res=C.list.map(c=>lnPowerCut(f,c.k));
  const bad=res.find(r=>r.err);if(bad)return {err:`Schnitt ${bad.k+1}: ${bad.err}`};
- const N=res[0].N,da=res[0].da,m=Math.max(2,Math.round(num(f.pitM))||4),dmax=Math.max(0,num(f.pitMax)>=0?num(f.pitMax):1),D=Math.max(1,Math.round(dmax/da));
+ const N=res[0].N,da=res[0].da,mMax=Math.max(2,Math.round(num(f.pitM))||4),dmax=Number.isFinite(num(f.pitMax))&&num(f.pitMax)>0?num(f.pitMax):1,D=Math.max(1,Math.round(dmax/da));
  if(dmax/da<0.75)return {err:`Die Winkelauflösung Δψ = ${fmt(da,2)}° ist zu grob für Δθmax = ${fmt(dmax,2)}° – Nφ erhöhen.`};
- // Variablen: je Reihe (mittig: L und R gemeinsam) bzw. je Reihe und Seite
- const vars=[];A.rows.forEach((row,i)=>{const add=(sides,z,ph,key,nm,dv)=>{if(!(z>0))return;const lock=mid?lnLocked(f,i,'L'):sides.every(sd=>lnLocked(f,i,sd));
-   const mm=z%m===0&&z/m>=2?m:0;vars.push({key,i,sides,z,p:360/z,ph,nm,m:mm,lock:lock||!mm,why:!mm?`z = ${z} nicht durch m = ${m} teilbar (mind. 2 Wiederholungen)`:lock?'gesperrt':'',d:Array.from({length:mm||1},(_,q)=>mm?Math.round(lnDvAt(dv,q)/da):0)});};
+ const mc=num(f.mc)||0,dhTol=Number.isFinite(num(f.pitDh))&&num(f.pitDh)>0?num(f.pitDh):0.02;
+ const mOf=z=>{for(let m=Math.min(mMax,Math.floor(z/2));m>=2;m--)if(z%m===0)return m;return 0;};
+ const vars=[];A.rows.forEach((row,i)=>{const add=(sides,z,ph,key,nm,dv)=>{if(!(z>0))return;const lock=mid?lnLocked(f,i,'L'):lnLocked(f,i,sides[0]);
+   const mm=mOf(z);vars.push({key,i,sides,z,p:360/z,ph,nm,m:mm,lock:lock||!mm,why:!mm?`z = ${z}: kein Teiler für ein sich wiederholendes Muster – bleibt gleich geteilt`:lock?'gesperrt':'',d:Array.from({length:mm||1},(_,q)=>mm?Math.round(lnDvAt(dv,q)/da):0)});};
   if(mid)add(['L','R'],row.zL,row.phL,i+'M',row.nm,row.dvL);else{add(['L'],row.zL,row.phL,i+'L',row.nm+' links',row.dvL);add(['R'],row.zR,row.phR,i+'R',row.nm+' rechts',row.dvR);}});
- // Ordnungen bis N/2
- const K=Math.floor(N/2),ords=[];for(let k=1;k<=K;k++)ords.push(k);
- // Spektrum je Kante und Schnitt
+ const K=Math.floor(N/2);
  const spec=res.map(r=>{const M={};r.edges.forEach(e=>{if(!e.incs.length)return;const re=new Float64Array(K+1),im=new Float64Array(K+1);
-   for(let k=1;k<=K;k++){let a=0,b=0;const w=2*Math.PI*k/N;for(let y=0;y<N;y++){const v=e.P[y];if(!v)continue;a+=v*Math.cos(w*y);b-=v*Math.sin(w*y);}re[k]=a;im[k]=b;}M[e.i+e.side]={re,im};});return M;});
- // Plattenliste je Variable: Basisschritt o0 und Musterindex
- const plates=v=>{const L=[];v.sides.forEach(sd=>{for(let j=0;j<v.z;j++){const ph=(sd==='R'?(mid?v.ph+v.p/2:v.ph):v.ph);L.push({sd,q:v.m?j%v.m:0,o0:Math.round((ph+j*v.p)/da)});}});return L;};
- vars.forEach(v=>{v.pl=plates(v);});
- // Summen S_k je Schnitt (komplex), Beitrag einer Platte: E_k · e^{+i2πk o/N}
- const S=res.map(()=>({re:new Float64Array(K+1),im:new Float64Array(K+1)}));
- const addV=(v,sgn)=>{res.forEach((r,c)=>{v.sides.forEach(sd=>{const E=spec[c][v.i+sd];if(!E)return;v.pl.filter(pp=>pp.sd===sd).forEach(pp=>{const o=pp.o0+v.d[pp.q];
-   for(let k=1;k<=K;k++){const w=2*Math.PI*k*o/N,cw=Math.cos(w),sw=Math.sin(w);S[c].re[k]+=sgn*(E.re[k]*cw-E.im[k]*sw);S[c].im[k]+=sgn*(E.re[k]*sw+E.im[k]*cw);}});});});};
+   for(let k=1;k<=K;k++){let a=0,b=0;const w=2*Math.PI*k/N;for(let y=0;y<N;y++){const v=e.P[y];if(!v)continue;a+=v*Math.cos(w*y);b-=v*Math.sin(w*y);}re[k]=a;im[k]=b;}M[e.i+e.side]={re,im,P:e.P};});return M;});
+ vars.forEach(v=>{v.pl=[];v.sides.forEach(sd=>{const ph=sd==='R'&&mid?v.ph+v.p/2:v.ph;for(let j=0;j<v.z;j++)v.pl.push({sd,q:v.m?j%v.m:0,o0:Math.round((ph+j*v.p)/da)});});
+  v.hN=Math.max(0,...res.flatMap(r=>r.edges.filter(e=>e.i===v.i&&v.sides.includes(e.side)).map(e=>e.hmax)));});
+ /* Vorschubfaktor einer Platte aus dem Muster: Lücke zur vorauslaufenden Platte / Teilung */
+ const ffOf=(v,q)=>v.m?1+(v.d[(q+1)%v.m]-v.d[q])*da/v.p:1;
+ const dhOf=v=>{if(!v.m)return 0;let a=1e9,b=-1e9;for(let q=0;q<v.m;q++){const x=ffOf(v,q);if(x<a)a=x;if(x>b)b=x;}return v.hN*(b-a);};
+ const T=res.map(()=>new Float64Array(N)),S=res.map(()=>({re:new Float64Array(K+1),im:new Float64Array(K+1)}));
+ const addV=(v,sg)=>{res.forEach((r,c)=>{v.pl.forEach(pp=>{const E=spec[c][v.i+pp.sd];if(!E)return;const o=((pp.o0+v.d[pp.q])%N+N)%N,Tc=T[c],P=E.P;
+   const g=sg*Math.pow(ffOf(v,pp.q),1-mc);for(let y=0;y<N;y++){const pv=P[(y+o)%N];if(pv)Tc[y]+=g*pv;}
+   const Sr=S[c].re,Si=S[c].im;for(let k=1;k<=K;k++){const w=2*Math.PI*k*o/N,cw=Math.cos(w),sw=Math.sin(w);Sr[k]+=g*(E.re[k]*cw-E.im[k]*sw);Si[k]+=g*(E.re[k]*sw+E.im[k]*cw);}});});};
  vars.forEach(v=>addV(v,1));
- const amp=(c,k)=>2*Math.hypot(S[c].re[k],S[c].im[k])/N;   // Amplitude der Ordnung k (kW)
- const J=()=>{let w=0;res.forEach((r,c)=>{for(let k=1;k<=K;k++){const a=amp(c,k)/r.Pm;if(a>w)w=a;}});return w;};
- const peaks=()=>res.map((r,c)=>{let bk=1,ba=0;for(let k=1;k<=K;k++){const a=amp(c,k);if(a>ba){ba=a;bk=k;}}return {k:bk,a:ba,rel:ba/r.Pm,hz:bk*r.n/60,spec:ords.map(k=>amp(c,k)/r.Pm*100)};});
- const before=peaks(),J0=J();
- const free=vars.filter(v=>!v.lock);
- if(!free.length)return {err:'Keine offene Reihe, deren Zähnezahl durch die Musterlänge teilbar ist (mind. 2 Wiederholungen).',vars};
- let bestJ=J0,best=free.map(v=>v.d.slice());
- const setD=(v,q,val)=>{addV(v,-1);v.d[q]=val;addV(v,1);};
- for(let st=0;st<6;st++){
-  if(st>0)free.forEach(v=>{addV(v,-1);for(let q=1;q<v.m;q++)v.d[q]=Math.round((Math.random()*2-1)*D);addV(v,1);});
+ const amp=(c,k)=>2*Math.hypot(S[c].re[k],S[c].im[k])/N;
+ const met=c=>{const Tc=T[c];let mn=1e18,mx=-1e18,sm=0;for(let y=0;y<N;y++){const x=Tc[y];if(x<mn)mn=x;if(x>mx)mx=x;sm+=x;}const Pm=sm/N;let bk=1,ba=0;for(let k=1;k<=K;k++){const a=amp(c,k);if(a>ba){ba=a;bk=k;}}return {Pm,dP:mx-mn,Pmax:mx,Pmin:mn,k:bk,a:ba};};
+ /* Ziel: schlechtester Schnitt + Mittel aller Schnitte; Strafterm, wenn ein Schnitt um mehr als 20 % schlechter wird als vorher */
+ const X=()=>res.map((r,c)=>{const m=met(c);return m.Pm>0?(m.dP+m.a)/m.Pm:0;});let X0=null;
+ const J=()=>{const x=X();let w=0,sm=0,pen=0;x.forEach((v,c)=>{if(v>w)w=v;sm+=v;if(X0&&v>1.2*X0[c])pen+=v-1.2*X0[c];});return w+sm/x.length+10*pen;};
+ const snap=()=>res.map((r,c)=>{const m=met(c);return {...m,rel:m.a/m.Pm,hz:m.k*r.n/60,spec:Array.from({length:K},(_,q)=>amp(c,q+1)/m.Pm*100)};});
+ X0=X();const before=snap(),J0=J(),free=vars.filter(v=>!v.lock);
+ if(!free.length)return {err:'Keine offene Reihe, deren Zähnezahl ein sich wiederholendes Muster zulässt (z/m ≥ 2).',vars};
+ let bestJ=J0,best=free.map(v=>v.d.slice());const setD=(v,q,val)=>{addV(v,-1);v.d[q]=val;addV(v,1);};
+ for(let st=0;st<4;st++){
+  if(st>0)free.forEach(v=>{addV(v,-1);const keep=v.d.slice();for(let q=1;q<v.m;q++)v.d[q]=Math.round((Math.random()*2-1)*D);if(dhOf(v)>dhTol+1e-12)v.d=keep;addV(v,1);});
   let cur=J();
-  for(let pass=0;pass<6;pass++){let imp=false;
+  for(let pass=0;pass<5;pass++){let imp=false;
    for(const v of free)for(let q=1;q<v.m;q++){let bv=cur,bs=v.d[q];const old=v.d[q];
-    for(let t=-D;t<=D;t++){if(t===old)continue;setD(v,q,t);const val=J();if(val<bv-1e-9){bv=val;bs=t;}}
+    for(let t=-D;t<=D;t++){if(t===old)continue;v.d[q]=t;const okC=dhOf(v)<=dhTol+1e-12;v.d[q]=old;if(!okC)continue;setD(v,q,t);const val=J();setD(v,q,old);if(val<bv-1e-9){bv=val;bs=t;}}
     setD(v,q,bs);if(bv<cur-1e-9){cur=bv;imp=true;}}
    if(!imp)break;}
   if(cur<bestJ-1e-9){bestJ=cur;best=free.map(v=>v.d.slice());}}
  free.forEach((v,q)=>{addV(v,-1);v.d=best[q];addV(v,1);});
- const after=peaks();
- // zurückschreiben
+ const after=snap();
  const n=A.rows.length,wr=key=>{const a=String(f[key]||'').split(';');while(a.length<n)a.push('');return a;},dl=wr('dvL'),dr=wr('dvR');
- free.forEach(v=>{const str=v.d.some(x=>x)?v.d.map(x=>dec(x*da,3)).join(','):'';if(v.sides.includes('L'))dl[v.i]=str;if(!mid&&v.sides[0]==='R')dr[v.i]=str;});
+ free.forEach(v=>{const str=v.d.some(x=>x)?v.d.map(x=>dec(x*da+0,3)).join('/'):'';if(v.sides.includes('L'))dl[v.i]=str;if(!mid&&v.sides[0]==='R')dr[v.i]=str;});
  f.dvL=dl.slice(0,n).join(';');if(!mid)f.dvR=dr.slice(0,n).join(';');
- return {at:new Date(),m,dmax,da,before,after,J0,J1:bestJ,cuts:res.map(r=>({k:r.k,t:r.t,n:r.n,Pm:r.Pm})),rows:vars.map(v=>({nm:v.nm,why:v.why,free:!v.lock,dv:v.d.map(x=>x*da)})),ords};}
+ return {m:mMax,dmax,da,dhTol,before,after,J0,J1:bestJ,K,cuts:res.map(r=>({k:r.k,t:r.t,n:r.n})),rows:vars.map(v=>({nm:v.nm,why:v.why,free:!v.lock,m:v.m,dv:v.d.map(x=>x*da),hN:v.hN,dh:dhOf(v)}))};}
 function lnOptFHTML(f){const o=LN_OPTF;if(!o)return '';if(o.err)return `<p class="warn">${o.err}</p>`;const ks=Math.min(lnSel(f),o.cuts.length-1);
- let h=`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitt</th><th>größte Spektrallinie vorher</th><th>nachher</th><th>ΔP vorher → nachher</th></tr></thead><tbody>${o.cuts.map((c,q)=>{const b=o.before[q],a=o.after[q];return `<tr><td>${c.k+1} (${fmt(c.t,1)} mm)</td><td>Ordnung ${b.k} · ${fmt(b.hz,1)} Hz · ${fmt(b.rel*100,1)} % von P̄</td><td><b>Ordnung ${a.k} · ${fmt(a.hz,1)} Hz · ${fmt(a.rel*100,1)} %</b></td><td>${o.dP?`${fmt(o.dP[q][0],2)} → <b>${fmt(o.dP[q][1],2)}</b> kW`:'–'}</td></tr>`;}).join('')}</tbody></table></div>`;
- h+=`<div class="tbl-wrap" style="margin-top:6px"><table class="lnzt"><thead><tr><th>Reihe</th><th>Δθ-Muster (°)</th><th></th></tr></thead><tbody>${o.rows.map(r=>`<tr><td>${r.nm}</td><td>${r.free?r.dv.map(v=>(v>0?'+':'')+fmt(v,2)).join(' / '):'–'}</td><td class="note">${r.why||'optimiert'}</td></tr>`).join('')}</tbody></table></div>`;
- const b=o.before[ks],a=o.after[ks],kmax=Math.min(o.ords.length,Math.max(200,b.k*3,a.k*3));
- h+=`<div class="lbl" style="margin:10px 0 4px">Ordnungsspektrum der Schnittleistung – Schnitt ${ks+1}</div>`+lnChart('spec',o.ords.slice(0,kmax),b.spec.slice(0,kmax),{xlabel:`Ordnung k (Frequenz = k · n/60, n = ${fmt(o.cuts[ks].n,1)} 1/min)`,ylabel:'Amplitude / P̄ (%)',unit:'%',dec:1,mean:null,xmin:1,xmax:kmax,xticks:[1,Math.round(kmax/4),Math.round(kmax/2),Math.round(3*kmax/4),kmax],xfmt:x=>fmt(x,0),extra:[{ys:a.spec.slice(0,kmax),color:'#c2560c',label:'ungleich geteilt'}],mainLab:'vorher'});
- h+=`<p class="note" style="margin:4px 0 0">Muster der Länge m = ${o.m}, |Δθ| ≤ ${fmt(o.dmax,2)}°, Auflösung ${fmt(o.da,2)}°. Da sich das Muster mindestens zweimal am Umfang wiederholt, bleibt der Fräser ausgewuchtet. Die Abweichungen gelten zusätzlich zu φ<sub>0</sub> und der Teilung; Simulation, Positionsmatrix und Leistung berücksichtigen sie.</p>`;
+ let h=`<div class="lbl" style="margin:12px 0 4px">Ungleichteilung</div><div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitt</th><th>ΔP/P̄ vorher → nachher</th><th>größte Spektrallinie vorher</th><th>nachher</th></tr></thead><tbody>${o.cuts.map((c,q)=>{const b=o.before[q],a=o.after[q];
+  return `<tr><td>${c.k+1} (${fmt(c.t,1)} mm)</td><td>${fmt(b.dP/b.Pm*100,1)} % → <b>${fmt(a.dP/a.Pm*100,1)} %</b></td><td>Ordnung ${b.k} · ${fmt(b.hz,1)} Hz · ${fmt(b.rel*100,1)} %</td><td><b>Ordnung ${a.k} · ${fmt(a.hz,1)} Hz · ${fmt(a.rel*100,1)} %</b></td></tr>`;}).join('')}</tbody></table></div>`;
+ h+=`<div class="tbl-wrap" style="margin-top:6px"><table class="lnzt"><thead><tr><th>Reihe</th><th>m</th><th>Δθ-Muster (°)</th><th>h<sub>max</sub> gleich geteilt (mm)</th><th>Δh<sub>max</sub> zwischen den Platten (mm)</th><th></th></tr></thead><tbody>${o.rows.map(r=>`<tr><td>${r.nm}</td><td>${r.m||'–'}</td><td>${r.free?r.dv.map(v=>(v>1e-9?'+':'')+fmt(Math.abs(v)<1e-9?0:v,2)).join(' / '):'–'}</td><td>${fmt(r.hN,3)}</td><td>${r.free?fmt(r.dh,3):'–'}</td><td class="note">${r.why||'optimiert'}</td></tr>`).join('')}</tbody></table></div>`;
+ const b=o.before[ks],a=o.after[ks],kmax=Math.min(o.K,Math.max(120,b.k*3,a.k*3)),ords=Array.from({length:kmax},(_,q)=>q+1);
+ h+=`<div class="lbl" style="margin:10px 0 4px">Ordnungsspektrum der Schnittleistung – Schnitt ${ks+1}</div>`+lnChart('spec',ords,b.spec.slice(0,kmax),{xlabel:`Ordnung k (Frequenz = k · n/60, n = ${fmt(o.cuts[ks].n,1)} 1/min)`,ylabel:'Amplitude / P̄ (%)',unit:'%',dec:1,mean:null,xmin:1,xmax:kmax,xticks:[1,Math.round(kmax/4),Math.round(kmax/2),Math.round(3*kmax/4),kmax],xfmt:x=>fmt(x,0),extra:[{ys:a.spec.slice(0,kmax),color:'#c2560c',label:'ungleich geteilt'}],mainLab:'gleich geteilt'});
+ h+=`<p class="note" style="margin:4px 0 0">Muster je Reihe mit Länge m ≤ ${o.m} (Teiler der Zähnezahl, mindestens zwei Wiederholungen am Umfang → Fräser bleibt ausgewuchtet), |Δθ| ≤ ${fmt(o.dmax,2)}°, Unterschied der maximalen Spanungsdicken der Platten einer Reihe ≤ ${fmt(o.dhTol,3)} mm, Auflösung ${fmt(o.da,2)}°. Ungleiche Lücken ergeben ungleiche Zahnvorschübe (f<sub>z</sub> ∝ Lücke zur vorauslaufenden Platte); das ist in Leistung und Spanungsdicke berücksichtigt. Die Abweichungen gelten zusätzlich zu φ<sub>0</sub> und der Teilung; Simulation, Positionsmatrix und Leistung berücksichtigen sie.</p>`;
  return h;}
 function lnApplyProc(f,o){f.nCuts=String(o.n);f.cutT=o.cuts.map(c=>dec(c.t,2)).join(';');f.cutVf=o.cuts.map(c=>dec(Math.floor(c.vf/5)*5,0)).join(';');f.lnCut='0';const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);}
 function lnOptHTML(f){return `<div style="display:grid;grid-template-columns:minmax(0,1fr);gap:14px">
  <div style="border:1px solid var(--line);border-radius:8px;padding:12px"><div style="font:600 15px var(--f-disp);margin-bottom:4px">1 · Werkzeugoptimierer – Winkellage der Wendeplatten</div>
   <p class="note" style="margin:0 0 8px">Geht Schnitt für Schnitt durch den Prozess und verschiebt die Winkellage φ<sub>0</sub> der Reihen, die in diesem Schnitt das erste Mal im Eingriff sind, so dass die maximale Schnittleistung des Werkzeugs minimiert und die minimale maximiert wird (kleinste Schwankung P<sub>max</sub> − P<sub>min</sub>) und linke und rechte Seite möglichst gleich viel schneiden (kleinste Seitendifferenz |P<sub>links</sub> − P<sub>rechts</sub>|, gewichtet mit dem Seitenausgleich). Bereits optimierte Reihen bleiben in den folgenden Schnitten fest. Reihen mit geschlossenem Schloss <span style="display:inline-flex;vertical-align:-3px">${lnLockSvg(true)}</span> in der Zähnezahl-Tabelle werden nicht verändert, offenes Schloss <span style="display:inline-flex;vertical-align:-3px">${lnLockSvg(false)}</span> = wird optimiert.</p>
-  <div class="fields">${field('laengsnaht','wSide','Gewichtung Seitenausgleich (0 = aus)',{num:1})}</div><button type="button" class="btn primary" data-lnopt="tool" style="margin-top:8px">Winkellagen optimieren</button><div id="ln-optt" style="margin-top:8px">${lnOptTHTML()}</div></div>
- <div style="border:1px solid var(--line);border-radius:8px;padding:12px"><div style="font:600 15px var(--f-disp);margin-bottom:4px">3 · Ungleichteilung – Frequenzen brechen</div>
-  <p class="note" style="margin:0 0 8px">Bei gleicher Teilung schlagen alle Platten einer Reihe im selben Takt an; das Leistungs- und Kraftsignal hat dann ausgeprägte Spektrallinien bei der Zahneingriffsfrequenz und ihren Vielfachen, die Schwingungen anregen können. Der Optimierer verteilt die Platten jeder offenen Reihe leicht ungleich (Muster der Länge m, das sich am Umfang wiederholt) und minimiert die größte Spektrallinie über alle Schnitte. Gesperrte Reihen bleiben gleich geteilt.</p>
-  <div class="fields">${field('laengsnaht','pitM','Musterlänge m',{num:1})}${field('laengsnaht','pitMax','max. Abweichung Δθmax',{num:1,u:'°'})}</div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn primary" data-lnopt="pitch">Ungleichteilung optimieren</button><button type="button" class="btn" data-lnpitreset="1">Gleichteilung wiederherstellen</button></div><div id="ln-optf" style="margin-top:8px">${lnOptFHTML(f)}</div></div>
+  <div class="fields">${field('laengsnaht','wSide','Gewichtung Seitenausgleich (0 = aus)',{num:1})}</div>
+  <label style="display:flex;gap:8px;align-items:flex-start;margin:10px 0 0;font-size:13.5px;cursor:pointer"><input type="checkbox" data-lnpiton="1" ${f.pitOn==='1'?'checked':''} style="margin-top:3px"><span><b>Zusätzlich kleine Ungleichteilung</b> – verteilt die Platten jeder offenen Reihe leicht ungleich, so dass Leistungsschwankung und größte Spektrallinie (ausgeprägte Frequenz) über alle Schnitte minimal werden.</span></label>
+  ${f.pitOn==='1'?`<div class="fields" style="margin-top:6px">${field('laengsnaht','pitM','max. Musterlänge m',{num:1})}${field('laengsnaht','pitMax','max. Abweichung Δθmax',{num:1,u:'°'})}${field('laengsnaht','pitDh','max. Unterschied h_max je Reihe',{num:1,u:'mm'})}</div>`:''}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn primary" data-lnopt="tool">${f.pitOn==='1'?'Winkellagen und Ungleichteilung optimieren':'Winkellagen optimieren'}</button>${String(f.dvL||'').replace(/[;,0\s]/g,'')||String(f.dvR||'').replace(/[;,0\s]/g,'')?'<button type="button" class="btn" data-lnpitreset="1">Gleichteilung wiederherstellen</button>':''}</div>
+  <div id="ln-optt" style="margin-top:8px">${lnOptTHTML()}</div><div id="ln-optf">${lnOptFHTML(f)}</div></div>
  <div style="border:1px solid var(--line);border-radius:8px;padding:12px"><div style="font:600 15px var(--f-disp);margin-bottom:4px">2 · Prozessoptimierer – Schnitttiefen und Vorschub</div>
   <p class="note" style="margin:0 0 8px">Legt die Zwischentiefen auf die Grenzen der Wendeplattenreihen, so dass eine Reihe mit ihrer vollen Schneidlänge im Einsatz ist und die nächste noch nicht eingreift. Die tiefste Schnitttiefe (Zieltiefe) bleibt. Je Schnitt wird die Vorschubgeschwindigkeit so bestimmt, dass die Maschinenleistung ausgenutzt wird (P̄/η = P<sub>M</sub>), wobei die Vorschübe aller Schnitte höchstens um die eingestellte Abweichung auseinanderliegen und die größte Spanungsdicke jedes Schnitts mindestens h<sub>min</sub> erreicht; gewählt wird die Aufteilung mit der kürzesten Hauptzeit.</p>
   <div class="fields">${field('laengsnaht','pMach','Maschinenleistung P_M',{num:1,u:'kW'})}${field('laengsnaht','vfTol','Max. Abweichung der Vorschübe',{num:1,u:'%'})}${field('laengsnaht','hMin','Mindest-Spanungsdicke h_min (größte Spanungsdicke je Schnitt)',{num:1,u:'mm'})}</div>
