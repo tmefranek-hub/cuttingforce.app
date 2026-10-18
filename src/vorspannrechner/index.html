@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vorspannrechner – cuttingforce.app</title>
+<meta name="description" content="Vorspannrechner für Wendeschneidplatten-Klemmschrauben: Bohrung mit Kegel oder Torus (Trompete), Senkkopfschraube mit Exzentrizität, Kontaktwanderung, Umdrehungen bis zur festen Montage und Biegung der Schraube.">
+<link rel="canonical" href="https://cuttingforce.app/vorspannrechner/">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/vendor/katex/katex.min.css">
+<style>
+.vs main{padding-block:20px 48px}
+.vs .wrap-app{max-width:76rem;margin:0 auto;padding-inline:16px}
+.vs-grid{display:grid;grid-template-columns:minmax(0,22rem) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.vs-grid{grid-template-columns:minmax(0,1fr)}}
+.vs h1.app-titel{font:700 26px/1.1 var(--f-disp);margin:0 0 4px}
+.vs .sub{color:var(--muted);margin:0 0 16px}
+.vs fieldset{border:0;padding:0;margin:0 0 12px}
+.vs legend{font:600 13px/1 "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.fgrid label{display:block;font-size:12.5px;color:var(--muted);line-height:1.3}
+.fgrid label input,.fgrid label select{display:block;margin-top:3px}
+.fgrid label[hidden]{display:none}
+.fgrid label.wide{grid-column:1/-1}
+.fgrid input,.fgrid select{font:15px/1.2 var(--f-body);padding:8px 9px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:100%;min-width:0}
+.fgrid .u{font-size:11px}
+.seg2{display:flex;border:1px solid var(--fg);border-radius:6px;overflow:hidden;margin-bottom:10px}
+.seg2 button{flex:1;padding:8px;border:0;background:var(--surface);color:var(--fg);font:600 14px var(--f-disp);cursor:pointer}
+.seg2 button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.views{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}
+.view svg{width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px}
+.view h3{font:600 16px/1.2 var(--f-disp);margin:0 0 6px}
+.twocol{display:grid;grid-template-columns:3fr 2fr;gap:12px}
+@media (max-width:640px){.twocol{grid-template-columns:1fr}}
+.note{font-size:12.5px;color:var(--muted)}
+.warn{color:#b3261e;font-size:13px;margin:6px 0 0}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.kv>div{border:1px solid var(--line);border-radius:5px;padding:8px 10px}
+.kv .k{font-size:11.5px;color:var(--muted)}
+.kv .v{font:600 18px/1.2 "Space Grotesk",sans-serif}
+.kv .v small{font:400 11px "IBM Plex Mono",monospace;color:var(--muted);margin-left:3px}
+.kv .hl{border-color:var(--fg);border-width:2px}
+.ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.vs .btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 14px;border:1px solid var(--fg);border-radius:6px;background:var(--surface);color:var(--fg);font:600 15px/1.1 var(--f-disp);cursor:pointer}
+.vs .btn.primary{background:var(--accent);color:var(--accent-ink)}
+.wheel{position:relative;flex:1;min-width:200px;height:52px;border-radius:12px;border:1px solid var(--fg);overflow:hidden;cursor:ew-resize;touch-action:none;user-select:none;
+ background:linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,0) 30%,rgba(0,0,0,0) 70%,rgba(0,0,0,.28)),var(--surface-2)}
+.wheel-rib{position:absolute;inset:0;background:repeating-linear-gradient(90deg,var(--fg) 0 2px,transparent 2px 12px);opacity:.55}
+.wheel:focus-visible{outline:3px solid #1d5fc4;outline-offset:2px}
+.stat{font:600 14px "Space Grotesk",sans-serif}
+.formeln .eq{overflow-x:auto;padding:2px 0}
+.formeln h3{font-size:15px;margin:14px 0 4px}
+.texsrc{width:100%;min-height:300px;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto}
+svg text{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13px}
+.s-body{fill:#d9d9d9;stroke:#0a0a0a;stroke-width:1}
+.s-ins{fill:#9a9a9a;stroke:#0a0a0a;stroke-width:1}
+.s-scr{fill:#5c7fa8;stroke:#1d2f45;stroke-width:1;fill-opacity:.85}
+.s-thr{stroke:#1d2f45;stroke-width:.7;opacity:.6}
+.s-axis{stroke:#1d2f45;stroke-width:.8;stroke-dasharray:6 3 1 3;fill:none}
+.s-haxis{stroke:#0a0a0a;stroke-width:.8;stroke-dasharray:6 3 1 3;fill:none}
+.s-ct{fill:#b3261e}
+.s-path{fill:none;stroke:#b3261e;stroke-width:1.6;stroke-dasharray:3 2}
+.s-dim{stroke:#1d5fc4;stroke-width:.9;fill:none}
+.s-dimt{fill:#1d5fc4}
+.s-lab{fill:#333}
+.s-lab,.s-dimt{paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
+.s-grid{stroke:var(--line);stroke-width:.6}
+.s-curve{fill:none;stroke:#1d5fc4;stroke-width:2}
+@media (prefers-color-scheme:dark){.s-body{fill:#2a2a2a;stroke:#ddd}.s-ins{fill:#666;stroke:#ddd}.s-lab{fill:#ddd}}
+</style>
+</head>
+<body class="vs">
+<header class="top">
+  <div class="wrap wrap-breit">
+    <a href="/" class="brand-logo" style="text-decoration:none" aria-label="Zur Startseite">
+      <svg class="logo-icon" viewBox="0 0 100 100" role="img" aria-label="cuttingforce Icon"><rect x="2" y="2" width="96" height="96" rx="20" fill="#ffffff" stroke="#0a0a0a" stroke-width="4"/><rect x="13" y="13" width="74" height="74" rx="12" fill="none" stroke="#0a0a0a" stroke-width="2.5"/><text x="50" y="60" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-weight="700" font-size="28" letter-spacing="-1" fill="#0a0a0a">CFA</text></svg>
+      <span class="wordmark"><span class="wm-light">cutting</span><span class="wm-bold">force</span><span class="wm-mono">.app</span></span>
+    </a>
+    <nav class="top-nav" aria-label="Apps"><a href="/schnittkraftrechner/">Schnittkraftrechner</a><a href="/spanbildung/">Spanbildung</a></nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap-app">
+  <h1 class="app-titel">Vorspannrechner</h1>
+  <p class="sub">Klemmschraube einer Wendeschneidplatte: Senkkopf in Kegel- oder Torusbohrung mit Exzentrizität – Anlage, Wanderung des Kontaktpunkts, Umdrehungen bis zur festen Montage und Biegung der Schraube.</p>
+
+  <div class="vs-grid">
+    <form class="card" id="inp" autocomplete="off" onsubmit="return false">
+      <h2>Eingaben</h2>
+      <fieldset><legend>Bohrung der Wendeplatte</legend>
+        <div class="seg2" role="group" aria-label="Bohrungsform"><button type="button" data-form="kegel" aria-pressed="true">Kegel</button><button type="button" data-form="torus" aria-pressed="false">Torus (Trompete)</button></div>
+        <input type="hidden" id="form" value="kegel">
+        <div class="fgrid">
+          <label>Plattendicke s <span class="u">mm</span><input id="s" inputmode="decimal" value="4,76"></label>
+          <label>Zylinderdurchmesser d<sub>Z</sub> <span class="u">mm</span><input id="dz" inputmode="decimal" value="4,4"></label>
+          <label class="f-kegel">Kegelwinkel α<sub>K</sub> <span class="u">° (gesamt)</span><input id="ak" inputmode="decimal" value="60"></label>
+          <label class="f-kegel">Übergang Kegel → Zylinder z<sub>Ü</sub> <span class="u">mm über Auflage</span><input id="zu" inputmode="decimal" value="2,6"></label>
+          <label class="f-torus">Trompetenradius r<sub>T</sub> <span class="u">mm</span><input id="rt" inputmode="decimal" value="2,5"></label>
+          <label class="f-torus">Mittelpunkt Höhe z<sub>M</sub> <span class="u">mm über Auflage</span><input id="zm" inputmode="decimal" value="2,3"></label>
+          <label class="f-torus wide">Mittelpunkt Abstand zur Achse x<sub>M</sub> <span class="u">mm</span><input id="xm" inputmode="decimal" value="4,6"></label>
+        </div>
+      </fieldset>
+      <fieldset><legend>Schraube</legend><div class="fgrid">
+        <label>Gewinde-Nenndurchmesser d <span class="u">mm</span><input id="d" inputmode="decimal" value="4"></label>
+        <label>Steigung P <span class="u">mm</span><input id="P" inputmode="decimal" value="0,7"></label>
+        <label>Kopfdurchmesser D<sub>K</sub> <span class="u">mm</span><input id="Dk" inputmode="decimal" value="5,6"></label>
+        <label>Senkwinkel β<sub>K</sub> <span class="u">° (gesamt)</span><input id="bk" inputmode="decimal" value="60"></label>
+        <label>Exzentrizität e <span class="u">mm</span><input id="e" inputmode="decimal" value="0,05"></label>
+        <label>Einspannung unter Auflage a <span class="u">mm</span><input id="a" inputmode="decimal" value="4"></label>
+        <label>E-Modul E <span class="u">N/mm²</span><input id="E" inputmode="decimal" value="210000"></label>
+        <label>Streckgrenze R<sub>p0,2</sub> <span class="u">N/mm²</span><input id="Rp" inputmode="decimal" value="1100"></label>
+      </div><p class="note">Die Gewindebohrung im Grundkörper ist um e gegenüber der Plattenbohrung versetzt. Einspannung: Abstand von der Auflagefläche bis zum tragenden Gewinde.</p></fieldset>
+      <div id="warn"></div>
+    </form>
+
+    <div class="views">
+      <section class="card view"><h3>2D-Simulation: Einschrauben</h3>
+        <div class="twocol">
+          <svg id="sv-main" viewBox="0 0 420 460" role="img" aria-label="Schnitt durch Wendeplatte, Bohrung und Schraube"></svg>
+          <svg id="sv-zoom" viewBox="0 0 300 460" role="img" aria-label="Detail Kontaktstelle"></svg>
+        </div>
+        <div class="ctl">
+          <button type="button" class="btn primary" id="btn-play">▶ Abspielen</button>
+          <div class="wheel" id="wheel" role="slider" tabindex="0" aria-label="Schraube drehen"><div class="wheel-rib"></div></div>
+        </div>
+        <p class="stat" id="stat"></p>
+        <p class="note">Schraube drehen: Rad ziehen (Daumen/Maus), Mausrad oder Pfeiltasten. Rechts: Detail der Kontaktstelle (vergrößert), rot: Weg des Kontaktpunkts auf der Bohrungsfläche.</p>
+      </section>
+      <section class="card view"><h3>Biegelinie der Schraube</h3>
+        <svg id="sv-bend" viewBox="0 0 640 220" role="img" aria-label="Biegelinie der Schraube"></svg>
+      </section>
+      <section class="card"><h3 style="font:600 16px var(--f-disp);margin:0 0 8px">Ergebnisse</h3><div class="kv" id="res"></div></section>
+      <section class="card formeln" id="formeln"><h2>Berechnungsformeln</h2><p class="note" id="formeln-info">Die Berechnungsformeln stehen Administratoren zur Verfügung.</p><div id="formeln-body"></div></section>
+    </div>
+  </div>
+</div>
+</main>
+<footer class="site-footer"><div class="wrap wrap-breit"><p>&copy; 2026 Tobias Franek · <a href="/">cuttingforce.app</a> · <a href="/impressum/">Impressum</a> · <a href="/datenschutz/">Datenschutzerklärung</a></p></div></footer>
+
+<script src="/vendor/katex/katex.min.js" defer></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const num=v=>{const x=parseFloat(String(v??'').replace(',','.'));return Number.isFinite(x)?x:NaN;};
+const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString('de-AT',{minimumFractionDigits:d,maximumFractionDigits:d}):'–';
+const RAD=Math.PI/180;
+const FIELDS=['form','s','dz','ak','zu','rt','zm','xm','d','P','Dk','bk','e','a','E','Rp'];
+const SKEY='cfa-vorspann-v1';
+
+/* ================= Geometrie =================
+   Schnittebene durch Plattenachse und Exzentrizitätsrichtung. z = 0: Auflagefläche der Wendeplatte, z nach oben.
+   Bohrungsradius r(z) rotationssymmetrisch um x = 0. */
+function holeR(i,z){
+  const rz=i.dz/2;
+  if(i.form==='kegel'){return z<=i.zu?rz:rz+(z-i.zu)*Math.tan(i.ak/2*RAD);}
+  // Torus: Kreis (x_M, z_M), Radius r_T; Profil r = x_M − √(r_T² − (z − z_M)²) für z ≥ z_M
+  const zt=torusStart(i);
+  if(z<zt)return rz;
+  const dzm=z-i.zm;if(dzm>=i.rt)return i.xm;
+  return i.xm-Math.sqrt(i.rt*i.rt-dzm*dzm);
+}
+/* Beginn der Torusfläche: tangential (x_M − r_T = d_Z/2), schneidend (Übergang über z_M) oder mit Absatz (bei z_M) */
+function torusStart(i){const rz=i.dz/2,g=i.xm-rz;
+  if(g>=i.rt)return i.zm;                       // Absatz: Torus beginnt bei z_M mit r = x_M − r_T ≥ d_Z/2
+  if(g<=-i.rt)return 1e9;
+  return i.zm+Math.sqrt(i.rt*i.rt-g*g);}
+/* Senkkopf: Kegel von d (Schaft) auf D_K, halber Senkwinkel β_K/2. z_k = Höhe der Kopfoberseite. */
+const headK=i=>(i.Dk-i.d)/(2*Math.tan(i.bk/2*RAD));
+function headRho(i,zk,z){const zb=zk-headK(i);if(z>zk)return -1;if(z<zb)return i.d/2;return i.d/2+(z-zb)*Math.tan(i.bk/2*RAD);}
+/* Überdeckung des zentrisch gedachten Kopfes mit der Bohrung: g(z_k) = max_z [ρ(z) − r(z)], z ∈ [0, s] */
+function interf(i,zk){let g=-1e9,zc=NaN;const N=1200;
+  for(let k=0;k<=N;k++){const z=i.s*k/N,rho=headRho(i,zk,z);if(rho<0)continue;const v=rho-holeR(i,z);if(v>g){g=v;zc=z;}}
+  return {g,zc};}
+function solveZk(i,target){/* größtes z_k (Kopf am höchsten) mit g(z_k) = target – g steigt beim Hineinschrauben */
+  let hi=i.s+headK(i)+5,lo=NaN;
+  if(interf(i,hi).g>target)return NaN;
+  for(let z=hi;z>-headK(i);z-=0.02){if(interf(i,z).g>=target){lo=z;break;}hi=z;}
+  if(!Number.isFinite(lo))return NaN;
+  for(let k=0;k<70;k++){const m=(hi+lo)/2;if(interf(i,m).g>=target)lo=m;else hi=m;}
+  return (hi+lo)/2;}
+
+/* ================= Mechanik ================= */
+function model(i){
+  const R={},w=[];
+  if(!(i.s>0&&i.dz>0&&i.d>0&&i.Dk>i.d&&i.P>0&&i.e>=0&&i.bk>0&&i.bk<180))w.push('Bitte alle Maße mit gültigen Werten eingeben (D_K > d).');
+  if(i.form==='kegel'&&!(i.ak>0&&i.ak<180&&i.zu>=0&&i.zu<=i.s))w.push('Kegel: Winkel und Übergangshöhe prüfen (0 ≤ z_Ü ≤ s).');
+  if(i.form==='torus'&&!(i.rt>0&&i.xm>0))w.push('Torus: r_T und x_M müssen größer 0 sein.');
+  if(w.length)return {R,w};
+  if(i.d/2+i.e>=i.dz/2)w.push('Schaft + Exzentrizität passen nicht durch den Zylinder: d/2 + e ≥ d_Z/2.');
+  if(i.form==='torus'){R.zt=torusStart(i);R.tor=i.xm-i.rt>i.dz/2?'Absatz':Math.abs(i.xm-i.rt-i.dz/2)<1e-3?'tangential':'schneidend';}
+  R.d3=i.d-1.22687*i.P;                                   // Kerndurchmesser Außengewinde (ISO)
+  R.I=Math.PI*Math.pow(R.d3,4)/64;R.W=Math.PI*Math.pow(R.d3,3)/32;
+  R.zk1=solveZk(i,-i.e);                                   // erster Kontakt: zentrischer Kopf überdeckt um −e
+  if(!Number.isFinite(R.zk1)){w.push('Kein Kontakt zwischen Kopf und Bohrung gefunden – Kopfdurchmesser, Senkwinkel und Bohrung prüfen.');return {R,w};}
+  R.st1=solveDelta(i,R.zk1);
+  // feste Montage: Kopf liegt zusätzlich auf der Gegenseite an (g_L = 0)
+  let hi=R.zk1,lo=NaN,step=Math.max(0.004,i.e/40);
+  for(let zk=R.zk1-step;zk>R.zk1-6;zk-=step){if(solveDelta(i,zk).gL>=0){lo=zk;break;}hi=zk;}
+  if(!Number.isFinite(lo)){w.push('Keine beidseitige Anlage gefunden – Geometrie prüfen.');return {R,w};}
+  for(let k=0;k<30;k++){const m=(hi+lo)/2;if(solveDelta(i,m).gL>=0)lo=m;else hi=m;}
+  R.zk2=lo;R.st2=solveDelta(i,R.zk2);
+  R.dz=R.zk1-R.zk2;R.N=R.dz/i.P;R.phi=R.N*360;
+  R.c1={zc:R.st1.zc};R.c2={zc:R.st2.zc};
+  R.path=[];for(let n=0;n<=40;n++){const zk=R.zk1-R.dz*n/40;R.path.push(solveDelta(i,zk));}
+  // Biegung als einseitig eingespannter Träger, Querkraft am Kontaktpunkt
+  R.L=R.st2.L;R.delta=R.st2.delta;
+  R.F=3*i.E*R.I*R.delta/Math.pow(R.L,3);R.theta=1.5*R.delta/R.L;
+  R.M=R.F*R.L;R.sig=R.M/R.W;R.S=i.Rp/R.sig;
+  const h=1e-4;R.slope=(holeR(i,R.c2.zc+h)-holeR(i,R.c2.zc-h))/(2*h);
+  R.Fax=R.F*R.slope;
+  if(R.sig>i.Rp)w.push('Biegespannung über der Streckgrenze – Schraube wird plastisch verformt. Exzentrizität verringern oder Hebelarm a vergrößern.');
+  if(R.zk2-headK(i)<0)w.push('Kopfkegel taucht unter die Auflagefläche – Kopf zu klein für die Bohrung.');
+  return {R,w};
+}
+/* Biegelinie des Kragträgers, normiert auf die Durchbiegung δ am Kraftangriff ζ = L (ζ = z + a):
+   f(t) = t²(3 − t)/2 für t ≤ 1, darüber Gerade mit Neigung 3/2 (Kopf kippt um θ = 3δ/(2L)) */
+const fBend=t=>t<=0?0:t<=1?t*t*(3-t)/2:1+1.5*(t-1);
+/* Lücke Kontaktseite (+x) und Gegenseite (−x) bei Kopfhöhe z_k, Durchbiegung δ, Hebelarm L */
+function gaps(i,zk,delta,L){let gR=-1e9,gL=-1e9,zc=NaN,zl=NaN;const N=320;
+  for(let k=0;k<=N;k++){const z=i.s*k/N,rho=headRho(i,zk,z);if(rho<0)continue;
+    const xa=i.e-delta*fBend((z+i.a)/L),r=holeR(i,z),vr=xa+rho-r,vl=-xa+rho-r;
+    if(vr>gR){gR=vr;zc=z;}if(vl>gL){gL=vl;zl=z;}}
+  return {gR,gL,zc,zl};}
+/* Gleichgewicht: kleinste Durchbiegung δ, bei der der Kopf die Bohrung auf der Kontaktseite nicht durchdringt.
+   Der Hebelarm L = z_c + a hängt vom Kontaktpunkt ab → Fixpunktiteration. */
+function solveDelta(i,zk){let L=Math.max(i.a+0.5*i.s,0.1),r=null,delta=0;
+  for(let it=0;it<4;it++){r=gaps(i,zk,0,L);
+    if(r.gR<=0){delta=0;break;}
+    let lo=0,hi=Math.max(i.e*4,0.05);while(gaps(i,zk,hi,L).gR>0&&hi<5)hi*=2;
+    for(let k=0;k<32;k++){const m=(lo+hi)/2;if(gaps(i,zk,m,L).gR>0)lo=m;else hi=m;}
+    delta=hi;r=gaps(i,zk,delta,L);const Ln=r.zc+i.a;if(Math.abs(Ln-L)<1e-4){L=Ln;break;}L=Ln;}
+  r=gaps(i,zk,delta,L);
+  return {zk,delta,L:delta>0?r.zc+i.a:L,zc:r.zc,zl:r.zl,gL:r.gL};}
+/* Zustand bei Kopfhöhe z_k */
+function state(i,R,zk){
+  if(zk>R.zk1){const c=gaps(i,zk,0,R.st1.L);return {zk,delta:0,L:R.st1.L,zc:c.zc,F:0,ph:'frei',turns:(R.zk1-zk)/i.P};}
+  const st=solveDelta(i,Math.max(zk,R.zk2)),F=3*i.E*R.I*st.delta/Math.pow(st.L,3);
+  return {zk,delta:st.delta,L:st.L,zc:st.zc,zl:st.zl,F,ph:zk<=R.zk2+1e-6?'fest':'Biegung',turns:(R.zk1-zk)/i.P};
+}
+
+/* ================= Zeichnen ================= */
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent,text){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e;}
+const Pth=pts=>pts.map((p,k)=>(k?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
+/* Mini-LaTeX für Beschriftungen */
+const TEXG={alpha:'α',beta:'β',gamma:'γ',delta:'δ',varphi:'φ',kappa:'κ',lambda:'λ',sigma:'σ',rho:'ρ',zeta:'ζ',theta:'θ',circ:'°',cdot:'·',quad:'\u2003',Delta:'Δ'};
+function texRuns(src,shift,up){const runs=[];let k=0;
+  const push=(t,it,sh)=>{if(!t)return;const l=runs[runs.length-1];if(l&&l.it===it&&l.sh===sh)l.t+=t;else runs.push({t,it,sh});};
+  const group=()=>{if(src[k]==='{'){let d=1,j=k+1;while(j<src.length&&d){if(src[j]==='{')d++;else if(src[j]==='}')d--;j++;}const g=src.slice(k+1,j-1);k=j;return g;}return src[k++]||'';};
+  while(k<src.length){const c=src[k];
+    if(c==='\\'){let j=k+1;if(/[a-zA-Z]/.test(src[j]||'')){while(/[a-zA-Z]/.test(src[j]||''))j++;const cmd=src.slice(k+1,j);k=j;
+        if(cmd==='mathrm'||cmd==='text'){texRuns(group(),shift,true).forEach(r=>push(r.t,false,r.sh));}
+        else if(TEXG[cmd]!=null)push(TEXG[cmd],!up&&/^[a-z]+$/.test(cmd)&&!['circ','cdot','quad'].includes(cmd),shift);}
+      else{const ch=src[j];k=j+1;push(ch===','?'\u2009':ch,false,shift);}}
+    else if(c==='_'||c==='^'){k++;texRuns(group(),c==='_'?'sub':'sup',up).forEach(r=>push(r.t,r.it,r.sh));}
+    else if(c==='{'){texRuns(group(),shift,up).forEach(r=>push(r.t,r.it,r.sh));}
+    else{k++;push(c,!up&&/[A-Za-z]/.test(c),shift);}}
+  return runs;}
+function tl(parent,attrs,tex){const t=el('text',attrs,parent);let cur='';
+  for(const r of texRuns(tex,'',false)){const dy=(r.sh==='sub'?4:r.sh==='sup'?-5:0)-(cur==='sub'?4:cur==='sup'?-5:0);
+    const ts=el('tspan',{},t,r.t);if(dy)ts.setAttribute('dy',dy);if(r.sh)ts.setAttribute('font-size','0.72em');
+    if(r.it){ts.setAttribute('font-family','KaTeX_Math, "Times New Roman", serif');ts.setAttribute('font-style','italic');}cur=r.sh;}
+  return t;}
+const TF=(v,d)=>fmt(v,d).replace(/,/g,'{,}').replace(/[\u00a0\u202f]/g,'\\,');
+
+let INP=null,MODEL=null,U=0,PLAY=false,lastT=0;
+/* Kopfhöhe aus Animationsparameter U ∈ [0,1]: von 0,4·Δz über dem ersten Kontakt bis zur festen Montage */
+const zkOf=(R,u)=>{const pre=Math.max(0.4*R.dz,0.3);return R.zk1+pre-(pre+R.dz)*u;};
+
+function drawSection(sv,S,view){
+  const i=INP,R=MODEL.R;sv.innerHTML='';
+  const defs=el('defs',{},sv),mk=el('marker',{id:sv.id+'ar',viewBox:'0 0 10 10',refX:'5',refY:'5',markerWidth:'6',markerHeight:'6',orient:'auto-start-reverse'},defs);el('path',{d:'M0 0L10 5L0 10z',fill:'#1d5fc4'},mk);
+  const W=+sv.getAttribute('viewBox').split(' ')[2],H=+sv.getAttribute('viewBox').split(' ')[3];
+  const halfW=Math.max(i.Dk*0.95,i.dz*1.25,(i.form==='torus'?i.xm+0.6:0));
+  let xmin,xmax,zmin,zmax;
+  if(view==='zoom'){const zc=(R.c1.zc+R.c2.zc)/2,xr=holeR(i,zc);const span=Math.max(0.35,6*Math.abs(R.c1.zc-R.c2.zc),12*i.e);
+    xmin=xr-span*0.55;xmax=xr+span*0.45;zmin=zc-span*0.8;zmax=zc+span*0.8;}
+  else{xmin=-halfW;xmax=halfW;zmin=-(i.a+3.2);zmax=i.s+headK(i)+1.2;}
+  const k=Math.min((W-20)/(xmax-xmin),(H-30)/(zmax-zmin)),X=(x,z)=>[10+(x-xmin)*k,H-15-(z-zmin)*k];
+  const cl=el('clipPath',{id:sv.id+'cl'},defs);el('rect',{x:0,y:0,width:W,height:H},cl);const g=el('g',{'clip-path':`url(#${sv.id}cl)`},sv);
+  // Grundkörper (unter z = 0) mit Gewindebohrung um x = e
+  const rb=i.d/2;
+  el('path',{d:Pth([X(xmin-5,0),X(i.e-rb,0),X(i.e-rb,zmin-5),X(xmin-5,zmin-5)])+'Z',class:'s-body'},g);
+  el('path',{d:Pth([X(i.e+rb,0),X(xmax+5,0),X(xmax+5,zmin-5),X(i.e+rb,zmin-5)])+'Z',class:'s-body'},g);
+  // Wendeplatte: Material außerhalb r(z)
+  const N=160,zs=[];for(let n=0;n<=N;n++)zs.push(i.s*n/N);
+  const right=zs.map(z=>X(holeR(i,z),z)),left=zs.map(z=>X(-holeR(i,z),z));
+  el('path',{d:Pth([X(xmax+5,0)].concat(right,[X(xmax+5,i.s)]))+'Z',class:'s-ins'},g);
+  el('path',{d:Pth([X(xmin-5,0)].concat(left,[X(xmin-5,i.s)]))+'Z',class:'s-ins'},g);
+  // Achsen
+  el('line',{x1:X(0,0)[0],y1:X(0,zmin)[1],x2:X(0,0)[0],y2:X(0,zmax)[1],class:'s-haxis'},g);
+  // Schraube: Achse biegt sich von der Einspannung (z = −a, x = e) bis zum Kopf um δ
+  const xs=z=>i.e-S.delta*fBend((z+i.a)/S.L);
+  const zk=S.zk,zb=zk-headK(i),pts=[];const zTop=zk,zBot=zmin-5;
+  const nS=120;
+  const rhoAt=z=>z<zb?i.d/2:i.d/2+(z-zb)*Math.tan(i.bk/2*RAD);
+  for(let n=0;n<=nS;n++){const z=zBot+(zTop-zBot)*n/nS;pts.push(X(xs(z)+rhoAt(z),z));}
+  for(let n=nS;n>=0;n--){const z=zBot+(zTop-zBot)*n/nS;pts.push(X(xs(z)-rhoAt(z),z));}
+  el('path',{d:Pth(pts)+'Z',class:'s-scr'},g);
+  // Gewindeandeutung im Grundkörper
+  for(let z=-i.a-0.1;z>zmin;z-=i.P){const a1=X(xs(z)-i.d/2,z),a2=X(xs(z)+i.d/2,z-i.P/2);el('line',{x1:a1[0],y1:a1[1],x2:a2[0],y2:a2[1],class:'s-thr'},g);}
+  // Schraubenachse
+  const ax=[];for(let n=0;n<=40;n++){const z=zBot+(zTop+0.5-zBot)*n/40;ax.push(X(xs(z),z));}
+  el('path',{d:Pth(ax),class:'s-axis'},g);
+  // Kontaktweg (vom ersten Kontakt bis zur festen Montage) und Kontaktpunkte
+  const path=R.path.map(c=>X(holeR(i,c.zc),c.zc));
+  el('path',{d:Pth(path),class:'s-path'},g);
+  if(S.ph!=='frei'){const p=X(holeR(i,S.zc),S.zc);el('circle',{cx:p[0],cy:p[1],r:view==='zoom'?6:4,class:'s-ct'},g);}
+  if(S.ph==='fest'){const p=X(-holeR(i,S.zl),S.zl);el('circle',{cx:p[0],cy:p[1],r:view==='zoom'?6:4,class:'s-ct'},g);}
+  if(view==='zoom'){
+    const c1=X(holeR(i,R.c1.zc),R.c1.zc),c2=X(holeR(i,R.c2.zc),R.c2.zc);
+    tl(sv,{x:c1[0]+10,y:c1[1]+4,class:'s-lab'},'\\text{1. Kontakt}');tl(sv,{x:c2[0]+10,y:c2[1]+4,class:'s-lab'},'\\text{fest}');
+    const xd=W-18;
+    el('line',{x1:c1[0],y1:c1[1],x2:xd+6,y2:c1[1],class:'s-dim','stroke-dasharray':'2 2'},sv);el('line',{x1:c2[0],y1:c2[1],x2:xd+6,y2:c2[1],class:'s-dim','stroke-dasharray':'2 2'},sv);
+    if(Math.abs(c1[1]-c2[1])>14)el('line',{x1:xd,y1:c1[1],x2:xd,y2:c2[1],class:'s-dim','marker-start':`url(#${sv.id}ar)`,'marker-end':`url(#${sv.id}ar)`},sv);
+    tl(sv,{x:10,y:38,class:'s-dimt'},'\\Delta z_c = '+TF(R.c1.zc-R.c2.zc,3)+'\\,\\mathrm{mm}');
+    if(i.form==='torus'){const m=X(i.xm,i.zm);el('circle',{cx:m[0],cy:m[1],r:3,fill:'#1d5fc4'},sv);tl(sv,{x:m[0]-6,y:m[1]-6,class:'s-dimt','text-anchor':'end'},'M');}
+    tl(sv,{x:10,y:18,class:'s-lab'},'\\text{Detail Kontakt, Maßstab }'+TF(k/((W-20)/(2*Math.max(i.Dk*0.95,i.dz*1.25))),1)+'\\text{ : 1}');
+  }else{
+    // Bemaßung Hauptschnitt
+    const y0=X(0,0)[1],ys=X(0,i.s)[1],xr=X(halfW*0.92,0)[0];
+    el('line',{x1:xr,y1:y0,x2:xr,y2:ys,class:'s-dim','marker-start':`url(#${sv.id}ar)`,'marker-end':`url(#${sv.id}ar)`},sv);
+    tl(sv,{x:xr-5,y:(y0+ys)/2,class:'s-dimt','text-anchor':'end'},'s');
+    const yd=X(0,-0.5)[1];el('line',{x1:X(-i.dz/2,0)[0],y1:yd,x2:X(i.dz/2,0)[0],y2:yd,class:'s-dim','marker-start':`url(#${sv.id}ar)`,'marker-end':`url(#${sv.id}ar)`},sv);
+    tl(sv,{x:X(0,0)[0],y:yd+15,class:'s-dimt','text-anchor':'middle'},'d_Z = '+TF(i.dz,2));
+    const ye=X(0,zmin+0.6)[1];el('line',{x1:X(0,0)[0],y1:ye,x2:X(i.e,0)[0]+0.01,y2:ye,class:'s-dim'},sv);
+    tl(sv,{x:X(i.e,0)[0]+6,y:ye+4,class:'s-dimt'},'e = '+TF(i.e,2));
+    tl(sv,{x:10,y:18,class:'s-lab'},'z = 0\\text{: Auflagefläche}');
+  }
+}
+function drawBend(S){
+  const sv=$('sv-bend');sv.innerHTML='';const i=INP,R=MODEL.R;
+  const W=640,H=220,L=S.L,EI=i.E*R.I,F=S.F;if(!(L>0))return;
+  const x0=50,x1=W-30,y0=40,y1=H-40,wmax=Math.max(i.e,1e-6)*1.1,X=z=>x0+(z/L)*(x1-x0),Y=w=>y0+(w/wmax)*(y1-y0);
+  for(let k=0;k<=4;k++){const yy=y0+(y1-y0)*k/4;el('line',{x1:x0,y1:yy,x2:x1,y2:yy,class:'s-grid'},sv);tl(sv,{x:x0-6,y:yy+4,class:'s-lab','text-anchor':'end'},TF(wmax*k/4*1000,0));}
+  el('line',{x1:x0,y1:y0,x2:x1,y2:y0,stroke:'currentColor','stroke-width':1},sv);
+  const pts=[];for(let n=0;n<=60;n++){const z=L*n/60,w=F*z*z*(3*L-z)/(6*EI);pts.push([X(z),Y(w)]);}
+  el('path',{d:Pth(pts),class:'s-curve'},sv);
+  el('rect',{x:x0-12,y:y0-22,width:12,height:44,fill:'url(#none)',stroke:'currentColor'},sv);
+  for(let k=0;k<5;k++)el('line',{x1:x0-12,y1:y0-22+k*11,x2:x0-2,y2:y0-12+k*11,stroke:'currentColor','stroke-width':.8},sv);
+  tl(sv,{x:x0,y:H-12,class:'s-lab'},'\\text{Einspannung } (z=-a)');tl(sv,{x:x1,y:H-12,class:'s-lab','text-anchor':'end'},'\\text{Kontakt } (z=z_c)\\text{, }L = '+TF(L,2)+'\\,\\mathrm{mm}');
+  tl(sv,{x:x0+8,y:20,class:'s-lab'},'w(\\zeta)\\text{ in µm; }\\delta = '+TF(S.delta*1000,0)+'\\,\\mathrm{µm,}\\quad F = '+TF(F,0)+'\\,\\mathrm{N}');
+}
+function renderResults(){
+  const R=MODEL.R,i=INP;const kv=(k,v,u,hl)=>`<div class="${hl?'hl':''}"><div class="k">${k}</div><div class="v">${v}<small>${u||''}</small></div></div>`;
+  let h='';
+  if(Number.isFinite(R.dz)){
+    h+=kv('Hubweg erster Kontakt → fest Δz',fmt(R.dz,3),'mm',1)+kv('Umdrehungen N',fmt(R.N,2),'',1)+kv('Drehwinkel φ',fmt(R.phi,0),'°',1);
+    h+=kv('Kontakthöhe erster Kontakt z<sub>c,1</sub>',fmt(R.c1.zc,3),'mm')+kv('Kontakthöhe fest z<sub>c,2</sub>',fmt(R.c2.zc,3),'mm')+kv('Wanderung Kontaktpunkt',fmt(R.c1.zc-R.c2.zc,3),'mm');
+    h+=kv('Kerndurchmesser d<sub>3</sub>',fmt(R.d3,2),'mm')+kv('Hebelarm L',fmt(R.L,2),'mm')+kv('Durchbiegung am Kontakt δ',fmt(R.delta*1000,0),'µm');
+    h+=kv('Kippwinkel Kopf θ',fmt(R.theta/RAD,2),'°');
+    h+=kv('Biegekraft (Querkraft) F',fmt(R.F,0),'N',1)+kv('Biegemoment M<sub>b</sub>',fmt(R.M/1000,2),'Nm')+kv('Biegespannung σ<sub>b</sub>',fmt(R.sig,0),'N/mm²',R.sig>i.Rp);
+    h+=kv('Sicherheit gegen Fließen',fmt(R.S,2),'')+kv('Flankenneigung am Kontakt dr/dz',fmt(R.slope,3),'')+kv('Axialkraft aus Keilwirkung',fmt(R.Fax,0),'N');
+    if(R.tor)h+=kv('Torus-Übergang',R.tor,'')+kv('Beginn Torusfläche',fmt(R.zt,3),'mm');
+  }
+  $('res').innerHTML=h;$('warn').innerHTML=MODEL.w.map(t=>`<p class="warn">${t}</p>`).join('');
+}
+function frame(){if(!MODEL||!Number.isFinite(MODEL.R.dz))return;const R=MODEL.R,S=state(INP,R,zkOf(R,U));
+  drawSection($('sv-main'),S,'main');drawSection($('sv-zoom'),S,'zoom');drawBend(S);
+  const tt=S.turns;
+  $('stat').textContent=S.ph==='frei'?`Kopf frei – noch ${fmt(-tt,2)} Umdrehungen bis zum ersten Kontakt`:
+    S.ph==='fest'?`Fest montiert: ${fmt(MODEL.R.N,2)} Umdrehungen nach dem ersten Kontakt (${fmt(MODEL.R.phi,0)}°)`:
+    `Biegung: ${fmt(tt,2)} Umdrehungen nach dem ersten Kontakt · δ = ${fmt(S.delta*1000,0)} µm · F = ${fmt(S.F,0)} N`;}
+
+/* ================= Formeln (nur Administrator) ================= */
+const FORMELN=[
+ ['Bohrung: Zylinder und Kegel','r(z)=\\begin{cases}\\dfrac{d_Z}{2}, & z\\le z_{\\ddot U}\\\\[4pt] \\dfrac{d_Z}{2}+(z-z_{\\ddot U})\\tan\\dfrac{\\alpha_K}{2}, & z>z_{\\ddot U}\\end{cases}'],
+ ['Bohrung: Torus (Trompete), Mittelpunkt (x_M, z_M)','r(z)=x_M-\\sqrt{r_T^2-(z-z_M)^2},\\qquad z\\ge z_T,\\qquad z_T=z_M+\\sqrt{r_T^2-\\left(x_M-\\tfrac{d_Z}{2}\\right)^2}\\;\\;(\\text{bzw. }z_T=z_M\\text{ bei Absatz})'],
+ ['Senkkopf der Schraube (Kopfoberseite z_k)','\\rho(z)=\\frac{d}{2}+\\bigl(z-z_k+k_K\\bigr)\\tan\\frac{\\beta_K}{2},\\qquad k_K=\\frac{D_K-d}{2\\tan(\\beta_K/2)}'],
+ ['Überdeckung des zentrischen Kopfes','g(z_k)=\\max_{0\\le z\\le s}\\bigl[\\rho(z;z_k)-r(z)\\bigr],\\qquad z_c=\\arg\\max'],
+ ['Erster Kontakt (einseitig)','g(z_{k,1})=-e'],
+ ['Achse der gebogenen Schraube (Kopf kippt mit)','x_S(z)=e-\\delta\\,f\\!\\left(\\frac{z+a}{L}\\right),\\qquad f(t)=\\begin{cases}\\dfrac{t^2(3-t)}{2}, & t\\le 1\\\\[4pt] 1+\\dfrac{3}{2}(t-1), & t>1\\end{cases},\\qquad \\theta=\\frac{3\\delta}{2L}'],
+ ['Kontaktbedingung Anlageseite (bestimmt δ und z_c)','g_R=\\max_{z}\\bigl[x_S(z)+\\rho(z)-r(z)\\bigr]=0,\\qquad z_c=\\arg\\max,\\qquad L=z_c+a'],
+ ['Feste Montage: Anlage auf der Gegenseite','g_L(z_{k,2})=\\max_{z}\\bigl[-x_S(z)+\\rho(z)-r(z)\\bigr]=0'],
+ ['Hubweg, Umdrehungen, Drehwinkel','\\Delta z=z_{k,1}-z_{k,2},\\qquad N=\\frac{\\Delta z}{P},\\qquad \\varphi=360^{\\circ}\\,N'],
+ ['Kerndurchmesser (ISO-Außengewinde)','d_3=d-1{,}22687\\,P,\\qquad I=\\frac{\\pi d_3^4}{64},\\qquad W_b=\\frac{\\pi d_3^3}{32}'],
+ ['Biegung: einseitig eingespannter Träger','L=z_c+a,\\qquad F=\\frac{3EI\\,\\delta}{L^3},\\qquad w(\\zeta)=\\frac{F\\,\\zeta^2(3L-\\zeta)}{6EI}'],
+ ['Biegemoment, Spannung, Sicherheit','M_b=F\\,L,\\qquad \\sigma_b=\\frac{M_b}{W_b},\\qquad S=\\frac{R_{p0{,}2}}{\\sigma_b}'],
+ ['Axialkraft aus Keilwirkung (reibungsfrei)','F_{ax}\\approx F\\left.\\frac{dr}{dz}\\right|_{z_c}']
+];
+function texDoc(){return ['% Vorspannrechner – Berechnungsformeln (cuttingforce.app)','\\documentclass[a4paper,11pt]{article}','\\usepackage[T1]{fontenc}','\\usepackage[utf8]{inputenc}','\\usepackage{amsmath}','\\begin{document}','\\section*{Vorspannrechner}',
+  ...FORMELN.map(([t,f])=>'\\subsection*{'+t.replace(/_/g,'\\_')+'}\n\\begin{equation*}\n'+f+'\n\\end{equation*}'),'\\end{document}',''].join('\n');}
+function showFormeln(){
+  $('formeln-info').textContent='Administrator: Berechnungsformeln gesetzt und als LaTeX-Code.';
+  const b=$('formeln-body');
+  b.innerHTML=FORMELN.map(([t],k)=>`<h3>${t}</h3><div class="eq" id="fq${k}"></div>`).join('')+
+   `<h3>LaTeX-Code</h3><textarea class="texsrc" readonly spellcheck="false" id="texsrc"></textarea><div class="ctl"><button type="button" class="btn" id="btn-copy">LaTeX-Code kopieren</button></div>`;
+  $('texsrc').value=texDoc();
+  $('btn-copy').addEventListener('click',()=>{const t=$('texsrc');try{navigator.clipboard.writeText(t.value);}catch(e){t.select();}});
+  const go=()=>FORMELN.forEach(([t,f],k)=>{try{katex.render(f,$('fq'+k),{displayMode:true,throwOnError:false});}catch(x){$('fq'+k).textContent=f;}});
+  if(window.katex)go();else window.addEventListener('load',go);
+}
+async function checkAdmin(){try{const r=await fetch('/api/me');if(r.ok){const d=await r.json();if(d.role==='admin')showFormeln();}}catch(e){}}
+
+/* ================= Ablauf ================= */
+function read(){const o={};for(const k of FIELDS){const e=$(k);o[k]=k==='form'?e.value:num(e.value);}return o;}
+function setForm(f){$('form').value=f;document.querySelectorAll('[data-form]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.form===f));
+  document.querySelectorAll('.f-kegel').forEach(e=>e.hidden=f!=='kegel');document.querySelectorAll('.f-torus').forEach(e=>e.hidden=f!=='torus');}
+function update(){INP=read();MODEL=model(INP);renderResults();frame();try{localStorage.setItem(SKEY,JSON.stringify(Object.fromEntries(FIELDS.map(k=>[k,$(k).value]))));}catch(e){}}
+function initWheel(){const w=$('wheel'),rib=w.querySelector('.wheel-rib');let lastX=null,off=0;
+  const turn=dpx=>{U=Math.max(0,Math.min(1,U+dpx*0.0015));off=(off+dpx)%12;rib.style.backgroundPosition=off+'px 0';PLAY=false;$('btn-play').textContent='▶ Abspielen';frame();};
+  w.addEventListener('pointerdown',e=>{lastX=e.clientX;w.setPointerCapture(e.pointerId);});
+  w.addEventListener('pointermove',e=>{if(lastX==null)return;const d=e.clientX-lastX;lastX=e.clientX;if(d)turn(d);});
+  const end=()=>{lastX=null;};w.addEventListener('pointerup',end);w.addEventListener('pointercancel',end);
+  w.addEventListener('wheel',e=>{e.preventDefault();turn((e.deltaY||e.deltaX)>0?-4:4);},{passive:false});
+  w.addEventListener('keydown',e=>{if(['ArrowRight','ArrowUp'].includes(e.key)){turn(e.shiftKey?40:4);e.preventDefault();}if(['ArrowLeft','ArrowDown'].includes(e.key)){turn(e.shiftKey?-40:-4);e.preventDefault();}});}
+function loop(ts){if(PLAY){const dt=Math.min(0.1,(ts-lastT)/1000);U+=dt/6;if(U>=1){U=1;PLAY=false;$('btn-play').textContent='▶ Abspielen';}frame();}lastT=ts;requestAnimationFrame(loop);}
+(function init(){
+  let st=null;try{st=JSON.parse(localStorage.getItem(SKEY));}catch(e){}
+  if(st)for(const k of FIELDS)if(st[k]!=null&&$(k))$(k).value=st[k];
+  setForm($('form').value||'kegel');
+  document.querySelectorAll('[data-form]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.form);update();}));
+  $('inp').addEventListener('input',update);
+  $('btn-play').addEventListener('click',()=>{if(U>=1)U=0;PLAY=!PLAY;$('btn-play').textContent=PLAY?'❚❚ Pause':'▶ Abspielen';});
+  initWheel();U=0.55;update();checkAdmin();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

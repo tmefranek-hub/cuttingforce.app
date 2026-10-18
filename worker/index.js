@@ -59,6 +59,22 @@ export default {
       return out;
     }
 
+    // 1d) Mitglieder-Module (Berechnungsmodelle nur für angemeldete Benutzer)
+    if (path.startsWith(MEMBER_MODULE_PREFIX)) {
+      const session = await getSessionUser(request, env);
+      if (!session) {
+        return new Response('/* Anmeldung erforderlich */', {
+          status: 403,
+          headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' },
+        });
+      }
+      const res = await env.ASSETS.fetch(request);
+      const out = new Response(res.body, res);
+      out.headers.set('Cache-Control', 'private, no-store');
+      out.headers.set('X-Robots-Tag', 'noindex');
+      return out;
+    }
+
     // 2) API-Routen
     if (path === '/api/me' && request.method === 'GET') {
       return handleMe(request, env);
@@ -88,7 +104,9 @@ export default {
   },
 };
 
-/* ---------- Apps nur für Mitglieder ---------- */
+/* ---------- Apps und Module nur für Mitglieder ---------- */
+
+const MEMBER_MODULE_PREFIX = '/app/m/';
 
 const MEMBER_APPS = [
   { path: '/spanbildung', name: 'Spanbildung & Spankammer', text: '2D-Simulation der Spanbildung beim Fräsen und Auslegung der Spankammer.' },
