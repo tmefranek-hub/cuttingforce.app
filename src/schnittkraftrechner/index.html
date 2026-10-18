@@ -668,7 +668,7 @@ function example(){
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(window.ZV_BLANK&&S&&S.example)S=null;
 if(!S||!S.forms)S=window.ZV_BLANK?fresh():example();
-for(const p of PROCS){const o=S.forms[p]||{};if(o.typ&&!o.typH)o.typH=o.typ;if(o.typ&&!o.typK)o.typK=o.typ;const hadRho=o.rho!=null&&o.rho!=='';S.forms[p]={...defForm(p),...o};if(!hadRho){const mm=MATS.find(x=>x.k===S.forms[p].mat);S.forms[p].rho=mm&&mm.rho?String(mm.rho).replace('.',','):'';}if(!SUBS[p].some(x=>x[0]===S.forms[p].sub))S.forms[p].sub=SUB_DEF[p];}
+for(const p of PROCS){const o=S.forms[p]||{};if(o.typ&&!o.typH)o.typH=o.typ;if(o.typ&&!o.typK)o.typK=o.typ;const hadRho=o.rho!=null&&o.rho!=='';S.forms[p]={...defForm(p),...o};{const x=num(S.forms[p].kVf);if(!(Number.isFinite(x)&&x>0))S.forms[p].kVf=KVF_DEF[p]||'1';}if(!hadRho){const mm=MATS.find(x=>x.k===S.forms[p].mat);S.forms[p].rho=mm&&mm.rho?String(mm.rho).replace('.',','):'';}if(!SUBS[p].some(x=>x[0]===S.forms[p].sub))S.forms[p].sub=SUB_DEF[p];}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 let pendingDel=null,pendingNew=false,pendingSwitch=null,pendingReset=null;
 /* Prozesssperre: ein Versuch gehört zu genau einem Prozess */
@@ -951,6 +951,8 @@ const NEG_KEYS=new Set(['g']);
 const negBtn=id=>`<button type="button" class="negbtn" data-negfor="${id}" aria-label="Vorzeichen wechseln" title="Vorzeichen wechseln">±</button>`;
 function toggleSign(inp){let v=inp.value.trim();v=v.startsWith('-')||v.startsWith('−')?v.slice(1):'-'+v;inp.value=v;inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}));try{inp.focus();inp.setSelectionRange(v.length,v.length);}catch(_){}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-negfor]');if(!b)return;e.preventDefault();const i=document.getElementById(b.dataset.negfor);if(i)toggleSign(i);});
+/* Verfahrensfaktor ist Pflicht: leeres oder ungültiges Feld → Standardwert des Verfahrens */
+document.addEventListener('change',e=>{const el=e.target;if(!el.dataset||el.dataset.k!=='kVf')return;const p=S.tab,x=num(el.value);if(Number.isFinite(x)&&x>0)return;const d=KVF_DEF[p]||'1';el.value=d;if(S.forms[p]){S.forms[p].kVf=d;save();}el.dispatchEvent(new Event('input',{bubbles:true}));if(typeof toast==='function')toast('Verfahrensfaktor ist Pflicht – Standardwert '+d+' gesetzt');});
 document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.k;if(k!=='vc'&&k!=='nIn')return;const p=S.tab,i=document.getElementById(p+'-kV');if(i&&S.forms[p])i.placeholder='auto: '+fmt(kvAuto(num(S.forms[p].vc)),3);});
 function altField(p,k,label,u){
  const f=S.forms[p],isV=k==='vc',mode=isV?(f.vcMode||'vc'):(f.fMode||'fz'),alt=isV?mode==='n':mode==='vf';
