@@ -21,6 +21,7 @@
 .fgrid label{display:block;font-size:12.5px;color:var(--muted);line-height:1.3}
 .fgrid label input,.fgrid label select{display:block;margin-top:3px}
 .fgrid label[hidden]{display:none}
+.f-aus[hidden]{display:none}
 .fgrid label.wide{grid-column:1/-1}
 .fgrid input,.fgrid select{font:15px/1.2 var(--f-body);padding:8px 9px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:100%;min-width:0}
 .fgrid .u{font-size:11px}
@@ -103,6 +104,9 @@ svg text{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13px}
           <label class="f-torus">Mittelpunkt Höhe z<sub>M</sub> <span class="u">mm über Auflage</span><input id="zm" inputmode="decimal" value="2,3"></label>
           <label class="f-torus wide">Mittelpunkt Abstand zur Achse x<sub>M</sub> <span class="u">mm</span><input id="xm" inputmode="decimal" value="4,6"></label>
         </div>
+        <div class="seg2" role="group" aria-label="Oberer Auslauf" style="margin-top:10px"><button type="button" data-aus="0" aria-pressed="true">Oberer Auslauf wie Kegel/Torus</button><button type="button" data-aus="1" aria-pressed="false">Oberer Auslauf zylindrisch</button></div>
+        <input type="hidden" id="aus" value="0">
+        <div class="fgrid f-aus" hidden><label>Auslaufdurchmesser d<sub>A</sub> <span class="u">mm</span><input id="dA" inputmode="decimal" value="6,2"></label><label>Beginn Zylinder z<sub>A</sub> <span class="u">mm über Auflage (berechnet)</span><input id="zA" readonly tabindex="-1"></label></div>
       </fieldset>
       <fieldset><legend>Schraube</legend><div class="fgrid">
         <label class="wide">Gewinde (metrisches ISO-Regelgewinde mit Normsteigung)<select id="thr"></select></label>
@@ -110,6 +114,7 @@ svg text{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13px}
         <label class="thr-free">Steigung P <span class="u">mm</span><input id="P" inputmode="decimal" value="0,7"></label>
         <label>Kopfdurchmesser D<sub>K</sub> <span class="u">mm</span><input id="Dk" inputmode="decimal" value="5,6"></label>
         <label>Senkwinkel β<sub>K</sub> <span class="u">° (gesamt)</span><input id="bk" inputmode="decimal" value="60"></label>
+        <label>Zylindrischer Kopfanteil h<sub>Z</sub> <span class="u">mm (oben, Ø D<sub>K</sub>)</span><input id="hZ" inputmode="decimal" value="0,3"></label>
         <label>Exzentrizität e <span class="u">mm</span><input id="e" inputmode="decimal" value="0,05"></label>
         <label>Einspannung unter Auflage a <span class="u">mm</span><input id="a" inputmode="decimal" value="4"></label>
         <label>E-Modul E <span class="u">N/mm²</span><input id="E" inputmode="decimal" value="210000"></label>
@@ -157,7 +162,7 @@ const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString('de-AT',{minimumFractionD
 const RAD=Math.PI/180;
 /* Metrisches ISO-Regelgewinde M1–M8 (ISO 261, Reihe 1 und 2) mit Regelsteigung */
 const THREADS=[[1,0.25],[1.1,0.25],[1.2,0.25],[1.4,0.3],[1.6,0.35],[1.8,0.35],[2,0.4],[2.2,0.45],[2.5,0.45],[3,0.5],[3.5,0.6],[4,0.7],[4.5,0.75],[5,0.8],[6,1],[7,1],[8,1.25]];
-const FIELDS=['form','s','dz','ak','zu','rt','zm','xm','d','P','Dk','bk','e','a','E','Rp','ecke','ic','tkl','tic'];
+const FIELDS=['aus','dA','hZ','form','s','dz','ak','zu','rt','zm','xm','d','P','Dk','bk','e','a','E','Rp','ecke','ic','tkl','tic'];
 /* Toleranz Inkreis d nach ISO 1832 (Richtwerte): Klasse → [bis IC, ±T] */
 const ICTOL={G:[[99,0.025]],M:[[9.6,0.05],[12.8,0.08],[20.1,0.10],[25.5,0.13],[99,0.15]],U:[[9.6,0.08],[12.8,0.13],[20.1,0.18],[25.5,0.25],[99,0.25]]};
 const icTol=(kl,ic)=>{const t=ICTOL[kl];if(!t)return NaN;for(const [m,v] of t)if(ic<=m)return v;return NaN;};
@@ -166,7 +171,9 @@ const SKEY='cfa-vorspann-v1';
 /* ================= Geometrie =================
    Schnittebene durch Plattenachse und Exzentrizitätsrichtung. z = 0: Auflagefläche der Wendeplatte, z nach oben.
    Bohrungsradius r(z) rotationssymmetrisch um x = 0. */
-function holeR(i,z){
+/* Bohrungsradius; optional oberer Auslauf zylindrisch: r ≤ d_A/2 */
+function holeR(i,z){const r=holeR0(i,z);return i.aus===1&&i.dA>0?Math.min(r,i.dA/2):r;}
+function holeR0(i,z){
   const rz=i.dz/2;
   if(i.form==='kegel'){return z<=i.zu?rz:rz+(z-i.zu)*Math.tan(i.ak/2*RAD);}
   // Torus: Kreis (x_M, z_M), Radius r_T; Profil r = x_M − √(r_T² − (z − z_M)²) für z ≥ z_M
@@ -181,8 +188,9 @@ function torusStart(i){const rz=i.dz/2,g=i.xm-rz;
   if(g<=-i.rt)return 1e9;
   return i.zm+Math.sqrt(i.rt*i.rt-g*g);}
 /* Senkkopf: Kegel von d (Schaft) auf D_K, halber Senkwinkel β_K/2. z_k = Höhe der Kopfoberseite. */
-const headK=i=>(i.Dk-i.d)/(2*Math.tan(i.bk/2*RAD));
-function headRho(i,zk,z){const zb=zk-headK(i);if(z>zk)return -1;if(z<zb)return i.d/2;return i.d/2+(z-zb)*Math.tan(i.bk/2*RAD);}
+/* Kopfhöhe gesamt = Kegelhöhe + zylindrischer Anteil h_Z oben am Kopf */
+const headK=i=>(i.Dk-i.d)/(2*Math.tan(i.bk/2*RAD))+(i.hZ>0?i.hZ:0);
+function headRho(i,zk,z){const zb=zk-headK(i);if(z>zk)return -1;if(z<zb)return i.d/2;return Math.min(i.Dk/2,i.d/2+(z-zb)*Math.tan(i.bk/2*RAD));}
 /* Überdeckung des zentrisch gedachten Kopfes mit der Bohrung: g(z_k) = max_z [ρ(z) − r(z)], z ∈ [0, s] */
 function interf(i,zk){let g=-1e9,zc=NaN;const N=1200;
   for(let k=0;k<=N;k++){const z=i.s*k/N,rho=headRho(i,zk,z);if(rho<0)continue;const v=rho-holeR(i,z);if(v>g){g=v;zc=z;}}
@@ -202,6 +210,7 @@ function model(i){
   if(i.form==='kegel'&&!(i.ak>0&&i.ak<180&&i.zu>=0&&i.zu<=i.s))w.push('Kegel: Winkel und Übergangshöhe prüfen (0 ≤ z_Ü ≤ s).');
   if(i.form==='torus'&&!(i.rt>0&&i.xm>0))w.push('Torus: r_T und x_M müssen größer 0 sein.');
   if(w.length)return {R,w};
+  if(i.aus===1){if(!(i.dA/2>i.dz/2))w.push('Auslaufdurchmesser d_A muss größer als der Zylinderdurchmesser d_Z sein.');else{let zA=NaN;for(let k=0;k<=400;k++){const z=i.s*k/400;if(holeR0(i,z)>=i.dA/2){zA=z;break;}}R.zA=zA;if(!Number.isFinite(zA))w.push('Der Auslaufdurchmesser d_A wird innerhalb der Plattendicke nicht erreicht – der Auslauf hat keine Wirkung.');}}
   if(i.d/2+i.e>=i.dz/2)w.push('Schaft + Exzentrizität passen nicht durch den Zylinder: d/2 + e ≥ d_Z/2.');
   if(i.form==='torus'){R.zt=torusStart(i);R.tor=i.xm-i.rt>i.dz/2?'Absatz':Math.abs(i.xm-i.rt-i.dz/2)<1e-3?'tangential':'schneidend';}
   R.d3=i.d-1.22687*i.P;                                   // Kerndurchmesser Außengewinde (ISO)
@@ -309,7 +318,7 @@ function drawSection(sv,S,view){
   const xs=z=>i.e-S.delta*fBend((z+i.a)/S.L);
   const zk=S.zk,zb=zk-headK(i),pts=[];const zTop=zk,zBot=zmin-5;
   const nS=120;
-  const rhoAt=z=>z<zb?i.d/2:i.d/2+(z-zb)*Math.tan(i.bk/2*RAD);
+  const rhoAt=z=>z<zb?i.d/2:Math.min(i.Dk/2,i.d/2+(z-zb)*Math.tan(i.bk/2*RAD));
   for(let n=0;n<=nS;n++){const z=zBot+(zTop-zBot)*n/nS;pts.push(X(xs(z)+rhoAt(z),z));}
   for(let n=nS;n>=0;n--){const z=zBot+(zTop-zBot)*n/nS;pts.push(X(xs(z)-rhoAt(z),z));}
   el('path',{d:Pth(pts)+'Z',class:'s-scr'},g);
@@ -370,6 +379,7 @@ function renderResults(){
     if(R.tor)h+=kv('Torus-Übergang',R.tor,'')+kv('Beginn Torusfläche',fmt(R.zt,3),'mm');
   }
   $('res').innerHTML=h;
+  {const za=$('zA');if(za)za.value=Number.isFinite(R.zA)?fmt(R.zA,3):'–';}
   /* Minimaler / maximaler Anzug aus der Inkreistoleranz */
   {let t='';const T=i.tic,ep=i.ecke;
    if(Number.isFinite(R.dz)&&T>=0&&ep>0&&ep<180){const de=T/(2*Math.sin(ep*RAD/2)),cs=[['min. Anzug (IC − T)',Math.max(0,i.e-de)],['nominal',i.e],['max. Anzug (IC + T)',i.e+de]];
@@ -393,7 +403,8 @@ function frame(){if(!MODEL||!Number.isFinite(MODEL.R.dz))return;const R=MODEL.R,
 const FORMELN=[
  ['Bohrung: Zylinder und Kegel','r(z)=\\begin{cases}\\dfrac{d_Z}{2}, & z\\le z_{\\ddot U}\\\\[4pt] \\dfrac{d_Z}{2}+(z-z_{\\ddot U})\\tan\\dfrac{\\alpha_K}{2}, & z>z_{\\ddot U}\\end{cases}'],
  ['Bohrung: Torus (Trompete), Mittelpunkt (x_M, z_M)','r(z)=x_M-\\sqrt{r_T^2-(z-z_M)^2},\\qquad z\\ge z_T,\\qquad z_T=z_M+\\sqrt{r_T^2-\\left(x_M-\\tfrac{d_Z}{2}\\right)^2}\\;\\;(\\text{bzw. }z_T=z_M\\text{ bei Absatz})'],
- ['Senkkopf der Schraube (Kopfoberseite z_k)','\\rho(z)=\\frac{d}{2}+\\bigl(z-z_k+k_K\\bigr)\\tan\\frac{\\beta_K}{2},\\qquad k_K=\\frac{D_K-d}{2\\tan(\\beta_K/2)}'],
+ ['Optional: oberer Auslauf zylindrisch','r_A(z)=\\min\\bigl(r(z),\\,\\tfrac{d_A}{2}\\bigr),\\qquad z_A:\\;r(z_A)=\\frac{d_A}{2}'],
+ ['Senkkopf der Schraube (Kopfoberseite z_k)','\\rho(z)=\\min\\Bigl[\\frac{d}{2}+\\bigl(z-z_k+k_K\\bigr)\\tan\\frac{\\beta_K}{2},\\;\\frac{D_K}{2}\\Bigr],\\qquad k_K=\\frac{D_K-d}{2\\tan(\\beta_K/2)}+h_Z'],
  ['Überdeckung des zentrischen Kopfes','g(z_k)=\\max_{0\\le z\\le s}\\bigl[\\rho(z;z_k)-r(z)\\bigr],\\qquad z_c=\\arg\\max'],
  ['Erster Kontakt (einseitig)','g(z_{k,1})=-e'],
  ['Achse der gebogenen Schraube (Kopf kippt mit)','x_S(z)=e-\\delta\\,f\\!\\left(\\frac{z+a}{L}\\right),\\qquad f(t)=\\begin{cases}\\dfrac{t^2(3-t)}{2}, & t\\le 1\\\\[4pt] 1+\\dfrac{3}{2}(t-1), & t>1\\end{cases},\\qquad \\theta=\\frac{3\\delta}{2L}'],
@@ -421,6 +432,7 @@ async function checkAdmin(){try{const r=await fetch('/api/me');if(r.ok){const d=
 
 /* ================= Ablauf ================= */
 function read(){const o={};for(const k of FIELDS){const e=$(k);o[k]=k==='form'||k==='tkl'?e.value:num(e.value);}return o;}
+function setAus(v){$('aus').value=v;document.querySelectorAll('[data-aus]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.aus===v));document.querySelectorAll('.f-aus').forEach(e=>e.hidden=v!=='1');}
 function setForm(f){$('form').value=f;document.querySelectorAll('[data-form]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.form===f));
   document.querySelectorAll('.f-kegel').forEach(e=>e.hidden=f!=='kegel');document.querySelectorAll('.f-torus').forEach(e=>e.hidden=f!=='torus');}
 function update(){INP=read();MODEL=model(INP);renderResults();frame();try{localStorage.setItem(SKEY,JSON.stringify(Object.fromEntries(FIELDS.map(k=>[k,$(k).value]))));}catch(e){}}
@@ -443,7 +455,8 @@ function loop(ts){if(PLAY){const dt=Math.min(0.1,(ts-lastT)/1000);U+=dt/6;if(U>=
   window.__thrSync();
   {const setT=()=>{const kl=$('tkl').value,ic=parseFloat(String($('ic').value).replace(',','.')),t=icTol(kl,ic);if(Number.isFinite(t))$('tic').value=String(t).replace('.',',');};
    $('tkl').addEventListener('input',setT);$('ic').addEventListener('input',setT);$('tic').addEventListener('input',()=>{$('tkl').value='';});}
-  setForm($('form').value||'kegel');
+  setForm($('form').value||'kegel');setAus($('aus').value==='1'?'1':'0');
+  document.querySelectorAll('[data-aus]').forEach(b=>b.addEventListener('click',()=>{setAus(b.dataset.aus);update();}));
   document.querySelectorAll('[data-form]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.form);update();}));
   $('inp').addEventListener('input',update);
   $('btn-play').addEventListener('click',()=>{if(U>=1)U=0;PLAY=!PLAY;$('btn-play').textContent=PLAY?'❚❚ Pause':'▶ Abspielen';});
