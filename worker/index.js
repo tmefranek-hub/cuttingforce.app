@@ -97,6 +97,9 @@ export default {
     if (path === '/api/admin/reject-user' && request.method === 'POST') {
       return handleRejectUser(request, env);
     }
+    if (path === '/api/admin/approve-link') {
+      return handleApproveLink(request, env, url);
+    }
 
     // Alles andere: hier landen wir nur, wenn weder eine statische Datei noch eine der Routen oben
     // gepasst hat (z. B. Tippfehler in der Adresse) – einfache 404-Antwort.
@@ -311,7 +314,14 @@ async function handleRegister(request, env, secure) {
     .bind(email, hash, salt, PBKDF2_ITERATIONS, created, autoApproved)
     .run();
 
-  if (!autoApproved) return pendingResponse();
+  if (!autoApproved) {
+    try {
+      await notifyAdminNewUser(env, new URL(request.url).origin, result.meta.last_row_id, email);
+    } catch (e) {
+      /* Mailversand ist optional – Registrierung klappt auch ohne */
+    }
+    return pendingResponse();
+  }
 
   const userId = result.meta.last_row_id;
   return startSession(env, userId, email, secure);
@@ -410,6 +420,102 @@ async function handleRejectUser(request, env) {
   await env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(userId).run();
   await env.DB.prepare(`DELETE FROM users WHERE id = ? AND approved = 0`).bind(userId).run();
   return json({ ok: true });
+}
+
+/* ---------- Freigabe per E-Mail-Link ----------
+   Bei jeder neuen Registrierung bekommt der Administrator eine E-Mail mit einem Freigabe-Link.
+   Der Link ist mit HMAC-SHA256 signiert; Schlüssel ist der (geheime, nie ausgelieferte) Passwort-Hash des
+   neuen Kontos, signiert werden ID, E-Mail und Anlagezeitpunkt → keine zusätzliche Datenbankspalte nötig.
+   Der Link öffnet eine Bestätigungsseite (GET); erst der Klick auf „Freigeben“/„Ablehnen“ (POST) ändert etwas,
+   damit Link-Vorschauen von Mailprogrammen nichts auslösen. Gültig 14 Tage.
+   Versand: RESEND_API_KEY (Secret, resend.com) oder Cloudflare-Email-Binding MAILER (send_email). */
+const APPROVE_LINK_DAYS = 14;
+
+async function hmacHex(keyText, msg) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(keyText), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+const approveToken = (u) => hmacHex(u.password_hash, `approve|${u.id}|${u.email}|${u.created_at}`);
+
+function escHtml(t) {
+  return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function sendMail(env, { to, subject, text, html }) {
+  const from = env.MAIL_FROM || 'cuttingforce.app <onboarding@resend.dev>';
+  if (env.RESEND_API_KEY) {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [to], subject, text, html }),
+    });
+    return r.ok;
+  }
+  if (env.MAILER && typeof env.MAILER.send === 'function') {
+    const { EmailMessage } = await import('cloudflare:email');
+    const sender = env.MAIL_FROM_ADDRESS || 'noreply@cuttingforce.app';
+    const boundary = 'b' + randomHex(8);
+    const raw = [
+      `From: cuttingforce.app <${sender}>`, `To: ${to}`, `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
+      'MIME-Version: 1.0', `Message-ID: <${randomHex(12)}@cuttingforce.app>`, `Date: ${new Date().toUTCString()}`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
+      `--${boundary}`, 'Content-Type: text/plain; charset=utf-8', 'Content-Transfer-Encoding: 8bit', '', text, '',
+      `--${boundary}`, 'Content-Type: text/html; charset=utf-8', 'Content-Transfer-Encoding: 8bit', '', html, '', `--${boundary}--`, '',
+    ].join('\r\n');
+    await env.MAILER.send(new EmailMessage(sender, to, raw));
+    return true;
+  }
+  return false;
+}
+
+async function notifyAdminNewUser(env, origin, userId, email) {
+  const admin = (env.ADMIN_EMAIL || '').trim();
+  if (!admin) return false;
+  const u = await env.DB.prepare(`SELECT id, email, password_hash, created_at FROM users WHERE id = ?`).bind(userId).first();
+  if (!u) return false;
+  const link = `${origin}/api/admin/approve-link?u=${u.id}&t=${await approveToken(u)}`;
+  const subject = `Neue Registrierung: ${email}`;
+  const text = `Neue Registrierung auf cuttingforce.app\n\nE-Mail: ${email}\nAngelegt: ${u.created_at}\n\nFreigeben oder ablehnen:\n${link}\n\nDer Link ist ${APPROVE_LINK_DAYS} Tage gültig.`;
+  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5"><p>Neue Registrierung auf <b>cuttingforce.app</b></p><p>E-Mail: <b>${escHtml(email)}</b><br>Angelegt: ${escHtml(u.created_at)}</p><p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#111;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Freigeben oder ablehnen</a></p><p style="color:#666;font-size:13px">Der Link ist ${APPROVE_LINK_DAYS} Tage gültig. Erst auf der folgenden Seite wird bestätigt.</p></div>`;
+  return sendMail(env, { to: admin, subject, text, html });
+}
+
+function approvePage(title, body) {
+  return new Response(
+    `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escHtml(title)} – cuttingforce.app</title><link rel="stylesheet" href="/style.css">
+<style>.box{max-width:460px;margin:40px auto;padding:22px;border:1px solid var(--line,#ddd);border-radius:10px;font-family:var(--f-body,Arial,sans-serif)}.box h1{font:600 22px var(--f-disp,Arial);margin:0 0 10px}.box form{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.box button{padding:11px 18px;border-radius:6px;border:1px solid var(--fg,#111);font:600 15px var(--f-disp,Arial);cursor:pointer;background:var(--surface,#fff);color:var(--fg,#111)}.box button.pri{background:var(--accent,#111);color:var(--accent-ink,#fff)}</style></head>
+<body><main class="box"><h1>${escHtml(title)}</h1>${body}<p style="margin-top:18px"><a href="/">← Zur Startseite</a></p></main></body></html>`,
+    { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } }
+  );
+}
+
+async function handleApproveLink(request, env, url) {
+  const id = Number(url.searchParams.get('u'));
+  const t = String(url.searchParams.get('t') || '');
+  if (!Number.isInteger(id) || !/^[0-9a-f]{64}$/.test(t)) return approvePage('Ungültiger Link', '<p>Der Freigabe-Link ist unvollständig.</p>');
+  const u = await env.DB.prepare(`SELECT id, email, password_hash, created_at, approved FROM users WHERE id = ?`).bind(id).first();
+  if (!u) return approvePage('Nicht gefunden', '<p>Dieses Konto gibt es nicht mehr (bereits abgelehnt oder gelöscht).</p>');
+  if (!timingSafeEqualHex(await approveToken(u), t)) return approvePage('Ungültiger Link', '<p>Der Freigabe-Link ist nicht gültig.</p>');
+  if (u.approved === 1) return approvePage('Bereits freigegeben', `<p><b>${escHtml(u.email)}</b> ist bereits freigegeben.</p>`);
+  if (Date.now() - new Date(u.created_at).getTime() > APPROVE_LINK_DAYS * 864e5)
+    return approvePage('Link abgelaufen', `<p>Der Link ist älter als ${APPROVE_LINK_DAYS} Tage. Bitte im Versuchsprotokoll unter Stammdaten → Benutzer freigeben.</p>`);
+  if (request.method === 'POST') {
+    let act = '';
+    try { act = String((await request.formData()).get('act') || ''); } catch (e) {}
+    if (act === 'approve') {
+      await env.DB.prepare(`UPDATE users SET approved = 1 WHERE id = ? AND approved = 0`).bind(id).run();
+      return approvePage('Freigegeben', `<p><b>${escHtml(u.email)}</b> ist freigegeben und kann sich jetzt anmelden.</p>`);
+    }
+    if (act === 'reject') {
+      await env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(id).run();
+      await env.DB.prepare(`DELETE FROM users WHERE id = ? AND approved = 0`).bind(id).run();
+      return approvePage('Abgelehnt', `<p>Die Registrierung von <b>${escHtml(u.email)}</b> wurde abgelehnt und gelöscht.</p>`);
+    }
+    return approvePage('Ungültige Anfrage', '<p>Keine Aktion gewählt.</p>');
+  }
+  return approvePage('Neue Registrierung', `<p>E-Mail: <b>${escHtml(u.email)}</b><br>Angelegt: ${escHtml(u.created_at)}</p>
+<form method="post"><button class="pri" name="act" value="approve">Freigeben</button><button name="act" value="reject">Ablehnen</button></form>`);
 }
 
 async function handleLogout(request, env, secure) {
