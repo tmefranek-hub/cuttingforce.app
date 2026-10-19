@@ -102,6 +102,7 @@ svg text{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13px}
         </div>
       </fieldset>
       <fieldset><legend>Schraube</legend><div class="fgrid">
+        <label class="wide">Gewinde (metrisches ISO-Regelgewinde, ISO 261/262)<select id="thr"></select></label>
         <label>Gewinde-Nenndurchmesser d <span class="u">mm</span><input id="d" inputmode="decimal" value="4"></label>
         <label>Steigung P <span class="u">mm</span><input id="P" inputmode="decimal" value="0,7"></label>
         <label>Kopfdurchmesser D<sub>K</sub> <span class="u">mm</span><input id="Dk" inputmode="decimal" value="5,6"></label>
@@ -145,6 +146,8 @@ const $=id=>document.getElementById(id);
 const num=v=>{const x=parseFloat(String(v??'').replace(',','.'));return Number.isFinite(x)?x:NaN;};
 const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString('de-AT',{minimumFractionDigits:d,maximumFractionDigits:d}):'–';
 const RAD=Math.PI/180;
+/* Metrisches ISO-Regelgewinde M1–M8 (ISO 261, Reihe 1 und 2) mit Regelsteigung */
+const THREADS=[[1,0.25],[1.1,0.25],[1.2,0.25],[1.4,0.3],[1.6,0.35],[1.8,0.35],[2,0.4],[2.2,0.45],[2.5,0.45],[3,0.5],[3.5,0.6],[4,0.7],[4.5,0.75],[5,0.8],[6,1],[7,1],[8,1.25]];
 const FIELDS=['form','s','dz','ak','zu','rt','zm','xm','d','P','Dk','bk','e','a','E','Rp'];
 const SKEY='cfa-vorspann-v1';
 
@@ -408,7 +411,12 @@ function initWheel(){const w=$('wheel'),rib=w.querySelector('.wheel-rib');let la
 function loop(ts){if(PLAY){const dt=Math.min(0.1,(ts-lastT)/1000);U+=dt/6;if(U>=1){U=1;PLAY=false;$('btn-play').textContent='▶ Abspielen';}frame();}lastT=ts;requestAnimationFrame(loop);}
 (function init(){
   let st=null;try{st=JSON.parse(localStorage.getItem(SKEY));}catch(e){}
+  {const sel=$('thr'),dc=v=>String(v).replace('.',',');sel.innerHTML=THREADS.map(([d,P])=>`<option value="${d}">M${dc(d)} × ${dc(P)}</option>`).join('')+'<option value="">frei (d und P eingeben)</option>';
+   const sync=()=>{const d=parseFloat(String($('d').value).replace(',','.')),P=parseFloat(String($('P').value).replace(',','.')),t=THREADS.find(x=>Math.abs(x[0]-d)<1e-9&&Math.abs(x[1]-P)<1e-9);sel.value=t?String(t[0]):'';};
+   sel.addEventListener('input',()=>{const t=THREADS.find(x=>String(x[0])===sel.value);if(t){$('d').value=dc(t[0]);$('P').value=dc(t[1]);}});
+   ['d','P'].forEach(k=>$(k).addEventListener('input',sync));window.__thrSync=sync;}
   if(st)for(const k of FIELDS)if(st[k]!=null&&$(k))$(k).value=st[k];
+  window.__thrSync();
   setForm($('form').value||'kegel');
   document.querySelectorAll('[data-form]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.form);update();}));
   $('inp').addEventListener('input',update);
