@@ -40,6 +40,9 @@
 .kv .v{font:600 18px/1.2 "Space Grotesk",sans-serif}
 .kv .v small{font:400 11px "IBM Plex Mono",monospace;color:var(--muted);margin-left:3px}
 .kv .hl{border-color:var(--fg);border-width:2px}
+#res-tol th,#res-tol td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+#res-tol .n{text-align:right;font-variant-numeric:tabular-nums}
+#res-tol th{font-size:12px;color:var(--muted);font-weight:600}
 .ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
 .vs .btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 14px;border:1px solid var(--fg);border-radius:6px;background:var(--surface);color:var(--fg);font:600 15px/1.1 var(--f-disp);cursor:pointer}
 .vs .btn.primary{background:var(--accent);color:var(--accent-ink)}
@@ -112,6 +115,12 @@ svg text{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13px}
         <label>E-Modul E <span class="u">N/mm²</span><input id="E" inputmode="decimal" value="210000"></label>
         <label>Streckgrenze R<sub>p0,2</sub> <span class="u">N/mm²</span><input id="Rp" inputmode="decimal" value="1100"></label>
       </div><p class="note">Die Gewindebohrung im Grundkörper ist um e gegenüber der Plattenbohrung versetzt. Einspannung: Abstand von der Auflagefläche bis zum tragenden Gewinde.</p></fieldset>
+      <fieldset><legend>Toleranz Inkreis der Platte (ISO 1832)</legend><div class="fgrid">
+        <label>Plattengrundform (Eckenwinkel ε)<select id="ecke"><option value="60">T – Dreieck 60°</option><option value="90">S – Quadrat 90°</option><option value="80">C – Rhombus 80°</option><option value="55">D – Rhombus 55°</option><option value="35">V – Rhombus 35°</option></select></label>
+        <label>Inkreis IC <span class="u">mm</span><select id="ic"><option>6,35</option><option>9,525</option><option selected>12,7</option><option>15,875</option><option>19,05</option><option>25,4</option></select></label>
+        <label>Toleranzklasse<select id="tkl"><option value="G">G</option><option value="M" selected>M</option><option value="U">U</option><option value="">frei</option></select></label>
+        <label>Toleranz Inkreis ± T <span class="u">mm</span><input id="tic" inputmode="decimal" value="0,08"></label>
+      </div><p class="note">Die Platte liegt in der Ecke des Plattensitzes an. Ein größerer Inkreis verschiebt die Plattenbohrung von der Ecke weg und vergrößert die wirksame Exzentrizität: Δe = T / (2·sin(ε/2)). Toleranzen nach ISO 1832 als Richtwerte – Herstellerangabe beachten.</p></fieldset>
       <div id="warn"></div>
     </form>
 
@@ -131,7 +140,7 @@ svg text{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13px}
       <section class="card view"><h3>Biegelinie der Schraube</h3>
         <svg id="sv-bend" viewBox="0 0 640 220" role="img" aria-label="Biegelinie der Schraube"></svg>
       </section>
-      <section class="card"><h3 style="font:600 16px var(--f-disp);margin:0 0 8px">Ergebnisse</h3><div class="kv" id="res"></div></section>
+      <section class="card"><h3 style="font:600 16px var(--f-disp);margin:0 0 8px">Ergebnisse</h3><div class="kv" id="res"></div><div id="res-tol"></div></section>
       <section class="card formeln" id="formeln"><h2>Berechnungsformeln</h2><p class="note" id="formeln-info">Die Berechnungsformeln stehen Administratoren zur Verfügung.</p><div id="formeln-body"></div></section>
     </div>
   </div>
@@ -148,7 +157,10 @@ const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString('de-AT',{minimumFractionD
 const RAD=Math.PI/180;
 /* Metrisches ISO-Regelgewinde M1–M8 (ISO 261, Reihe 1 und 2) mit Regelsteigung */
 const THREADS=[[1,0.25],[1.1,0.25],[1.2,0.25],[1.4,0.3],[1.6,0.35],[1.8,0.35],[2,0.4],[2.2,0.45],[2.5,0.45],[3,0.5],[3.5,0.6],[4,0.7],[4.5,0.75],[5,0.8],[6,1],[7,1],[8,1.25]];
-const FIELDS=['form','s','dz','ak','zu','rt','zm','xm','d','P','Dk','bk','e','a','E','Rp'];
+const FIELDS=['form','s','dz','ak','zu','rt','zm','xm','d','P','Dk','bk','e','a','E','Rp','ecke','ic','tkl','tic'];
+/* Toleranz Inkreis d nach ISO 1832 (Richtwerte): Klasse → [bis IC, ±T] */
+const ICTOL={G:[[99,0.025]],M:[[9.6,0.05],[12.8,0.08],[20.1,0.10],[25.5,0.13],[99,0.15]],U:[[9.6,0.08],[12.8,0.13],[20.1,0.18],[25.5,0.25],[99,0.25]]};
+const icTol=(kl,ic)=>{const t=ICTOL[kl];if(!t)return NaN;for(const [m,v] of t)if(ic<=m)return v;return NaN;};
 const SKEY='cfa-vorspann-v1';
 
 /* ================= Geometrie =================
@@ -357,7 +369,18 @@ function renderResults(){
     h+=kv('Sicherheit gegen Fließen',fmt(R.S,2),'')+kv('Flankenneigung am Kontakt dr/dz',fmt(R.slope,3),'')+kv('Axialkraft aus Keilwirkung',fmt(R.Fax,0),'N');
     if(R.tor)h+=kv('Torus-Übergang',R.tor,'')+kv('Beginn Torusfläche',fmt(R.zt,3),'mm');
   }
-  $('res').innerHTML=h;$('warn').innerHTML=MODEL.w.map(t=>`<p class="warn">${t}</p>`).join('');
+  $('res').innerHTML=h;
+  /* Minimaler / maximaler Anzug aus der Inkreistoleranz */
+  {let t='';const T=i.tic,ep=i.ecke;
+   if(Number.isFinite(R.dz)&&T>=0&&ep>0&&ep<180){const de=T/(2*Math.sin(ep*RAD/2)),cs=[['min. Anzug (IC − T)',Math.max(0,i.e-de)],['nominal',i.e],['max. Anzug (IC + T)',i.e+de]];
+    const rr=cs.map(([n,e])=>{const m=e>0?model({...i,e}):null;return {n,e,R:m&&!m.w.some(x=>/Bitte|Kein|Keine/.test(x))?m.R:null,w:m?m.w:[]};});
+    const c=(x,f)=>x.R&&Number.isFinite(f(x.R))?f(x.R):NaN,col=(lab,f,d,u)=>`<tr><td>${lab}</td>${rr.map(x=>`<td class="n">${Number.isFinite(c(x,f))?fmt(c(x,f),d):'–'}</td>`).join('')}<td>${u}</td></tr>`;
+    t=`<h3 style="font:600 15px var(--f-disp);margin:14px 0 6px">Minimaler und maximaler Anzug (Inkreistoleranz ± ${fmt(T,3)} mm → Δe = ± ${fmt(de,3)} mm)</h3><div class="tbl-wrap" style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr><th style="text-align:left">Größe</th>${rr.map(x=>`<th class="n">${x.n}</th>`).join('')}<th></th></tr></thead><tbody>
+     <tr><td>wirksame Exzentrizität e</td>${rr.map(x=>`<td class="n">${fmt(x.e,3)}</td>`).join('')}<td>mm</td></tr>
+     ${col('Umdrehungen N',r=>r.N,2,'')}${col('Drehwinkel φ',r=>r.phi,0,'°')}${col('Hubweg Δz',r=>r.dz,3,'mm')}${col('Durchbiegung δ',r=>r.delta*1000,0,'µm')}${col('Biegekraft (Querkraft) F',r=>r.F,0,'N')}${col('Axialkraft aus Keilwirkung',r=>r.Fax,0,'N')}${col('Biegespannung σ<sub>b</sub>',r=>r.sig,0,'N/mm²')}${col('Sicherheit gegen Fließen',r=>r.S,2,'')}
+     </tbody></table></div>${rr[0].e<=0?'<p class="note">Bei kleinstem Inkreis ist die wirksame Exzentrizität ≤ 0 – die Platte wird nicht in den Sitz gezogen.</p>':''}${rr[2].R&&rr[2].R.sig>i.Rp?'<p class="warn">Bei größtem Inkreis liegt die Biegespannung über der Streckgrenze.</p>':''}`;}
+   $('res-tol').innerHTML=t;}
+  $('warn').innerHTML=MODEL.w.map(t=>`<p class="warn">${t}</p>`).join('');
 }
 function frame(){if(!MODEL||!Number.isFinite(MODEL.R.dz))return;const R=MODEL.R,S=state(INP,R,zkOf(R,U));
   drawSection($('sv-main'),S,'main');drawSection($('sv-zoom'),S,'zoom');drawBend(S);
@@ -397,7 +420,7 @@ function showFormeln(){
 async function checkAdmin(){try{const r=await fetch('/api/me');if(r.ok){const d=await r.json();if(d.role==='admin')showFormeln();}}catch(e){}}
 
 /* ================= Ablauf ================= */
-function read(){const o={};for(const k of FIELDS){const e=$(k);o[k]=k==='form'?e.value:num(e.value);}return o;}
+function read(){const o={};for(const k of FIELDS){const e=$(k);o[k]=k==='form'||k==='tkl'?e.value:num(e.value);}return o;}
 function setForm(f){$('form').value=f;document.querySelectorAll('[data-form]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.form===f));
   document.querySelectorAll('.f-kegel').forEach(e=>e.hidden=f!=='kegel');document.querySelectorAll('.f-torus').forEach(e=>e.hidden=f!=='torus');}
 function update(){INP=read();MODEL=model(INP);renderResults();frame();try{localStorage.setItem(SKEY,JSON.stringify(Object.fromEntries(FIELDS.map(k=>[k,$(k).value]))));}catch(e){}}
@@ -417,6 +440,8 @@ function loop(ts){if(PLAY){const dt=Math.min(0.1,(ts-lastT)/1000);U+=dt/6;if(U>=
    ['d','P'].forEach(k=>$(k).addEventListener('input',sync));window.__thrSync=sync;}
   if(st)for(const k of FIELDS)if(st[k]!=null&&$(k))$(k).value=st[k];
   window.__thrSync();
+  {const setT=()=>{const kl=$('tkl').value,ic=parseFloat(String($('ic').value).replace(',','.')),t=icTol(kl,ic);if(Number.isFinite(t))$('tic').value=String(t).replace('.',',');};
+   $('tkl').addEventListener('input',setT);$('ic').addEventListener('input',setT);$('tic').addEventListener('input',()=>{$('tkl').value='';});}
   setForm($('form').value||'kegel');
   document.querySelectorAll('[data-form]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.form);update();}));
   $('inp').addEventListener('input',update);
