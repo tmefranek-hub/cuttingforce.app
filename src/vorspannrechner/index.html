@@ -105,9 +105,9 @@ svg text{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13px}
         </div>
       </fieldset>
       <fieldset><legend>Schraube</legend><div class="fgrid">
-        <label class="wide">Gewinde (metrisches ISO-Regelgewinde, ISO 261/262)<select id="thr"></select></label>
-        <label>Gewinde-Nenndurchmesser d <span class="u">mm</span><input id="d" inputmode="decimal" value="4"></label>
-        <label>Steigung P <span class="u">mm</span><input id="P" inputmode="decimal" value="0,7"></label>
+        <label class="wide">Gewinde (metrisches ISO-Regelgewinde mit Normsteigung)<select id="thr"></select></label>
+        <label class="thr-free">Gewinde-Nenndurchmesser d <span class="u">mm</span><input id="d" inputmode="decimal" value="4"></label>
+        <label class="thr-free">Steigung P <span class="u">mm</span><input id="P" inputmode="decimal" value="0,7"></label>
         <label>Kopfdurchmesser D<sub>K</sub> <span class="u">mm</span><input id="Dk" inputmode="decimal" value="5,6"></label>
         <label>Senkwinkel β<sub>K</sub> <span class="u">° (gesamt)</span><input id="bk" inputmode="decimal" value="60"></label>
         <label>Exzentrizität e <span class="u">mm</span><input id="e" inputmode="decimal" value="0,05"></label>
@@ -434,10 +434,11 @@ function initWheel(){const w=$('wheel'),rib=w.querySelector('.wheel-rib');let la
 function loop(ts){if(PLAY){const dt=Math.min(0.1,(ts-lastT)/1000);U+=dt/6;if(U>=1){U=1;PLAY=false;$('btn-play').textContent='▶ Abspielen';}frame();}lastT=ts;requestAnimationFrame(loop);}
 (function init(){
   let st=null;try{st=JSON.parse(localStorage.getItem(SKEY));}catch(e){}
-  {const sel=$('thr'),dc=v=>String(v).replace('.',',');sel.innerHTML=THREADS.map(([d,P])=>`<option value="${d}">M${dc(d)} × ${dc(P)}</option>`).join('')+'<option value="">frei (d und P eingeben)</option>';
+  {const sel=$('thr'),dc=v=>String(v).replace('.',',');sel.innerHTML=THREADS.map(([d,P])=>`<option value="${d}">M${dc(d)}</option>`).join('')+'<option value="">Sondergewinde (d und P eingeben)</option>';
+   const vis=()=>document.querySelectorAll('.thr-free').forEach(el=>{el.hidden=sel.value!=='';});
    const sync=()=>{const d=parseFloat(String($('d').value).replace(',','.')),P=parseFloat(String($('P').value).replace(',','.')),t=THREADS.find(x=>Math.abs(x[0]-d)<1e-9&&Math.abs(x[1]-P)<1e-9);sel.value=t?String(t[0]):'';};
-   sel.addEventListener('input',()=>{const t=THREADS.find(x=>String(x[0])===sel.value);if(t){$('d').value=dc(t[0]);$('P').value=dc(t[1]);}});
-   ['d','P'].forEach(k=>$(k).addEventListener('input',sync));window.__thrSync=sync;}
+   sel.addEventListener('input',()=>{const t=THREADS.find(x=>String(x[0])===sel.value);if(t){$('d').value=dc(t[0]);$('P').value=dc(t[1]);}vis();});
+   ['d','P'].forEach(k=>$(k).addEventListener('input',sync));window.__thrSync=()=>{sync();vis();};}
   if(st)for(const k of FIELDS)if(st[k]!=null&&$(k))$(k).value=st[k];
   window.__thrSync();
   {const setT=()=>{const kl=$('tkl').value,ic=parseFloat(String($('ic').value).replace(',','.')),t=icTol(kl,ic);if(Number.isFinite(t))$('tic').value=String(t).replace('.',',');};
