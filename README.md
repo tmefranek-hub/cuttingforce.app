@@ -102,3 +102,19 @@ wrangler.jsonc                   Cloudflare-Worker-Konfiguration
 - `public/` enthält die **minifizierte Auslieferung** – dort nicht direkt bearbeiten.
 - Nach jeder Änderung in `src/`: `node scripts/build.mjs` (benötigt esbuild: `npm i -D esbuild`), dann committen.
 - Mitglieder-Module (`/app/m/*`, z. B. Längsnahtfräsen mit Leistungsberechnung und Optimierern) liefert der Worker nur mit gültiger Anmeldung aus; Gäste laden sie nie.
+
+## E-Mail bei neuer Registrierung (Freigabe per Link)
+
+Bei jeder neuen Registrierung schickt der Worker eine E-Mail an `ADMIN_EMAIL` mit einem Link
+„Freigeben oder ablehnen“ (signiert, 14 Tage gültig, Bestätigung erst auf der geöffneten Seite).
+Ohne Mail-Konfiguration funktioniert die Registrierung wie bisher, es wird nur keine Mail verschickt.
+
+Einrichtung mit Resend (einfachste Variante, keine DNS-Änderung nötig):
+1. Konto auf https://resend.com mit der Admin-E-Mail-Adresse anlegen, API-Key erzeugen.
+2. Cloudflare Dashboard → Workers & Pages → cuttingforce-app → Settings → Variables and Secrets →
+   Secret `RESEND_API_KEY` mit dem Key anlegen (oder `npx wrangler secret put RESEND_API_KEY`).
+3. Ohne eigene Absender-Domain verschickt Resend über `onboarding@resend.dev` – das geht nur an die
+   E-Mail-Adresse des Resend-Kontos (reicht für die Admin-Benachrichtigung). Mit verifizierter Domain
+   optional `MAIL_FROM` setzen, z. B. `cuttingforce.app <noreply@cuttingforce.app>`.
+
+Alternative: Cloudflare Email Routing mit `send_email`-Binding `MAILER` (Ziel-Adresse muss verifiziert sein).
