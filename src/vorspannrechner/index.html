@@ -127,6 +127,7 @@ svg text{font-family:KaTeX_Main,'Times New Roman',serif;font-size:13px}
         <label>Toleranz Inkreis ± T <span class="u">mm</span><input id="tic" inputmode="decimal" value="0,08"></label>
       </div><p class="note">Die Platte liegt in der Ecke des Plattensitzes an. Ein größerer Inkreis verschiebt die Plattenbohrung von der Ecke weg und vergrößert die wirksame Exzentrizität: Δe = T / (2·sin(ε/2)). Toleranzen nach ISO 1832 als Richtwerte – Herstellerangabe beachten.</p></fieldset>
       <div id="warn"></div>
+      <div class="ctl" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px"><button type="button" class="btn primary" id="btn-calc">Berechnen</button><span id="calc-state" class="note" style="margin:0"></span></div>
     </form>
 
     <div class="views">
@@ -435,7 +436,11 @@ function read(){const o={};for(const k of FIELDS){const e=$(k);o[k]=k==='form'||
 function setAus(v){$('aus').value=v;document.querySelectorAll('[data-aus]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.aus===v));document.querySelectorAll('.f-aus').forEach(e=>e.hidden=v!=='1');}
 function setForm(f){$('form').value=f;document.querySelectorAll('[data-form]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.form===f));
   document.querySelectorAll('.f-kegel').forEach(e=>e.hidden=f!=='kegel');document.querySelectorAll('.f-torus').forEach(e=>e.hidden=f!=='torus');}
-function update(){INP=read();MODEL=model(INP);renderResults();frame();try{localStorage.setItem(SKEY,JSON.stringify(Object.fromEntries(FIELDS.map(k=>[k,$(k).value]))));}catch(e){}}
+function saveInp(){try{localStorage.setItem(SKEY,JSON.stringify(Object.fromEntries(FIELDS.map(k=>[k,$(k).value]))));}catch(e){}}
+/* Gerechnet wird nur mit „Berechnen“; Eingabeänderungen werden gespeichert und als veraltet markiert */
+function calcState(t,warn){const e=$('calc-state');if(e){e.textContent=t;e.style.color=warn?'var(--warn, #b3261e)':'';}}
+function markDirty(){saveInp();calcState(MODEL?'Eingaben geändert – Ergebnisse gelten für den letzten Stand. Neu berechnen.':'Noch nicht berechnet – „Berechnen“ drücken.',!!MODEL);}
+function update(){INP=read();MODEL=model(INP);renderResults();frame();saveInp();calcState('Berechnet um '+new Date().toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'.');}
 function initWheel(){const w=$('wheel'),rib=w.querySelector('.wheel-rib');let lastX=null,off=0;
   const turn=dpx=>{U=Math.max(0,Math.min(1,U+dpx*0.0015));off=(off+dpx)%12;rib.style.backgroundPosition=off+'px 0';PLAY=false;$('btn-play').textContent='▶ Abspielen';frame();};
   w.addEventListener('pointerdown',e=>{lastX=e.clientX;w.setPointerCapture(e.pointerId);});
@@ -456,11 +461,12 @@ function loop(ts){if(PLAY){const dt=Math.min(0.1,(ts-lastT)/1000);U+=dt/6;if(U>=
   {const setT=()=>{const kl=$('tkl').value,ic=parseFloat(String($('ic').value).replace(',','.')),t=icTol(kl,ic);if(Number.isFinite(t))$('tic').value=String(t).replace('.',',');};
    $('tkl').addEventListener('input',setT);$('ic').addEventListener('input',setT);$('tic').addEventListener('input',()=>{$('tkl').value='';});}
   setForm($('form').value||'kegel');setAus($('aus').value==='1'?'1':'0');
-  document.querySelectorAll('[data-aus]').forEach(b=>b.addEventListener('click',()=>{setAus(b.dataset.aus);update();}));
-  document.querySelectorAll('[data-form]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.form);update();}));
-  $('inp').addEventListener('input',update);
+  document.querySelectorAll('[data-aus]').forEach(b=>b.addEventListener('click',()=>{setAus(b.dataset.aus);markDirty();}));
+  document.querySelectorAll('[data-form]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.form);markDirty();}));
+  $('inp').addEventListener('input',markDirty);
+  $('btn-calc').addEventListener('click',()=>{const b=$('btn-calc');b.disabled=true;b.textContent='Berechne …';setTimeout(()=>{update();b.disabled=false;b.textContent='Berechnen';},20);});
   $('btn-play').addEventListener('click',()=>{if(U>=1)U=0;PLAY=!PLAY;$('btn-play').textContent=PLAY?'❚❚ Pause':'▶ Abspielen';});
-  initWheel();U=0.55;update();checkAdmin();requestAnimationFrame(loop);
+  initWheel();U=0.55;markDirty();$('res').innerHTML='<p class="note" style="grid-column:1/-1">Noch nicht berechnet – Eingaben prüfen und „Berechnen“ drücken.</p>';checkAdmin();requestAnimationFrame(loop);
 })();
 </script>
 </body>
