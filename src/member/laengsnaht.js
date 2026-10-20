@@ -77,7 +77,7 @@ function lnZHTML(f){const A=lnAng(f),zc=Math.round(num(f.z)),fz=(lnCuts(f).list[
  </tbody></table></div>`:`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> L</th><th>z<sub>i</sub> R</th><th>Teilung L / R (°)</th><th>f<sub>z,i</sub> L / R S${kS} (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th><th>Δθ-Muster L | R (°)</th></tr></thead><tbody>
  ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm+' links','numeric')}</td><td>${inp('data-zrow',i,'R',Number.isFinite(r.zR)?r.zR:'','Zähnezahl '+r.nm+' rechts','numeric')}</td><td>${pv(r.zL)} / ${pv(r.zR)}</td><td>${fv(r.zL)} / ${fv(r.zR)}</td><td>${lnLockBtn(f,i,'L')}${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${lnLockBtn(f,i,'R')}${inp('data-phrow',i,'R',dec(r.phR,3),'Winkelversatz '+r.nm+' rechts','decimal')}${lnIndBtn(f,i,lnLocked(f,i,'L')?'L':'R')}</td><td>${[[r.dvL,r.indL],[r.dvR,r.indR]].map(([d,ind])=>ind?'einzeln':d.length?d.map(v=>(v>0?'+':'')+fmt(v,2)).join('/'):'gleich').join(' | ')}</td></tr>${lnIndRow(f,A,i,8)}`).join('')}
  </tbody></table></div>`}
- <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = v<sub>f</sub> / (n · z<sub>i</sub>) mit v<sub>f</sub> des gewählten Schnitts: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j: θ = φ<sub>0,i</sub> + (j−1)·360°/z<sub>i</sub>, je Seite mit eigener Teilung. ${lnMid(f)?'„Links mittig zwischen rechts“: rechts hat dieselbe Zähnezahl wie links und liegt genau eine halbe Teilung weiter (φ<sub>0,R</sub> = φ<sub>0,L</sub> + Teilung/2).':'Vorgabe φ<sub>0</sub> rechts = φ<sub>0</sub> links + halbe Teilung rechts.'} „Gleichmäßig aufteilen“ wählt Reihe für Reihe den Winkelversatz mit dem größten Mindestabstand zu allen übrigen Platten (alle Reihen, links und rechts) – so ist am Beginn alles gut verteilt. 0° = Bezugsmarke, gezählt in Drehrichtung.</p>`;}
+ <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = v<sub>f</sub> / (n · z<sub>i</sub>) mit v<sub>f</sub> des gewählten Schnitts: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j: θ = φ<sub>0,i</sub> + (j−1)·360°/z<sub>i</sub>, je Seite mit eigener Teilung. ${lnMid(f)?'„Links mittig zwischen rechts“: rechts hat dieselbe Zähnezahl wie links und liegt genau eine halbe Teilung weiter (φ<sub>0,R</sub> = φ<sub>0,L</sub> + Teilung/2).':'Vorgabe φ<sub>0</sub> rechts = φ<sub>0</sub> links + halbe Teilung rechts.'} „Gleichmäßig aufteilen“ wählt Reihe für Reihe den Winkelversatz mit dem größten Mindestabstand zu allen übrigen Platten (alle Reihen, links und rechts) – so ist am Beginn alles gut verteilt. 0° = Bezugsmarke, gezählt entgegen der Drehrichtung: eine Platte mit kleinerer Winkellage läuft vor und erreicht den unteren Totpunkt früher.</p>`;}
 /* Winkellage aller Platten: Reihe i, Seite L/R, Platte j */
 /* Gleichmäßige Aufteilung: Reihe für Reihe den Winkelversatz wählen, der den kleinsten Winkelabstand
    zu allen bereits gesetzten Platten (alle Reihen, links und rechts) möglichst groß macht. Ergebnis wird zwischengespeichert. */
@@ -107,13 +107,13 @@ function lnAng(f){const ZL=lnZ(f,'L'),ZR=lnZ(f,'R'),pL=String(f.phRows||'').spli
   return {nm:r.nm,zL,zR,phL,phR,dvL:lnDv(f,'L',i),dvR:mid?lnDv(f,'L',i):lnDv(f,'R',i)};});
  const ins=[],N=x=>((x%360)+360)%360;
  /* fzf = (Winkelabstand zur vorauslaufenden Platte derselben Reihe und Seite) / Teilung → f_z der Platte = fzf · f_z,i (Ungleichteilung) */
- const gf=(dv,j,z)=>dv.length?1+(lnDvAt(dv,j+1)-lnDvAt(dv,j))*z/360:1;
+ const gf=(dv,j,z)=>dv.length?1+(lnDvAt(dv,j)-lnDvAt(dv,(j-1+z)%z))*z/360:1;
  rows.forEach((r,i)=>{if(r.zL>0)for(let j=0;j<r.zL;j++)ins.push({i,nm:r.nm,side:'L',j:j+1,ang:N(r.phL+j*360/r.zL+lnDvAt(r.dvL,j)),fzf:gf(r.dvL,j,r.zL)});
   if(r.zR>0)for(let j=0;j<r.zR;j++)ins.push({i,nm:r.nm,side:'R',j:j+1,ang:N(r.phR+j*360/r.zR+lnDvAt(r.dvR,j)),fzf:gf(r.dvR,j,r.zR)});});
  /* Gesperrte Reihen: jede Winkellage einzeln (indL/indR: Reihen ';', Werte '/'); f_z-Faktor aus der Lücke zur vorauslaufenden Platte */
  rows.forEach((r,i)=>['L','R'].forEach(sd=>{const z=sd==='L'?r.zL:r.zR,a=lnIndOf(f,sd,i,z);r['ind'+sd]=!!a;if(!a)return;
   const ph=sd==='L'?r.phL:r.phR,p=360/z,its=ins.filter(q=>q.i===i&&q.side===sd),ang=a.map(N),srt=ang.map((v,j)=>[v,j]).sort((x,y)=>x[0]-y[0]),gap=new Array(z);
-  srt.forEach(([v,j],q)=>{const nx=srt[(q+1)%z][0];gap[j]=((nx-v)%360+360)%360||360;});
+  srt.forEach(([v,j],q)=>{const pv=srt[(q-1+z)%z][0];gap[j]=((v-pv)%360+360)%360||360;});
   its.forEach((q,j)=>{q.ang=ang[j];q.fzf=gap[j]/p;q.dth=((ang[j]-(ph+j*p))%360+540)%360-180;q.ind=true;});}));
  return {rows,ins};}
 /* Eingegebene Einzelwinkel (leer = nicht vorgegeben) */
@@ -140,7 +140,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const G=lnGeom(f),A=lnAng(f),DS=num(f.Dc),ap=lnApOf(f),C=lnCuts(f),ks=lnSel(f),cu=C.list[ks];
  {const cs=document.getElementById('ln-cutsel');if(cs)cs.innerHTML='Angezeigter Schnitt: '+C.list.map(c=>`<button type="button" class="chip-btn" data-lnsel="${c.k}" aria-pressed="${c.k===ks}">Schnitt ${c.k+1}${c.t>0?' · '+fmt(c.t,0)+' mm':''}</button>`).join('');}
  if(!(DS>0&&ap>0&&G.ok&&cu&&cu.t>0&&cu.d>0)){el.innerHTML='<p class="note">Fräserdurchmesser Dc, Profil und die Schnitttiefen (zunehmend) eintragen.</p>';return;}
- /* Alles maßstäblich: Koordinaten in mm um die Fräserachse, X = Lage quer, Y nach unten; Winkel θ von oben in Drehrichtung */
+ /* Alles maßstäblich: Koordinaten in mm um die Fräserachse, X = Lage quer, Y nach unten; Winkel θ von oben, gezählt entgegen der Drehrichtung (Lage im Bild = Drehwinkel − θ) */
  const RS=DS/2,cb=Math.cos(G.be);let mir=1,near='L';
  const COL=['#b3261e','#2e7d32','#7a5a00','#1d5fc4','#6a1b9a','#00838f','#ad1457','#5d4037'];
  const t=cu.t,tp=cu.tp;
@@ -150,7 +150,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const phRow=i=>{let m=0;const a=yLow(i),b=Math.min(yHigh(i),t);for(let q=0;q<=20;q++){const v=phY(a+(b-a)*q/20);if(v>m)m=v;}return m;};
  const PT=(r,deg)=>{const q=deg*Math.PI/180;return [mir*r*Math.sin(q),-r*Math.cos(q)];};
  const ENG=new Set();let eng=0;
- const INS=A.ins.map(q=>{const a=(((q.ang+LN_ROT)%360)+360)%360,ph=phRow(q.i),on=ph>0&&a>=180-ph&&a<=180;if(on){eng++;ENG.add(q.i+q.side+q.j);}return {...q,a,on};});
+ const INS=A.ins.map(q=>{const a=(((LN_ROT-q.ang)%360)+360)%360,ph=phRow(q.i),on=ph>0&&a>=180-ph&&a<=180;if(on){eng++;ENG.add(q.i+q.side+q.j);}return {...q,a,on};});
  /* eine Ansicht: Maßstab k (px/mm), Ursprung (ox, oy) in px */
  const view=(W,H,k,ox,oy,detail)=>{const S=([x,y])=>[ox+x*k,oy+y*k],f1=v=>v.toFixed(1);let g='';
   const ys=oy+(RS-t)*k;
@@ -162,7 +162,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
    const ph=phRow(i);if(ph>0){const rr=(RS-yMid(i))*k,p1=S(PT(RS-yMid(i),180)),p2=S(PT(RS-yMid(i),180-ph));
     g+=`<path d="M${f1(p1[0])} ${f1(p1[1])} A${f1(rr)} ${f1(rr)} 0 0 ${mir>0?0:1} ${f1(p2[0])} ${f1(p2[1])}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".3" stroke-width="${detail?14:8}"/>`;}});
   /* Gradstriche alle 10° durch den Fräsermittelpunkt (drehen mit dem Fräser), Beschriftung am Schnittpunkt mit dem Flugkreis */
-  if(detail){const rO=RS+14/k;for(let th=0;th<360;th+=10){const a=th+LN_ROT,c0=S([0,0]),c1=S(PT(rO,a)),pc=S(PT(RS,a)),pl=S(PT(RS+9/k,a));
+  if(detail){const rO=RS+14/k;for(let th=0;th<360;th+=10){const a=LN_ROT-th,c0=S([0,0]),c1=S(PT(rO,a)),pc=S(PT(RS,a)),pl=S(PT(RS+9/k,a));
     g+=`<line x1="${f1(c0[0])}" y1="${f1(c0[1])}" x2="${f1(c1[0])}" y2="${f1(c1[1])}" stroke="var(--muted)" stroke-width="${th%90?0.5:0.9}" stroke-dasharray="${th%90?'3 3':'none'}" opacity=".7"/>`;
     g+=`<circle cx="${f1(pc[0])}" cy="${f1(pc[1])}" r="2.2" fill="var(--fg)"/><text x="${f1(pl[0])}" y="${f1(pl[1]+3.5)}" font-size="10" text-anchor="middle" fill="var(--fg)" style="paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round">${th}°</text>`;}}
   const sw=detail?5:3;
@@ -213,7 +213,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const mt=document.getElementById('ln-mat');
  if(mt){if(!LN_MAT){mt.innerHTML='';}else{const zmax=Math.max(1,...A.rows.map(r=>Math.max(r.zL>0?r.zL:0,r.zR>0?r.zR:0)));
   const line=(r,i,side)=>{const list=A.ins.filter(q=>q.i===i&&q.side===side);return `<tr><td>${r.nm}</td><td>${side==='L'?'links':'rechts'}</td>${Array.from({length:zmax},(_,j)=>{const q=list[j];return q?(ENG.has(i+side+q.j)?`<td style="font-weight:700;background:var(--surface-2)">${fmt(q.ang,2)}</td>`:`<td>${fmt(q.ang,2)}</td>`):'<td></td>';}).join('')}</tr>`;};
-  mt.innerHTML=`<div class="lbl" style="margin-top:10px">Positionsmatrix – Winkellage θ (°) jeder Platte, 0° = Bezugsmarke, in Drehrichtung</div><div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Seite</th>${Array.from({length:zmax},(_,j)=>`<th>${j+1}</th>`).join('')}</tr></thead><tbody>${A.rows.map((r,i)=>line(r,i,'L')+line(r,i,'R')).join('')}</tbody></table></div><p class="note">${A.ins.length} Platten im Fräser. Fett hinterlegt: im Eingriff bei Drehwinkel ${fmt(LN_ROT,1)}° und Tiefe ${fmt(t,1)} mm.</p>`;}}
+  mt.innerHTML=`<div class="lbl" style="margin-top:10px">Positionsmatrix – Winkellage θ (°) jeder Platte, 0° = Bezugsmarke, gezählt entgegen der Drehrichtung – kleinere Winkellage läuft vor</div><div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Seite</th>${Array.from({length:zmax},(_,j)=>`<th>${j+1}</th>`).join('')}</tr></thead><tbody>${A.rows.map((r,i)=>line(r,i,'L')+line(r,i,'R')).join('')}</tbody></table></div><p class="note">${A.ins.length} Platten im Fräser. Fett hinterlegt: im Eingriff bei Drehwinkel ${fmt(LN_ROT,1)}° und Tiefe ${fmt(t,1)} mm.</p>`;}}
 }
 /* Positionen je Reihe: alle Wendeplatten mit Winkellage, Abweichung (Ungleichteilung), Lücke zur vorauslaufenden Platte, f_z und h_max */
 function lnPosData(f){const A=lnAng(f),C=lnCuts(f),ks=lnSel(f),cu=C.list[ks]||{},z=num(f.z),calc=LN_CALC&&LN_CALC.key===lnCalcKey(f)?LN_CALC.cuts[ks]:null,out=[];
@@ -223,7 +223,7 @@ function lnPosData(f){const A=lnAng(f),C=lnCuts(f),ks=lnSel(f),cu=C.list[ks]||{}
 function lnPosHTML(f){const D=lnPosData(f),sel=LN_POSROW,list=sel==='all'?D.list:D.list.filter(x=>x.i===+sel);
  const chips=`<button type="button" class="chip-btn" data-lnposrow="all" aria-pressed="${sel==='all'}">Alle Reihen</button>`+D.rows.map((r,i)=>`<button type="button" class="chip-btn" data-lnposrow="${i}" aria-pressed="${String(i)===String(sel)}">${r.nm}</button>`).join('');
  const sg=v=>(v>1e-9?'+':'')+fmt(Math.abs(v)<1e-9?0:v,2);
- return `<div class="lbl" style="margin:14px 0 4px">Positionen je Reihe – Winkellage θ jeder Platte (0° = Bezugsmarke, in Drehrichtung)</div>
+ return `<div class="lbl" style="margin:14px 0 4px">Positionen je Reihe – Winkellage θ jeder Platte (0° = Bezugsmarke, gezählt entgegen der Drehrichtung – kleinere Winkellage läuft vor)</div>
  <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin-bottom:6px">${chips}<button type="button" class="btn" data-lnposcsv="1" style="margin-left:auto">Liste als CSV</button></div>
  <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>Seite</th><th>Platte</th><th>θ (°)</th><th>Δθ Ungleichteilung (°)</th><th>Lücke zur vorauslaufenden Platte (°)</th><th>f<sub>z</sub>-Faktor</th><th>f<sub>z</sub> Schnitt ${D.ks+1} (mm)</th><th>h<sub>max</sub> Schnitt ${D.ks+1} (mm)</th></tr></thead><tbody>
  ${list.map(x=>`<tr><td>${x.nm}</td><td>${x.side==='L'?'links':'rechts'}</td><td>${x.j}</td><td>${fmt(x.ang,3)}</td><td>${sg(x.dth)}</td><td>${fmt(x.gap,3)}</td><td>${fmt(x.ff,4)}</td><td>${Number.isFinite(x.fz)?fmt(x.fz,4):'–'}</td><td>${Number.isFinite(x.h)?fmt(x.h,4):'–'}</td></tr>`).join('')}</tbody></table></div>
@@ -322,7 +322,7 @@ function lnPowerCut(f,k){
  // Überlagerung aller Platten über den Fräserdrehwinkel ψ
  const Pt=new Float64Array(N),Mt=new Float64Array(N),Ne=new Float64Array(N),Ht=new Float64Array(N);
  const byKey={};edges.forEach(e=>byKey[e.i+e.side]=e);
- A.ins.forEach(q=>{const e=byKey[q.i+q.side];if(!e)return;const o=Math.round(q.ang/da),ff=q.fzf||1,sc=Math.pow(ff,1-mc);
+ A.ins.forEach(q=>{const e=byKey[q.i+q.side];if(!e)return;const o=((N-Math.round(q.ang/da))%N+N)%N,ff=q.fzf||1,sc=Math.pow(ff,1-mc);
   for(let j=0;j<N;j++){const idx=(j+o)%N,pv=e.P[idx];if(pv){Pt[j]+=pv*sc;Mt[j]+=e.M[idx]*sc;Ne[j]++;const hh=e.H[idx]*ff;if(hh>Ht[j])Ht[j]=hh;}}});
  let Ps=0,Ms=0,Pmx=0,Mmx=0,Nmx=0,Nsum=0,Pmn=1e18,Mmn=1e18,Nmn=1e9;for(let j=0;j<N;j++){Ps+=Pt[j];Ms+=Mt[j];Nsum+=Ne[j];if(Pt[j]>Pmx)Pmx=Pt[j];if(Mt[j]>Mmx)Mmx=Mt[j];if(Ne[j]>Nmx)Nmx=Ne[j];if(Pt[j]<Pmn)Pmn=Pt[j];if(Mt[j]<Mmn)Mmn=Mt[j];if(Ne[j]<Nmn)Nmn=Ne[j];}
  return {k,t:cu.t,d:cu.d,fz:cu.fz,N,da,n,vf,om,edges,Ht,ins:A.ins.map(q=>({i:q.i,side:q.side,j:q.j,ang:q.ang,fzf:q.fzf||1})),mc,Pt,Mt,Ne,Pm:Ps/N,Pmax:Pmx,Pmin:Pmn,Mm:Ms/N,Mmax:Mmx,Mmin:Mmn,Nm:Nsum/N,Nmax:Nmx,Nmin:Nmn,hmax:Math.max(0,...Ht),eta:num(f.eta)||1};}
@@ -391,10 +391,10 @@ function lnPowResHTML(f){
  if(!tracks.some(t=>t.key===LN_TRK)&&tracks.length)LN_TRK=tracks[0].key;
  const tr=LN_SRC==='trk'?tracks.find(t=>t.key===LN_TRK):null;
  let ysel,meanSel,lab,nOn=null,extra=null;const split=!!(tr&&tr.sides.length===2&&LN_SPLIT);
- const trackSum=(i,sides)=>{const y=new Float64Array(r.N);sides.forEach(sd=>{const e=r.edges.find(x=>x.i===i&&x.side===sd);if(!e)return;r.ins.filter(q=>q.i===i&&q.side===sd).forEach(q=>{const o=Math.round(q.ang/r.da),src=isH?e.H:isP?e.P:e.M,ff=q.fzf||1,sc=isH?ff:Math.pow(ff,1-r.mc);for(let j=0;j<r.N;j++){const v=src[(j+o)%r.N]*sc;if(isH){if(v>y[j])y[j]=v;}else y[j]+=v;}});});return y;};
+ const trackSum=(i,sides)=>{const y=new Float64Array(r.N);sides.forEach(sd=>{const e=r.edges.find(x=>x.i===i&&x.side===sd);if(!e)return;r.ins.filter(q=>q.i===i&&q.side===sd).forEach(q=>{const o=((r.N-Math.round(q.ang/r.da))%r.N+r.N)%r.N,src=isH?e.H:isP?e.P:e.M,ff=q.fzf||1,sc=isH?ff:Math.pow(ff,1-r.mc);for(let j=0;j<r.N;j++){const v=src[(j+o)%r.N]*sc;if(isH){if(v>y[j])y[j]=v;}else y[j]+=v;}});});return y;};
  if(tr){ysel=new Float64Array(r.N);nOn=new Float64Array(r.N);let zs=0;
   tr.sides.forEach(sd=>{const e=r.edges.find(x=>x.i===tr.i&&x.side===sd);if(!e)return;zs+=e.z;
-   r.ins.filter(q=>q.i===tr.i&&q.side===sd).forEach(q=>{const o=Math.round(q.ang/r.da),src=isH?e.H:isP?e.P:e.M,ff=q.fzf||1,sc=isH?ff:Math.pow(ff,1-r.mc);
+   r.ins.filter(q=>q.i===tr.i&&q.side===sd).forEach(q=>{const o=((r.N-Math.round(q.ang/r.da))%r.N+r.N)%r.N,src=isH?e.H:isP?e.P:e.M,ff=q.fzf||1,sc=isH?ff:Math.pow(ff,1-r.mc);
     for(let j=0;j<r.N;j++){const v=src[(j+o)%r.N]*sc;if(isH){if(v>ysel[j])ysel[j]=v;}else ysel[j]+=v;if(e.P[(j+o)%r.N]>0)nOn[j]++;}});});
   let sm=0,mx=0;for(let j=0;j<r.N;j++){sm+=ysel[j];if(ysel[j]>mx)mx=ysel[j];}meanSel=isH?mx:sm/r.N;lab=`Spur ${tr.nm} (${zs} Platten)`;
   if(split){ysel=trackSum(tr.i,['L']);extra=[{ys:trackSum(tr.i,['R']),color:'#c2560c',label:'rechts'}];lab=`Spur ${r.edges.find(e=>e.i===tr.i).nm} – links und rechts getrennt`;}}
@@ -460,7 +460,7 @@ function lnToolOpt(f){
  const bad=res.find(r=>r.err);if(bad)return {err:`Schnitt ${bad.k+1}: ${bad.err}`};
  const N=res[0].N,da=res[0].da,vars=[];
  A.rows.forEach((row,i)=>{
-  const mk=(sides,z,ph,key,nm)=>{if(!(z>0))return;const p=360/z;vars.push({key,i,sides,z,p,S:Math.max(1,Math.round(p/da)),s:Math.round((((ph%p)+p)%p)/da),lock:mid?lnLocked(f,i,'L'):sides.every(sd=>lnLocked(f,i,sd)),nm});};
+  const mk=(sides,z,ph,key,nm)=>{if(!(z>0))return;const p=360/z;vars.push({key,i,sides,z,p,S:Math.max(1,Math.round(p/da)),s:Math.round((((-ph%p)+p)%p)/da)%Math.max(1,Math.round(p/da)),lock:mid?lnLocked(f,i,'L'):sides.every(sd=>lnLocked(f,i,sd)),nm});};
   if(mid)mk(['L','R'],row.zL,row.phL,i+'M',row.nm);
   else{mk(['L'],row.zL,row.phL,i+'L',row.nm+' links');mk(['R'],row.zR,row.phR,i+'R',row.nm+' rechts');}});
  /* Beitrag einer Reihe als periodische Kurve: C[y] = Σ_j P_Platte[(y + o_j) mod N], Verschiebung s = φ0/Δψ */
@@ -468,8 +468,8 @@ function lnToolOpt(f){
  const curve=(v,r)=>{const c=new Float64Array(N),d=new Float64Array(N),nL=new Float64Array(N),nR=new Float64Array(N);let any=false;
   v.sides.forEach(sd=>{const e=r.edges.find(x=>x.i===v.i&&x.side===sd);if(!e||!e.incs.length)return;any=true;const sg=sd==='L'?1:-1,cnt=sd==='L'?nL:nR;
    const dvv=sd==='R'?A.rows[v.i].dvR:A.rows[v.i].dvL,mcT=num(f.mc)||0;
-   if(A.rows[v.i]['ind'+sd]){A.ins.filter(q=>q.i===v.i&&q.side===sd).forEach(q=>{const o=((Math.round(q.ang/da)-v.s)%N+N)%N,sc=Math.pow(q.fzf,1-mcT);for(let y=0;y<N;y++){const pv=e.P[(y+o)%N]*sc;if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}});return;}
-   for(let j=0;j<v.z;j++){const o=Math.round((j*v.p+lnDvAt(dvv,j)+(mid&&sd==='R'?v.p/2:0))/da),sc=dvv.length?Math.pow(1+(lnDvAt(dvv,j+1)-lnDvAt(dvv,j))/v.p,1-mcT):1;for(let y=0;y<N;y++){const pv=e.P[(y+o)%N]*sc;if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}}});
+   if(A.rows[v.i]['ind'+sd]){A.ins.filter(q=>q.i===v.i&&q.side===sd).forEach(q=>{const o=((-Math.round(q.ang/da)-v.s)%N+N)%N,sc=Math.pow(q.fzf,1-mcT);for(let y=0;y<N;y++){const pv=e.P[(y+o)%N]*sc;if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}});return;}
+   for(let j=0;j<v.z;j++){const o=((-Math.round((j*v.p+lnDvAt(dvv,j)+(mid&&sd==='R'?v.p/2:0))/da))%N+N)%N,sc=dvv.length?Math.pow(1+(lnDvAt(dvv,j)-lnDvAt(dvv,(j-1+v.z)%v.z))/v.p,1-mcT):1;for(let y=0;y<N;y++){const pv=e.P[(y+o)%N]*sc;if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}}});
   return any?{c,d,nL,nR}:null;};
  const wS=Math.max(0,num(f.wSide)>=0?num(f.wSide):1);
  const stats=(curves)=>{let mx=-1e18,mn=1e18,dm=0,lm=0,rm=0;const T=new Float64Array(N),D=new Float64Array(N),L=new Float64Array(N),Rn=new Float64Array(N);
@@ -498,7 +498,7 @@ function lnToolOpt(f){
  // Ergebnis zurückschreiben
  const n=A.rows.length,pL=String(f.phRows||'').split(';'),pR=String(f.phRowsR||'').split(';');while(pL.length<n)pL.push('');while(pR.length<n)pR.push('');
  A.rows.forEach((row,i)=>{pL[i]=dec(row.phL,3);pR[i]=dec(row.phR,3);});
- vars.filter(v=>changed.has(v.key)).forEach(v=>{const ph=dec(v.s*da%v.p,3);if(v.sides.includes('L'))pL[v.i]=ph;if(!mid&&v.sides[0]==='R')pR[v.i]=ph;});
+ vars.filter(v=>changed.has(v.key)).forEach(v=>{const ph=dec(((-v.s*da)%v.p+v.p)%v.p,3);if(v.sides.includes('L'))pL[v.i]=ph;if(!mid&&v.sides[0]==='R')pR[v.i]=ph;});
  f.phRows=pL.slice(0,n).join(';');if(!mid)f.phRowsR=pR.slice(0,n).join(';');
  return {report,at:new Date()};}
 /* Mittlere Schnittleistung eines Schnitts (tp → t) bei Vorschubgeschwindigkeit vf – analytisch gemittelt, unabhängig von der Winkellage */
@@ -571,20 +571,20 @@ function* lnPitchOptGen(f){
  const K=Math.floor(N/2);
  const curv=res.map(r=>{const M={};r.edges.forEach(e=>{if(e.incs.length)M[e.i+e.side]=e.P;});return M;});
  vars.forEach(v=>{v.pl=[];
-  if(v.lock){v.m=0;v.d=[0];v.sides.forEach(sd=>A.ins.filter(q=>q.i===v.i&&q.side===sd).forEach(q=>v.pl.push({sd,q:0,o0:Math.round(q.ang/da),sc:Math.pow(q.fzf||1,1-mc)})));}
-  else v.sides.forEach(sd=>{const ph=sd==='R'&&mid?v.ph+v.p/2:v.ph;for(let j=0;j<v.z;j++)v.pl.push({sd,q:v.m?j%v.m:0,o0:Math.round((ph+j*v.p)/da)});});
+  if(v.lock){v.m=0;v.d=[0];v.sides.forEach(sd=>A.ins.filter(q=>q.i===v.i&&q.side===sd).forEach(q=>v.pl.push({sd,q:0,o0:-Math.round(q.ang/da),sc:Math.pow(q.fzf||1,1-mc)})));}
+  else v.sides.forEach(sd=>{const ph=sd==='R'&&mid?v.ph+v.p/2:v.ph;for(let j=0;j<v.z;j++)v.pl.push({sd,q:v.m?j%v.m:0,o0:-Math.round((ph+j*v.p)/da)});});
   v.byQ=Array.from({length:Math.max(1,v.m)},(_,q)=>v.pl.filter(pp=>pp.q===q));
   v.hN=Math.max(0,...res.flatMap(r=>r.edges.filter(e=>e.i===v.i&&v.sides.includes(e.side)).map(e=>e.hmax)));});
  /* Vorschubfaktor einer Platte aus dem Muster: Lücke zur vorauslaufenden Platte / Teilung */
- const ffOf=(v,q)=>v.m?1+(v.d[(q+1)%v.m]-v.d[q])*da/v.p:1;
+ const ffOf=(v,q)=>v.m?1+(v.d[q]-v.d[(q-1+v.m)%v.m])*da/v.p:1;
  const dhOf=v=>{if(!v.m)return 0;let a=1e9,b=-1e9;for(let q=0;q<v.m;q++){const x=ffOf(v,q);if(x<a)a=x;if(x>b)b=x;}return v.hN*(b-a);};
  /* Summensignal je Schnitt wird inkrementell nachgeführt; das Spektrum kommt per FFT aus dem Summensignal */
  const T=res.map(()=>new Float64Array(N));
- const addPl=(v,pp,sg)=>{const o=((pp.o0+v.d[pp.q])%N+N)%N,g=sg*(pp.sc!=null?pp.sc:Math.pow(ffOf(v,pp.q),1-mc));res.forEach((r,c)=>{const P=curv[c][v.i+pp.sd];if(!P)return;const Tc=T[c];
+ const addPl=(v,pp,sg)=>{const o=((pp.o0-v.d[pp.q])%N+N)%N,g=sg*(pp.sc!=null?pp.sc:Math.pow(ffOf(v,pp.q),1-mc));res.forEach((r,c)=>{const P=curv[c][v.i+pp.sd];if(!P)return;const Tc=T[c];
    for(let y=0,ix=o;y<N;y++,ix++){if(ix===N)ix=0;const pv=P[ix];if(pv)Tc[y]+=g*pv;}});};
  const addV=(v,sg)=>v.pl.forEach(pp=>addPl(v,pp,sg));
- /* Änderung von d[q] betrifft nur Platten mit Musterindex q (Lage und Lücke) und q−1 (Lücke) */
- const addQ=(v,q,sg)=>{const q2=(q-1+v.m)%v.m;v.byQ[q].forEach(pp=>addPl(v,pp,sg));if(q2!==q)v.byQ[q2].forEach(pp=>addPl(v,pp,sg));};
+ /* Änderung von d[q] betrifft nur Platten mit Musterindex q (Lage und Lücke) und q+1 (Lücke zur vorauslaufenden Platte q) */
+ const addQ=(v,q,sg)=>{const q2=(q+1)%v.m;v.byQ[q].forEach(pp=>addPl(v,pp,sg));if(q2!==q)v.byQ[q2].forEach(pp=>addPl(v,pp,sg));};
  vars.forEach(v=>addV(v,1));
  const met=c=>{const Tc=T[c];let mn=1e18,mx=-1e18,sm=0;for(let y=0;y<N;y++){const x=Tc[y];if(x<mn)mn=x;if(x>mx)mx=x;sm+=x;}const Pm=sm/N,A=lnFFTAmp(Tc);let bk=1,ba=0;for(let k=1;k<=K;k++)if(A[k]>ba){ba=A[k];bk=k;}return {Pm,dP:mx-mn,Pmax:mx,Pmin:mn,k:bk,a:ba,A};};
  /* Ziel: schlechtester Schnitt + Mittel aller Schnitte; Strafterm, wenn ein Schnitt um mehr als 20 % schlechter wird als vorher */
