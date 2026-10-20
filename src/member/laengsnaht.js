@@ -241,6 +241,47 @@ function lnPosMatrixCSV(f){const D=lnPosData(f),c=v=>Number.isFinite(v)?String(+
  const L=['Reihe;Seite;Zähnezahl;Teilung (°);'+Array.from({length:zmax},(_,j)=>'Platte '+(j+1)).join(';')];
  groups.forEach(g=>L.push([g.nm,g.side==='L'?'links':'rechts',g.zi,c(g.p),...Array.from({length:zmax},(_,j)=>c(g.a[j]))].join(';')));
  const bl=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='laengsnaht-positionsmatrix.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
+/* Teilung aus CSV importieren – Format wie der Export „Reihe × Platte“ (Reihe;Seite;Zähnezahl;Teilung;Platte 1 …)
+   oder wie die Liste (Reihe;Seite;Platte;…;Theta …). Je Reihe/Seite: gleichmäßig geteilt → φ0 = Winkel der Platte 1;
+   sonst Einzelwinkel und die Reihe wird gesperrt (Einzelwinkel gelten nur für gesperrte Reihen). */
+function lnImportCSV(f,text){
+ const lines=String(text).replace(/^﻿/,'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);if(lines.length<2)return {err:'Die Datei enthält keine Daten.'};
+ const sep=[';','\t',','].map(c=>[c,lines[0].split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
+ const cells=l=>l.split(sep).map(c=>c.trim().replace(/^"|"$/g,''));const H=cells(lines[0]).map(h=>h.toLowerCase());
+ const nv=v=>{const x=num(String(v).replace(/\s/g,''));return Number.isFinite(x)?x:NaN;},sideOf=v=>/^(r|rechts|right)$/i.test(v)?'R':/^(l|links|left)$/i.test(v)?'L':null;
+ const iR=H.findIndex(h=>h.startsWith('reihe')),iS=H.findIndex(h=>h.startsWith('seite'));if(iR<0||iS<0)return {err:'Spalten „Reihe“ und „Seite“ fehlen.'};
+ const recs={};const add=(nm,sd,j,a)=>{const k=nm+'|'+sd;(recs[k]=recs[k]||{nm,sd,a:[]}).a[j]=a;};
+ const pc=H.map((h,c)=>/^platte\s*\d+$/.test(h)?c:-1).filter(c=>c>=0);
+ if(pc.length){lines.slice(1).forEach(l=>{const c=cells(l),sd=sideOf(c[iS]);if(!sd)return;pc.forEach((col,q)=>{const a=nv(c[col]);if(Number.isFinite(a))add(c[iR],sd,q,a);});});}
+ else{const iP=H.findIndex(h=>h==='platte'),iT=H.findIndex(h=>h.startsWith('theta')||h.startsWith('θ')||h.startsWith('winkel'));if(iP<0||iT<0)return {err:'Unbekanntes Format: erwartet „Platte 1 … Platte n“ oder „Platte“ und „Theta“.'};
+  lines.slice(1).forEach(l=>{const c=cells(l),sd=sideOf(c[iS]),j=Math.round(nv(c[iP]))-1,a=nv(c[iT]);if(sd&&j>=0&&Number.isFinite(a))add(c[iR],sd,j,a);});}
+ const names=lnRows(f),n=names.length,N=x=>((x%360)+360)%360,msgs=[],used=[];
+ const data={};Object.values(recs).forEach(r=>{const i=names.findIndex(x=>x.toLowerCase()===String(r.nm).toLowerCase());if(i<0){msgs.push(`Reihe „${r.nm}“ gibt es im Profil nicht – übersprungen`);return;}const a=r.a.filter(v=>Number.isFinite(v)).map(N);if(!a.length)return;data[i+r.sd]={i,sd:r.sd,a};});
+ if(!Object.keys(data).length)return {err:'Keine passenden Reihen gefunden.'};
+ const even=a=>{const p=360/a.length;return a.every((v,j)=>Math.abs(((v-(a[0]+j*p))%360+540)%360-180)<2e-3);};
+ // Links mittig nur, wenn alle Reihen beidseitig gleich viele Platten haben und rechts genau eine halbe Teilung nach links liegt
+ let midOK=true;for(let i=0;i<n;i++){const L=data[i+'L'],Rr=data[i+'R'];if(!L&&!Rr)continue;if(!L||!Rr||L.a.length!==Rr.a.length){midOK=false;break;}const p=360/L.a.length;if(!Rr.a.every((v,j)=>Math.abs(((v-(L.a[j]+p/2))%360+540)%360-180)<2e-3)){midOK=false;break;}}
+ const wasMid=lnMid(f);if(wasMid&&!midOK){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(N(r.phR),3)).join(';');f.lnMid='0';const lk=String(f.phLock||'').split(',').filter(Boolean);lk.filter(k=>k.endsWith('L')).forEach(k=>{const r=k.slice(0,-1)+'R';if(!lk.includes(r))lk.push(r);});f.phLock=lk.join(',');msgs.push('„Links mittig zwischen rechts“ ausgeschaltet – rechts liegt nicht überall eine halbe Teilung weiter');}
+ const mid=lnMid(f),arr=k=>{const a=String(f[k]||'').split(';');while(a.length<n)a.push('');return a.slice(0,n);};
+ const zL=lnZ(f,'L').map(r=>Number.isFinite(r.z)?String(r.z):''),zR=lnZ(f,'R').map(r=>Number.isFinite(r.z)?String(r.z):''),pL=arr('phRows'),pR=arr('phRowsR'),iL=arr('indL'),iRr=arr('indR'),dL=arr('dvL'),dR=arr('dvR');let lk=String(f.phLock||'').split(',').filter(Boolean);
+ let nEven=0,nInd=0;
+ Object.values(data).forEach(({i,sd,a})=>{if(mid&&sd==='R')return;const z=a.length;(sd==='L'?zL:zR)[i]=String(z);if(mid)zR[i]=String(z);
+  const key=i+sd;if(even(a)){(sd==='L'?pL:pR)[i]=dec(a[0],3);(sd==='L'?iL:iRr)[i]='';(sd==='L'?dL:dR)[i]='';nEven++;}
+  else{(sd==='L'?iL:iRr)[i]=a.map(x=>dec(x,3)).join('/');(sd==='L'?dL:dR)[i]='';if(!lk.includes(key))lk.push(key);nInd++;}
+  used.push(names[i]+' '+(mid?'L+R':sd==='L'?'links':'rechts'));});
+ // Zähnezahl des Fräsers = größte Zähnezahl der Radiusreihe
+ const zr=Math.max(Number(zL[0])||0,Number(zR[0])||0);if(zr>0&&zr!==Math.round(num(f.z))){f.z=String(zr);msgs.push(`Zähnezahl des Fräsers auf z = ${zr} gesetzt`);}
+ for(const [Z,sn] of [[zL,'links'],[zR,'rechts']])for(let i=1;i<n;i++)if(Number(Z[i])>Number(Z[i-1])&&Number(Z[i-1])>0)msgs.push(`${names[i]} ${sn} hat mehr Platten als ${names[i-1]} – bitte prüfen (äußere Reihen werden begrenzt)`);
+ f.zRows=zL.join(';');if(!mid)f.zRowsR=zR.join(';');f.phRows=pL.join(';');if(!mid)f.phRowsR=pR.join(';');f.indL=iL.join(';');f.indR=iRr.join(';');f.dvL=dL.join(';');if(!mid)f.dvR=dR.join(';');f.phLock=lk.join(',');
+ return {ok:true,nEven,nInd,used,msgs};}
+function lnImportPick(){let inp=document.getElementById('ln-imp-file');if(!inp){inp=document.createElement('input');inp.type='file';inp.accept='.csv,text/csv,text/plain';inp.id='ln-imp-file';inp.hidden=true;document.body.appendChild(inp);
+  inp.addEventListener('change',async()=>{const file=inp.files&&inp.files[0];inp.value='';if(!file)return;let txt='';try{txt=await file.text();}catch(e){toast('Datei konnte nicht gelesen werden');return;}
+   const f=S.forms.laengsnaht,LS=null,r=lnImportCSV(f,txt),box=document.getElementById('ln-imp-msg');
+   if(r.err){if(box)box.innerHTML=`<p class="warn">${r.err}</p>`;toast(r.err);return;}
+   const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnRefresh(f);
+   if(box)box.innerHTML=`<p class="note" style="margin:6px 0 0">Importiert: ${r.used.join(', ')}. ${r.nEven} Reihe(n) gleichmäßig geteilt (Winkelversatz übernommen)${r.nInd?`, ${r.nInd} mit Einzelwinkeln – diese Reihen wurden gesperrt`:''}.${r.msgs.length?'<br>'+r.msgs.join('<br>'):''}</p>`;
+   toast('Teilung importiert');});}
+ inp.click();}
 function lnPosRender(){const e=document.getElementById('ln-pos');if(e)e.innerHTML=LN_POS?lnPosHTML(S.forms.laengsnaht):'';}
 function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0;LN_T=t;LN_ROT=(LN_ROT+dt*30)%360;
  const r=document.querySelector('[data-lnrot]');if(r)r.value=LN_ROT;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();requestAnimationFrame(lnLoop);}
@@ -255,7 +296,7 @@ document.addEventListener('input',e=>{const el=e.target.closest&&e.target.closes
 document.addEventListener('change',e=>{const el=e.target.closest&&e.target.closest('[data-lnindv]');if(!el)return;const f=S.forms.laengsnaht,[i,sd,j]=el.dataset.lnindv.split('|'),ii=+i,A=lnAng(f);
  if(!lnIndSet(el)){el.value='';return;}
  const ze=document.getElementById('ln-z');if(ze)ze.innerHTML=lnZHTML(f);lnRefresh(f);});
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnposcsvm],[data-lnind],[data-lnindclr],[data-lnpiton],[data-lnpitbal],[data-lnpos],[data-lnposrow],[data-lnposcsv],[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnposimp],[data-lnposcsvm],[data-lnind],[data-lnindclr],[data-lnpiton],[data-lnpitbal],[data-lnpos],[data-lnposrow],[data-lnposcsv],[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
  if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht,LS=lnLockSnap(f);
   if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
   if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';const lk=String(f.phLock||'').split(',').filter(Boolean);lk.filter(k=>k.endsWith('L')).forEach(k=>{const r=k.slice(0,-1)+'R';if(!lk.includes(r))lk.push(r);});f.phLock=lk.join(',');}else f.lnMid='1';}
@@ -278,6 +319,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnposcsvm]
  if(b.dataset.lnpitbal!=null){const f=S.forms.laengsnaht;f.pitBal=b.dataset.lnpitbal;save();lnOptCard(f);return;}
  if(b.dataset.lnpos){LN_POS=!LN_POS;b.textContent=LN_POS?'Positionen je Reihe ausblenden':'Positionen je Reihe';lnPosRender();return;}
  if(b.dataset.lnposrow){LN_POSROW=b.dataset.lnposrow;lnPosRender();return;}
+ if(b.dataset.lnposimp){lnImportPick();return;}
  if(b.dataset.lnposcsvm){lnPosMatrixCSV(S.forms.laengsnaht);return;}
  if(b.dataset.lnposcsv){lnPosCSV(S.forms.laengsnaht);return;}
  if(b.dataset.lnpitreset){const f=S.forms.laengsnaht,nr=lnRows(f).length,mid=lnMid(f);['dvL','dvR'].forEach(k=>{const a=String(f[k]||'').split(';');while(a.length<nr)a.push('');f[k]=a.slice(0,nr).map((v,i)=>lnLocked(f,i,mid||k==='dvL'?'L':'R')?v:'').join(';');});LN_OPTF=null;lnPowerAll(f);lnRefresh(f);lnOptCard(f);toast('Gleichteilung wiederhergestellt');return;}
