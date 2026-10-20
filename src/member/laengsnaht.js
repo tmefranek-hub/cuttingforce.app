@@ -136,7 +136,9 @@ function lnSimHTML(){return `<div class="lbl" style="margin-top:4px">Rotationssi
   <button type="button" class="btn" data-lnmat="1">${LN_MAT?'Positionsmatrix ausblenden':'Positionsmatrix anzeigen'}</button>
   <button type="button" class="btn" data-lnpos="1">${LN_POS?'Positionen je Reihe ausblenden':'Positionen je Reihe'}</button>
  </div><div id="ln-powctl">${LN_CTL}</div><div id="ln-simsvg"></div>`;}
-function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-simsvg');if(!el)return;
+/* Fehler beim Zeichnen sichtbar machen statt still stehen zu bleiben */
+function lnDrawSim(){try{lnDrawSim0();}catch(err){const el=document.getElementById('ln-simsvg');if(el)el.innerHTML=`<p class="warn">Die Simulation konnte nicht aktualisiert werden: ${String(err&&err.message||err).replace(/</g,'&lt;')}. Bitte diese Meldung an den Administrator schicken.</p>`;console.error(err);}}
+function lnDrawSim0(){const f=S.forms.laengsnaht,el=document.getElementById('ln-simsvg');if(!el)return;
  const G=lnGeom(f),A=lnAng(f),DS=num(f.Dc),ap=lnApOf(f),C=lnCuts(f),ks=lnSel(f),cu=C.list[ks];
  {const cs=document.getElementById('ln-cutsel');if(cs)cs.innerHTML='Angezeigter Schnitt: '+C.list.map(c=>`<button type="button" class="chip-btn" data-lnsel="${c.k}" aria-pressed="${c.k===ks}">Schnitt ${c.k+1}${c.t>0?' · '+fmt(c.t,0)+' mm':''}</button>`).join('');}
  if(!(DS>0&&ap>0&&G.ok&&cu&&cu.t>0&&cu.d>0)){el.innerHTML='<p class="note">Fräserdurchmesser Dc, Profil und die Schnitttiefen (zunehmend) eintragen.</p>';return;}
