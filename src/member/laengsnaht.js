@@ -246,21 +246,22 @@ document.addEventListener('change',e=>{const el=e.target.closest&&e.target.close
  const n=lnRows(f).length,key='ind'+sd,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[ii]=raw.some(Number.isFinite)?raw.map(x=>Number.isFinite(x)?dec(x,3):'').join('/'):'';f[key]=a.slice(0,n).join(';');
  const ze=document.getElementById('ln-z');if(ze)ze.innerHTML=lnZHTML(f);lnRefresh(f);});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-lnposcsvm],[data-lnind],[data-lnindclr],[data-lnpiton],[data-lnpitbal],[data-lnpos],[data-lnposrow],[data-lnposcsv],[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
- if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht;
+ if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht,LS=lnLockSnap(f);
   if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
-  if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';}else f.lnMid='1';}
-  else{f.phRows='';f.phRowsR='';toast('Platten gleichmäßig aufgeteilt');}
+  if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';const lk=String(f.phLock||'').split(',').filter(Boolean);lk.filter(k=>k.endsWith('L')).forEach(k=>{const r=k.slice(0,-1)+'R';if(!lk.includes(r))lk.push(r);});f.phLock=lk.join(',');}else f.lnMid='1';}
+  else{const A=lnAng(f),keepL=A.rows.map((r,i)=>lnLocked(f,i,'L')?dec(r.phL,3):''),keepR=A.rows.map((r,i)=>!lnMid(f)&&lnLocked(f,i,'R')?dec(r.phR,3):'');f.phRows=keepL.join(';');f.phRowsR=keepR.join(';');toast('Platten gleichmäßig aufgeteilt (gesperrte Reihen bleiben)');}
+  lnLockRestore(f,LS);
   const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');lnDrawSim();save();return;}
  if(b.dataset.lnap)LN_DEPTH=null;
- if(b.dataset.lnlock){const f=S.forms.laengsnaht,k=b.dataset.lnlock,a=String(f.phLock||'').split(',').filter(Boolean),ix=a.indexOf(k);if(ix>=0)a.splice(ix,1);else a.push(k);f.phLock=a.join(',');const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);save();return;}
- if(b.dataset.lnopt){const f=S.forms.laengsnaht,kind=b.dataset.lnopt,lbl=b.textContent;b.disabled=true;b.textContent='Optimiere …';setTimeout(()=>{const t0=performance.now();
-  const fin=()=>{if(kind==='tool'){if(!LN_OPTT.err){lnPowerAll(f);lnRefresh(f);}lnOptCard(f);}lnOptRender();b.disabled=false;b.textContent=lbl;const ms=performance.now()-t0;toast(`Optimiert in ${ms<2000?Math.round(ms)+' ms':fmt(ms/1000,1)+' s'}`);};
+ if(b.dataset.lnlock){const f=S.forms.laengsnaht,k=b.dataset.lnlock,a=String(f.phLock||'').split(',').filter(Boolean),ix=a.indexOf(k);if(ix>=0)a.splice(ix,1);else{lnLockFreeze(f,parseInt(k,10));a.push(k);}f.phLock=a.join(',');const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);save();return;}
+ if(b.dataset.lnopt){const f=S.forms.laengsnaht,kind=b.dataset.lnopt,lbl=b.textContent,LS=lnLockSnap(f);b.disabled=true;b.textContent='Optimiere …';setTimeout(()=>{const t0=performance.now();
+  const fin=()=>{const rs=lnLockRestore(f,LS);if(rs)toast(`Gesperrte Reihen unverändert gehalten (${rs} korrigiert)`);if(kind==='tool'){if(!LN_OPTT.err){lnPowerAll(f);lnRefresh(f);}lnOptCard(f);}lnOptRender();b.disabled=false;b.textContent=lbl;const ms=performance.now()-t0;toast(`Optimiert in ${ms<2000?Math.round(ms)+' ms':fmt(ms/1000,1)+' s'}`);};
   if(kind==='tool'){LN_OPTF=null;LN_OPTT=lnToolOpt(f);
    if(!LN_OPTT.err&&f.pitOn==='1'){const g=lnPitchOptGen(f);const step=()=>{const ts=performance.now();let r;do r=g.next();while(!r.done&&performance.now()-ts<50);
      if(r.done){LN_OPTF=r.value;fin();}else{b.textContent=`Ungleichteilung … ${Math.round(r.value*100)} %`;setTimeout(step,0);}};b.textContent='Ungleichteilung … 0 %';setTimeout(step,0);return;}}
   else LN_OPTP=lnProcOpt(f);
   fin();},20);return;}
- if(b.dataset.lnapply){const f=S.forms.laengsnaht,o=LN_OPTP&&LN_OPTP.list.find(x=>x.n===+b.dataset.lnapply);if(!o)return;lnApplyProc(f,o);LN_OPTP.cur=o.n;const cc=document.getElementById('ln-cuts');if(cc)cc.innerHTML=lnCutsHTML(f);lnPowerAll(f);lnRefresh(f);lnOptRender();toast(`${o.n} Schnitte übernommen`);return;}
+ if(b.dataset.lnapply){const f=S.forms.laengsnaht,o=LN_OPTP&&LN_OPTP.list.find(x=>x.n===+b.dataset.lnapply);if(!o)return;const LS=lnLockSnap(f);lnApplyProc(f,o);lnLockRestore(f,LS);LN_OPTP.cur=o.n;const cc=document.getElementById('ln-cuts');if(cc)cc.innerHTML=lnCutsHTML(f);lnPowerAll(f);lnRefresh(f);lnOptRender();toast(`${o.n} Schnitte übernommen`);return;}
  if(b.dataset.lnind!=null){const i=+b.dataset.lnind;if(LN_IND.has(i))LN_IND.delete(i);else LN_IND.add(i);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(S.forms.laengsnaht);return;}
  if(b.dataset.lnindclr!=null){const f=S.forms.laengsnaht,i=+b.dataset.lnindclr,n=lnRows(f).length;['indL','indR'].forEach(k=>{const a=String(f[k]||'').split(';');while(a.length<n)a.push('');a[i]='';f[k]=a.slice(0,n).join(';');});const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnRefresh(f);toast('Einzelwinkel verworfen');return;}
  if(b.dataset.lnpiton!=null){const f=S.forms.laengsnaht;f.pitOn=b.dataset.lnpiton;save();lnOptCard(f);return;}
@@ -269,7 +270,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnposcsvm]
  if(b.dataset.lnposrow){LN_POSROW=b.dataset.lnposrow;lnPosRender();return;}
  if(b.dataset.lnposcsvm){lnPosMatrixCSV(S.forms.laengsnaht);return;}
  if(b.dataset.lnposcsv){lnPosCSV(S.forms.laengsnaht);return;}
- if(b.dataset.lnpitreset){const f=S.forms.laengsnaht;f.dvL='';f.dvR='';LN_OPTF=null;lnPowerAll(f);lnRefresh(f);lnOptCard(f);toast('Gleichteilung wiederhergestellt');return;}
+ if(b.dataset.lnpitreset){const f=S.forms.laengsnaht,nr=lnRows(f).length,mid=lnMid(f);['dvL','dvR'].forEach(k=>{const a=String(f[k]||'').split(';');while(a.length<nr)a.push('');f[k]=a.slice(0,nr).map((v,i)=>lnLocked(f,i,mid||k==='dvL'?'L':'R')?v:'').join(';');});LN_OPTF=null;lnPowerAll(f);lnRefresh(f);lnOptCard(f);toast('Gleichteilung wiederhergestellt');return;}
  if(b.dataset.lncalc){const f=S.forms.laengsnaht;b.disabled=true;b.textContent='Berechne …';setTimeout(()=>{const t0=performance.now();lnPowerAll(f);lnPowRender();renderOut('laengsnaht');b.disabled=false;b.textContent='Berechnen';toast(`Berechnet in ${Math.round(performance.now()-t0)} ms`);},20);return;}
  if(b.dataset.lnpq){LN_PQ=b.dataset.lnpq;lnPowRender();return;}
  if(b.dataset.lnfit){LN_FIT=!LN_FIT;lnPowRender();return;}
@@ -425,6 +426,19 @@ const lnLocked=(f,i,sd)=>String(f.phLock||'').split(',').includes(i+sd);
 /* Schloss-Symbol (schwarz): geschlossen = Bügel im Körper, offen = Bügel um das linke Bein aufgedreht */
 function lnLockSvg(lk){return `<svg width="20" height="20" viewBox="-4 -2 20 20" aria-hidden="true" style="display:block"><g fill="none" stroke="var(--fg)" stroke-width="2" stroke-linecap="round">${lk?'<path d="M4.5 8.5V5.5a3.5 3.5 0 0 1 7 0v3"/>':'<path d="M4.5 8.5V5.5a3.5 3.5 0 0 1 7 0v1" transform="rotate(-38 4.5 8.5)"/>'}</g><rect x="2" y="8.5" width="12" height="8.5" rx="1.6" fill="${lk?'var(--fg)':'var(--surface)'}" stroke="var(--fg)" stroke-width="1.6"/><rect x="7.2" y="11.2" width="1.6" height="3" rx=".8" fill="${lk?'var(--surface)':'var(--fg)'}"/></svg>`;}
 let LN_IND=new Set();
+/* Gesperrte Reihen dürfen sich durch keine Aktion ändern (Optimierer, Gleichmäßig aufteilen, Gleichteilung wiederherstellen, Umschalten „Links mittig“).
+   lnLockSnap merkt sich die tatsächlichen Winkellagen der gesperrten Reihen/Seiten, lnLockRestore schreibt sie danach als Einzelwinkel zurück,
+   falls sich etwas verschoben hat (Prüfung auf 0,0005°). */
+function lnLockedSides(f,A){const mid=lnMid(f),o=[];A.rows.forEach((r,i)=>['L','R'].forEach(sd=>{const z=sd==='L'?r.zL:r.zR;if(z>0&&lnLocked(f,i,mid?'L':sd))o.push([i,sd]);}));return o;}
+function lnLockSnap(f){const A=lnAng(f);return lnLockedSides(f,A).map(([i,sd])=>({i,sd,ang:A.ins.filter(q=>q.i===i&&q.side===sd).map(q=>q.ang)}));}
+function lnLockRestore(f,snap){if(!snap||!snap.length)return 0;let n=0;const A=lnAng(f),nr=lnRows(f).length;
+ snap.forEach(({i,sd,ang})=>{const now=A.ins.filter(q=>q.i===i&&q.side===sd).map(q=>q.ang);if(now.length!==ang.length)return;
+  const d=(a,b)=>Math.abs(((a-b)%360+540)%360-180);if(now.every((v,j)=>d(v,ang[j])<5e-4))return;
+  const key='ind'+sd,a=String(f[key]||'').split(';');while(a.length<nr)a.push('');a[i]=ang.map(x=>dec(x,3)).join('/');f[key]=a.slice(0,nr).join(';');n++;});
+ return n;}
+/* Beim Sperren: φ0 der Reihe festschreiben (sonst hinge eine nie eingegebene Lage von der automatischen Aufteilung ab) */
+function lnLockFreeze(f,i){const A=lnAng(f),r=A.rows[i],nr=A.rows.length,pL=String(f.phRows||'').split(';'),pR=String(f.phRowsR||'').split(';');while(pL.length<nr)pL.push('');while(pR.length<nr)pR.push('');
+ if(String(pL[i]).trim()==='')pL[i]=dec(r.phL,3);if(!lnMid(f)&&String(pR[i]).trim()==='')pR[i]=dec(r.phR,3);f.phRows=pL.slice(0,nr).join(';');if(!lnMid(f))f.phRowsR=pR.slice(0,nr).join(';');}
 function lnIndBtn(f,i,sd){const lk=lnLocked(f,i,lnMid(f)?'L':sd);if(!lk)return '';const on=LN_IND.has(i);return `<button type="button" class="chip-btn" data-lnind="${i}" aria-pressed="${on}" title="Jede Winkellage dieser Reihe einzeln eingeben" style="margin-left:4px;padding:3px 8px;font-size:12px">einzeln</button>`;}
 function lnIndRow(f,A,i,cols){if(!LN_IND.has(i))return '';const r=A.rows[i],mid=lnMid(f),sides=['L','R'].filter(sd=>(sd==='L'?r.zL:r.zR)>0&&lnLocked(f,i,mid?'L':sd));if(!sides.length)return '';
  const box=sd=>{const its=A.ins.filter(q=>q.i===i&&q.side===sd),raw=lnIndRaw(f,sd,i,its.length),nF=raw.filter(Number.isFinite).length;return `<div style="margin:4px 0"><b>${sd==='L'?'links':'rechts'}</b>${nF?` · ${nF} von ${its.length} Platten vorgegeben, übrige nachbelegt`:' · nichts vorgegeben (Teilung)'}<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${its.map(q=>{const fixd=Number.isFinite(raw[q.j-1]);return `<label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted)">${q.j}<input data-lnindv="${i}|${sd}|${q.j-1}" value="${fixd?dec(raw[q.j-1],3):''}" placeholder="${dec(q.ang,2)}" inputmode="decimal" autocomplete="off" style="width:4.6em;padding:4px 5px;border:1px solid ${fixd?'var(--fg)':'var(--line)'};border-radius:5px;background:var(--surface);color:var(--fg);font:inherit;font-size:13px;font-weight:${fixd?700:400}" aria-label="Winkellage Platte ${q.j} ${r.nm} ${sd==='L'?'links':'rechts'}"></label>`;}).join('')}</div></div>`;};
