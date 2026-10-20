@@ -241,9 +241,13 @@ function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0
 /* Umschalter (Switch): attr bekommt beim Klick den neuen Zustand '1'/'0' */
 function lnSwitch(attr,on,title,txt){return `<button type="button" role="switch" aria-checked="${on}" ${attr}="${on?'0':'1'}" style="display:flex;align-items:center;gap:10px;margin-top:8px;padding:4px 0;border:0;background:none;color:var(--fg);font:inherit;font-size:13.5px;cursor:pointer;text-align:left"><span style="position:relative;flex:none;width:42px;height:24px;border-radius:12px;background:${on?'var(--fg)':'var(--line)'};transition:background .15s"><span style="position:absolute;top:3px;left:${on?21:3}px;width:18px;height:18px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span><span><b>${title}</b> – ${txt}</span></button>`;}
 function lnOptCard(f){const o=document.getElementById('ln-opt');if(o)o.innerHTML=lnOptHTML(f);}
+/* Einzelwinkel: beim Tippen sofort Simulation/Positionen nachführen, beim Verlassen des Feldes zusätzlich die Tabelle neu aufbauen */
+function lnIndSet(el){const f=S.forms.laengsnaht,[i,sd,j]=el.dataset.lnindv.split('|'),ii=+i,A=lnAng(f),z=A.ins.filter(q=>q.i===ii&&q.side===sd).length,raw=lnIndRaw(f,sd,ii,z),t=String(el.value).trim(),v=num(t);
+ if(t!==''&&!Number.isFinite(v))return false;raw[+j]=t===''?NaN:((v%360)+360)%360;
+ const n=lnRows(f).length,key='ind'+sd,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[ii]=raw.some(Number.isFinite)?raw.map(x=>Number.isFinite(x)?dec(x,3):'').join('/'):'';f[key]=a.slice(0,n).join(';');return true;}
+document.addEventListener('input',e=>{const el=e.target.closest&&e.target.closest('[data-lnindv]');if(!el)return;if(lnIndSet(el)){lnDrawSim();lnPosRender();lnPowRender();save();}});
 document.addEventListener('change',e=>{const el=e.target.closest&&e.target.closest('[data-lnindv]');if(!el)return;const f=S.forms.laengsnaht,[i,sd,j]=el.dataset.lnindv.split('|'),ii=+i,A=lnAng(f);
- const z=A.ins.filter(q=>q.i===ii&&q.side===sd).length,raw=lnIndRaw(f,sd,ii,z),t=String(el.value).trim(),v=num(t);if(t!==''&&!Number.isFinite(v)){el.value='';return;}raw[+j]=t===''?NaN:((v%360)+360)%360;
- const n=lnRows(f).length,key='ind'+sd,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[ii]=raw.some(Number.isFinite)?raw.map(x=>Number.isFinite(x)?dec(x,3):'').join('/'):'';f[key]=a.slice(0,n).join(';');
+ if(!lnIndSet(el)){el.value='';return;}
  const ze=document.getElementById('ln-z');if(ze)ze.innerHTML=lnZHTML(f);lnRefresh(f);});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-lnposcsvm],[data-lnind],[data-lnindclr],[data-lnpiton],[data-lnpitbal],[data-lnpos],[data-lnposrow],[data-lnposcsv],[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
  if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht,LS=lnLockSnap(f);
