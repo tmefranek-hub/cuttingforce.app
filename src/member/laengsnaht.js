@@ -209,7 +209,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
  const mt=document.getElementById('ln-mat');
  if(mt){if(!LN_MAT){mt.innerHTML='';}else{const zmax=Math.max(1,...A.rows.map(r=>Math.max(r.zL>0?r.zL:0,r.zR>0?r.zR:0)));
   const line=(r,i,side)=>{const list=A.ins.filter(q=>q.i===i&&q.side===side);return `<tr><td>${r.nm}</td><td>${side==='L'?'links':'rechts'}</td>${Array.from({length:zmax},(_,j)=>{const q=list[j];return q?(ENG.has(i+side+q.j)?`<td style="font-weight:700;background:var(--surface-2)">${fmt(q.ang,2)}</td>`:`<td>${fmt(q.ang,2)}</td>`):'<td></td>';}).join('')}</tr>`;};
-  mt.innerHTML=`<div class="lbl" style="margin-top:10px">Positionsmatrix – Winkellage θ (°) jeder Platte, 0° = Bezugsmarke, in Drehrichtung</div><div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Seite</th>${Array.from({length:zmax},(_,j)=>`<th>${j+1}</th>`).join('')}</tr></thead><tbody>${A.rows.map((r,i)=>line(r,i,'L')+line(r,i,'R')).join('')}</tbody></table></div><p class="note">${A.ins.length} Platten im Fräser. Fett hinterlegt: im Eingriff bei Drehwinkel ${fmt(LN_ROT,1)}° und Tiefe ${fmt(t,1)} mm.</p>`;}}
+  mt.innerHTML=`<div class="lbl" style="margin-top:10px">Positionsmatrix – Winkellage θ (°) jeder Platte, 0° = Bezugsmarke, in Drehrichtung</div><div class="tbl-wrap"><table><thead><tr><th>Reihe</th><th>Seite</th>${Array.from({length:zmax},(_,j)=>`<th>${j+1}</th>`).join('')}</tr></thead><tbody>${A.rows.map((r,i)=>line(r,i,'L')+line(r,i,'R')).join('')}</tbody></table></div><p class="note"><button type="button" class="btn" data-lnposcsvm="1" style="margin-right:8px">Matrix als CSV</button>${A.ins.length} Platten im Fräser. Fett hinterlegt: im Eingriff bei Drehwinkel ${fmt(LN_ROT,1)}° und Tiefe ${fmt(t,1)} mm.</p>`;}}
 }
 /* Positionen je Reihe: alle Wendeplatten mit Winkellage, Abweichung (Ungleichteilung), Lücke zur vorauslaufenden Platte, f_z und h_max */
 function lnPosData(f){const A=lnAng(f),C=lnCuts(f),ks=lnSel(f),cu=C.list[ks]||{},z=num(f.z),calc=LN_CALC&&LN_CALC.key===lnCalcKey(f)?LN_CALC.cuts[ks]:null,out=[];
@@ -220,7 +220,7 @@ function lnPosHTML(f){const D=lnPosData(f),sel=LN_POSROW,list=sel==='all'?D.list
  const chips=`<button type="button" class="chip-btn" data-lnposrow="all" aria-pressed="${sel==='all'}">Alle Reihen</button>`+D.rows.map((r,i)=>`<button type="button" class="chip-btn" data-lnposrow="${i}" aria-pressed="${String(i)===String(sel)}">${r.nm}</button>`).join('');
  const sg=v=>(v>1e-9?'+':'')+fmt(Math.abs(v)<1e-9?0:v,2);
  return `<div class="lbl" style="margin:14px 0 4px">Positionen je Reihe – Winkellage θ jeder Platte (0° = Bezugsmarke, in Drehrichtung)</div>
- <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin-bottom:6px">${chips}<button type="button" class="btn" data-lnposcsv="1" style="margin-left:auto">Als CSV herunterladen</button></div>
+ <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin-bottom:6px">${chips}<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn" data-lnposcsv="1">Liste als CSV</button><button type="button" class="btn" data-lnposcsvm="1">Matrix als CSV (Reihe × Platte)</button></span></div>
  <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>Seite</th><th>Platte</th><th>θ (°)</th><th>Δθ Ungleichteilung (°)</th><th>Lücke zur vorauslaufenden Platte (°)</th><th>f<sub>z</sub>-Faktor</th><th>f<sub>z</sub> Schnitt ${D.ks+1} (mm)</th><th>h<sub>max</sub> Schnitt ${D.ks+1} (mm)</th></tr></thead><tbody>
  ${list.map(x=>`<tr><td>${x.nm}</td><td>${x.side==='L'?'links':'rechts'}</td><td>${x.j}</td><td>${fmt(x.ang,3)}</td><td>${sg(x.dth)}</td><td>${fmt(x.gap,3)}</td><td>${fmt(x.ff,4)}</td><td>${Number.isFinite(x.fz)?fmt(x.fz,4):'–'}</td><td>${Number.isFinite(x.h)?fmt(x.h,4):'–'}</td></tr>`).join('')}</tbody></table></div>
  <p class="note" style="margin:4px 0 0">${list.length} Platten${sel==='all'?' im Fräser':' in dieser Reihe'}. Teilung je Reihe = 360°/z<sub>i</sub>; die Lücke zur vorauslaufenden Platte bestimmt den Zahnvorschub der Platte (f<sub>z</sub> = f<sub>z,i</sub> · Lücke/Teilung).${D.calc?'':' h<sub>max</sub> erscheint nach „Berechnen“.'}</p>`;}
@@ -228,6 +228,13 @@ function lnPosCSV(f){const D=lnPosData(f),c=v=>Number.isFinite(v)?String(+v.toFi
  const L=['Reihe;Seite;Platte;Zähnezahl;Teilung (°);Theta (°);Delta Theta (°);Lücke zur vorauslaufenden Platte (°);fz-Faktor;fz Schnitt '+(D.ks+1)+' (mm);hmax Schnitt '+(D.ks+1)+' (mm)'];
  D.list.forEach(x=>L.push([x.nm,x.side==='L'?'links':'rechts',x.j,x.zi,c(x.p),c(x.ang),c(x.dth),c(x.gap),c(x.ff),c(x.fz),c(x.h)].join(';')));
  const bl=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='laengsnaht-positionen.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
+/* Matrix-Export: je Reihe und Seite eine Zeile, je Platte eine Spalte (Winkellage θ in °) */
+function lnPosMatrixCSV(f){const D=lnPosData(f),c=v=>Number.isFinite(v)?String(+v.toFixed(3)).replace('.',','):'';
+ const groups=[];D.list.forEach(x=>{let g=groups.find(y=>y.i===x.i&&y.side===x.side);if(!g){g={i:x.i,nm:x.nm,side:x.side,zi:x.zi,p:x.p,a:[]};groups.push(g);}g.a[x.j-1]=x.ang;});
+ groups.sort((a,b)=>a.i-b.i||(a.side>b.side?1:-1));const zmax=Math.max(0,...groups.map(g=>g.zi));
+ const L=['Reihe;Seite;Zähnezahl;Teilung (°);'+Array.from({length:zmax},(_,j)=>'Platte '+(j+1)).join(';')];
+ groups.forEach(g=>L.push([g.nm,g.side==='L'?'links':'rechts',g.zi,c(g.p),...Array.from({length:zmax},(_,j)=>c(g.a[j]))].join(';')));
+ const bl=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='laengsnaht-positionsmatrix.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
 function lnPosRender(){const e=document.getElementById('ln-pos');if(e)e.innerHTML=LN_POS?lnPosHTML(S.forms.laengsnaht):'';}
 function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0;LN_T=t;LN_ROT=(LN_ROT+dt*30)%360;
  const r=document.querySelector('[data-lnrot]');if(r)r.value=LN_ROT;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();requestAnimationFrame(lnLoop);}
@@ -238,7 +245,7 @@ document.addEventListener('change',e=>{const el=e.target.closest&&e.target.close
  const z=A.ins.filter(q=>q.i===ii&&q.side===sd).length,raw=lnIndRaw(f,sd,ii,z),t=String(el.value).trim(),v=num(t);if(t!==''&&!Number.isFinite(v)){el.value='';return;}raw[+j]=t===''?NaN:((v%360)+360)%360;
  const n=lnRows(f).length,key='ind'+sd,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[ii]=raw.some(Number.isFinite)?raw.map(x=>Number.isFinite(x)?dec(x,3):'').join('/'):'';f[key]=a.slice(0,n).join(';');
  const ze=document.getElementById('ln-z');if(ze)ze.innerHTML=lnZHTML(f);lnRefresh(f);});
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnind],[data-lnindclr],[data-lnpiton],[data-lnpitbal],[data-lnpos],[data-lnposrow],[data-lnposcsv],[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnposcsvm],[data-lnind],[data-lnindclr],[data-lnpiton],[data-lnpitbal],[data-lnpos],[data-lnposrow],[data-lnposcsv],[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
  if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht;
   if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
   if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';}else f.lnMid='1';}
@@ -260,6 +267,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnind],[da
  if(b.dataset.lnpitbal!=null){const f=S.forms.laengsnaht;f.pitBal=b.dataset.lnpitbal;save();lnOptCard(f);return;}
  if(b.dataset.lnpos){LN_POS=!LN_POS;b.textContent=LN_POS?'Positionen je Reihe ausblenden':'Positionen je Reihe';lnPosRender();return;}
  if(b.dataset.lnposrow){LN_POSROW=b.dataset.lnposrow;lnPosRender();return;}
+ if(b.dataset.lnposcsvm){lnPosMatrixCSV(S.forms.laengsnaht);return;}
  if(b.dataset.lnposcsv){lnPosCSV(S.forms.laengsnaht);return;}
  if(b.dataset.lnpitreset){const f=S.forms.laengsnaht;f.dvL='';f.dvR='';LN_OPTF=null;lnPowerAll(f);lnRefresh(f);lnOptCard(f);toast('Gleichteilung wiederhergestellt');return;}
  if(b.dataset.lncalc){const f=S.forms.laengsnaht;b.disabled=true;b.textContent='Berechne …';setTimeout(()=>{const t0=performance.now();lnPowerAll(f);lnPowRender();renderOut('laengsnaht');b.disabled=false;b.textContent='Berechnen';toast(`Berechnet in ${Math.round(performance.now()-t0)} ms`);},20);return;}
