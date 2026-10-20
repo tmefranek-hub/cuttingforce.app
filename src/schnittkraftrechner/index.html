@@ -1621,7 +1621,9 @@ main.addEventListener('input',e=>{
  const el=e.target,k=el.dataset.k;
  if(el.dataset.lncut!=null){const f=S.forms.laengsnaht,key=el.dataset.ck==='t'?'cutT':'cutVf',k=+el.dataset.lncut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=el.value.trim();f[key]=a.join(';');
   const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);lnRefresh(f);lnCutsCells(f);return;}
- if(el.dataset.zrow!=null||el.dataset.phrow!=null||el.dataset.lnncut!=null)return;
+ if(el.dataset.phrow!=null){/* Winkellage live: Simulation, Matrix und Positionen sofort nachführen, Tabelle erst beim Verlassen neu aufbauen */
+  const f=S.forms.laengsnaht,t=String(el.value).trim();if(t===''||Number.isFinite(num(t))){lnSetAng(f,LN_PK[el.dataset.side||'L'],+el.dataset.phrow,el.value);lnDrawSim();if(typeof lnPosRender==='function')lnPosRender();if(typeof lnPowRender==='function')lnPowRender();save();}return;}
+ if(el.dataset.zrow!=null||el.dataset.lnncut!=null)return;
  if(el.dataset.lndepth!=null){LN_DEPTH=+el.value;lnDrawSim();return;}
  if(el.dataset.lnrot!=null){LN_ROT=+el.value;const v=document.getElementById('ln-rotv');if(v)v.textContent=fmt(LN_ROT,1)+'°';lnDrawSim();return;}
  if(el.dataset.catr){const [kind,i,col]=el.dataset.catr.split(':');if(CAT[kind][i]){CAT[kind][i][col]=el.value;saveCat();if(kind==='mat')rebuildMats();}return;}
@@ -1651,7 +1653,7 @@ main.addEventListener('change',e=>{
    const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);const cc=document.getElementById('ln-cuts');if(cc)cc.innerHTML=lnCutsHTML(f);lnRefresh(f);const sel=document.querySelector('[data-lnncut]');if(sel)sel.focus();return;}
   else{const key=t.dataset.ck==='t'?'cutT':'cutVf',k=+t.dataset.lncut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=t.value.trim();f[key]=a.join(';');}
   const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);lnRefresh(f);return;}
- if(e.target.dataset.phrow!=null){const f=S.forms.laengsnaht,t=e.target;lnSetAng(f,LN_PK[t.dataset.side||'L'],+t.dataset.phrow,t.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnDrawSim();save();return;}
+ if(e.target.dataset.phrow!=null){const f=S.forms.laengsnaht,t=e.target;lnSetAng(f,LN_PK[t.dataset.side||'L'],+t.dataset.phrow,t.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnDrawSim();if(typeof lnPosRender==='function')lnPosRender();if(typeof lnPowRender==='function')lnPowRender();save();return;}
  if(e.target.dataset.zrow!=null){const f=S.forms.laengsnaht,msg=lnSetZ(f,e.target.dataset.side||'L',+e.target.dataset.zrow,e.target.value);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);renderOut('laengsnaht');lnDrawSim();save();if(msg)toast(msg);return;}
  if(e.target.dataset.catimp){const inp=e.target,kind=inp.dataset.catimp,f=inp.files&&inp.files[0];if(!f)return;
   const [kd,pp]=kind.split(':');
