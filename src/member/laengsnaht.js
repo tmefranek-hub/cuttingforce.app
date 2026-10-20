@@ -161,6 +161,10 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
   A.rows.forEach((r,i)=>{g+=`<circle cx="${f1(ox)}" cy="${f1(oy)}" r="${f1((RS-yMid(i))*k)}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".35" stroke-width=".8"/>`;
    const ph=phRow(i);if(ph>0){const rr=(RS-yMid(i))*k,p1=S(PT(RS-yMid(i),180)),p2=S(PT(RS-yMid(i),180-ph));
     g+=`<path d="M${f1(p1[0])} ${f1(p1[1])} A${f1(rr)} ${f1(rr)} 0 0 ${mir>0?0:1} ${f1(p2[0])} ${f1(p2[1])}" fill="none" stroke="${COL[i%COL.length]}" stroke-opacity=".3" stroke-width="${detail?14:8}"/>`;}});
+  /* Gradstriche alle 10° durch den Fräsermittelpunkt (drehen mit dem Fräser), Beschriftung am Schnittpunkt mit dem Flugkreis */
+  if(detail){const rO=RS+14/k;for(let th=0;th<360;th+=10){const a=th+LN_ROT,c0=S([0,0]),c1=S(PT(rO,a)),pc=S(PT(RS,a)),pl=S(PT(RS+9/k,a));
+    g+=`<line x1="${f1(c0[0])}" y1="${f1(c0[1])}" x2="${f1(c1[0])}" y2="${f1(c1[1])}" stroke="var(--muted)" stroke-width="${th%90?0.5:0.9}" stroke-dasharray="${th%90?'3 3':'none'}" opacity=".7"/>`;
+    g+=`<circle cx="${f1(pc[0])}" cy="${f1(pc[1])}" r="2.2" fill="var(--fg)"/><text x="${f1(pl[0])}" y="${f1(pl[1]+3.5)}" font-size="10" text-anchor="middle" fill="var(--fg)" style="paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round">${th}°</text>`;}}
   const sw=detail?5:3;
   INS.forEach(q=>{const i=q.i,p1=S(PT(RS-yLow(i),q.a)),p2=S(PT(RS-yHigh(i),q.a)),col=COL[i%COL.length],isN=q.side===near;
    if(q.on)g+=`<line x1="${f1(p1[0])}" y1="${f1(p1[1])}" x2="${f1(p2[0])}" y2="${f1(p2[1])}" stroke="var(--fg)" stroke-width="${sw+3}"/>`;
