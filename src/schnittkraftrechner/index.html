@@ -36,6 +36,8 @@
 body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body)}
 button,input,select,textarea{font:inherit;color:inherit}
 .wrap{max-width:1180px;margin:0 auto;padding-inline:16px}
+/* Web-Version: ganze Bildschirmbreite nutzen, damit breite Tabellen ohne Scrollen passen */
+@media (min-width:1200px){.wrap{max-width:none;padding-inline:24px}}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--brand);color:var(--brand-ink);border-bottom:1px solid var(--brand-line)}
 .brand{display:flex;align-items:center;gap:4px 12px;padding-block:4px 0;min-width:0}
 .logo{height:36px;width:auto;flex:none;display:block}
@@ -164,7 +166,7 @@ tr:last-child td{border-bottom:0}
 .st b{font:600 16px/1.2 var(--f-disp);letter-spacing:.02em}
 .st small{font-size:12px;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
 .navtyp{padding:10px 10px 0;margin-top:6px;border-top:1px solid var(--line)}
-@media (max-width:1150px){.proc3{grid-template-columns:200px minmax(0,1fr)}.proc3 .side{grid-column:2}}
+@media (max-width:1599px){.proc3{grid-template-columns:200px minmax(0,1fr)}.proc3 .side{grid-column:2}}
 @media (max-width:760px){
  .proc3{grid-template-columns:minmax(0,1fr)}.proc3 .side{grid-column:1}
  .secnav{position:static;flex-direction:row;overflow-x:auto;scrollbar-width:none;gap:6px;overflow-anchor:none}
