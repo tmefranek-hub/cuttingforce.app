@@ -73,9 +73,9 @@ function lnZHTML(f){const A=lnAng(f),zc=Math.round(num(f.z)),fz=(lnCuts(f).list[
  <p class="note" style="margin:2px 0 6px">Reihe 1 sind die Radiusplatten, danach die Flankenplatten von innen nach außen. Links und rechts haben eigene Zähnezahlen und damit eigene Teilungen. Je Seite gilt: eine äußere Reihe kann nie mehr Zähne haben als die Reihe darunter – wird eine Reihe verringert, werden alle äußeren Reihen dieser Seite mitbegrenzt.${zc>0?'':' Zähnezahl z des Fräsers eintragen, dann werden die Reihen vorbelegt.'}</p>
  <div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px"><button type="button" class="btn" data-lnmid="1" aria-pressed="${lnMid(f)}">${lnMid(f)?'✓ ':''}Links mittig zwischen rechts</button>${lnMid(f)?'':'<button type="button" class="btn" data-lneq="1">Zähnezahl links = rechts</button>'}<button type="button" class="btn" data-lnspread="1">Gleichmäßig aufteilen</button></div>
  <style>.lnzt th,.lnzt td{padding:6px 5px!important;font-size:13px;white-space:nowrap}</style>${lnMid(f)?`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> (L = R)</th><th>Teilung (°)</th><th>f<sub>z,i</sub> S${kS} (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th><th>Δθ-Muster (°)</th></tr></thead><tbody>
- ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm,'numeric')}</td><td>${pv(r.zL)}</td><td>${fv(r.zL)}</td><td>${lnLockBtn(f,i,'L')}${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${fmt(((r.phR%360)+360)%360,3)}</td><td>${r.dvL.length?r.dvL.map(v=>(v>0?'+':'')+fmt(v,2)).join(' / '):'gleich'}</td></tr>`).join('')}
+ ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm,'numeric')}</td><td>${pv(r.zL)}</td><td>${fv(r.zL)}</td><td>${lnLockBtn(f,i,'L')}${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}${lnIndBtn(f,i,'L')}</td><td>${fmt(((r.phR%360)+360)%360,3)}</td><td>${r.indL||r.indR?'einzeln':r.dvL.length?r.dvL.map(v=>(v>0?'+':'')+fmt(v,2)).join(' / '):'gleich'}</td></tr>${lnIndRow(f,A,i,7)}`).join('')}
  </tbody></table></div>`:`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z<sub>i</sub> L</th><th>z<sub>i</sub> R</th><th>Teilung L / R (°)</th><th>f<sub>z,i</sub> L / R S${kS} (mm)</th><th>φ<sub>0,i</sub> L (°)</th><th>φ<sub>0,i</sub> R (°)</th><th>Δθ-Muster L | R (°)</th></tr></thead><tbody>
- ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm+' links','numeric')}</td><td>${inp('data-zrow',i,'R',Number.isFinite(r.zR)?r.zR:'','Zähnezahl '+r.nm+' rechts','numeric')}</td><td>${pv(r.zL)} / ${pv(r.zR)}</td><td>${fv(r.zL)} / ${fv(r.zR)}</td><td>${lnLockBtn(f,i,'L')}${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${lnLockBtn(f,i,'R')}${inp('data-phrow',i,'R',dec(r.phR,3),'Winkelversatz '+r.nm+' rechts','decimal')}</td><td>${[r.dvL,r.dvR].map(d=>d.length?d.map(v=>(v>0?'+':'')+fmt(v,2)).join('/'):'gleich').join(' | ')}</td></tr>`).join('')}
+ ${A.rows.map((r,i)=>`<tr><td>${i+1} ${r.nm}</td><td>${inp('data-zrow',i,'L',Number.isFinite(r.zL)?r.zL:'','Zähnezahl '+r.nm+' links','numeric')}</td><td>${inp('data-zrow',i,'R',Number.isFinite(r.zR)?r.zR:'','Zähnezahl '+r.nm+' rechts','numeric')}</td><td>${pv(r.zL)} / ${pv(r.zR)}</td><td>${fv(r.zL)} / ${fv(r.zR)}</td><td>${lnLockBtn(f,i,'L')}${inp('data-phrow',i,'L',dec(r.phL,3),'Winkelversatz '+r.nm+' links','decimal')}</td><td>${lnLockBtn(f,i,'R')}${inp('data-phrow',i,'R',dec(r.phR,3),'Winkelversatz '+r.nm+' rechts','decimal')}${lnIndBtn(f,i,lnLocked(f,i,'L')?'L':'R')}</td><td>${[[r.dvL,r.indL],[r.dvR,r.indR]].map(([d,ind])=>ind?'einzeln':d.length?d.map(v=>(v>0?'+':'')+fmt(v,2)).join('/'):'gleich').join(' | ')}</td></tr>${lnIndRow(f,A,i,8)}`).join('')}
  </tbody></table></div>`}
  <p class="note" style="margin:4px 0 0">f<sub>z,i</sub> = v<sub>f</sub> / (n · z<sub>i</sub>) mit v<sub>f</sub> des gewählten Schnitts: Die Vorschubgeschwindigkeit ist für alle Reihen gleich, eine Reihe mit weniger Zähnen bekommt je Platte einen größeren Vorschub. Winkellage der Platte j: θ = φ<sub>0,i</sub> + (j−1)·360°/z<sub>i</sub>, je Seite mit eigener Teilung. ${lnMid(f)?'„Links mittig zwischen rechts“: rechts hat dieselbe Zähnezahl wie links und liegt genau eine halbe Teilung weiter (φ<sub>0,R</sub> = φ<sub>0,L</sub> + Teilung/2).':'Vorgabe φ<sub>0</sub> rechts = φ<sub>0</sub> links + halbe Teilung rechts.'} „Gleichmäßig aufteilen“ wählt Reihe für Reihe den Winkelversatz mit dem größten Mindestabstand zu allen übrigen Platten (alle Reihen, links und rechts) – so ist am Beginn alles gut verteilt. 0° = Bezugsmarke, gezählt in Drehrichtung.</p>`;}
 /* Winkellage aller Platten: Reihe i, Seite L/R, Platte j */
@@ -110,7 +110,13 @@ function lnAng(f){const ZL=lnZ(f,'L'),ZR=lnZ(f,'R'),pL=String(f.phRows||'').spli
  const gf=(dv,j,z)=>dv.length?1+(lnDvAt(dv,j+1)-lnDvAt(dv,j))*z/360:1;
  rows.forEach((r,i)=>{if(r.zL>0)for(let j=0;j<r.zL;j++)ins.push({i,nm:r.nm,side:'L',j:j+1,ang:N(r.phL+j*360/r.zL+lnDvAt(r.dvL,j)),fzf:gf(r.dvL,j,r.zL)});
   if(r.zR>0)for(let j=0;j<r.zR;j++)ins.push({i,nm:r.nm,side:'R',j:j+1,ang:N(r.phR+j*360/r.zR+lnDvAt(r.dvR,j)),fzf:gf(r.dvR,j,r.zR)});});
+ /* Gesperrte Reihen: jede Winkellage einzeln (indL/indR: Reihen ';', Werte '/'); f_z-Faktor aus der Lücke zur vorauslaufenden Platte */
+ rows.forEach((r,i)=>['L','R'].forEach(sd=>{const z=sd==='L'?r.zL:r.zR,a=lnIndOf(f,sd,i,z);r['ind'+sd]=!!a;if(!a)return;
+  const ph=sd==='L'?r.phL:r.phR,p=360/z,its=ins.filter(q=>q.i===i&&q.side===sd),ang=a.map(N),srt=ang.map((v,j)=>[v,j]).sort((x,y)=>x[0]-y[0]),gap=new Array(z);
+  srt.forEach(([v,j],q)=>{const nx=srt[(q+1)%z][0];gap[j]=((nx-v)%360+360)%360||360;});
+  its.forEach((q,j)=>{q.ang=ang[j];q.fzf=gap[j]/p;q.dth=((ang[j]-(ph+j*p))%360+540)%360-180;q.ind=true;});}));
  return {rows,ins};}
+function lnIndOf(f,sd,i,z){const lockKey=lnMid(f)?'L':sd;if(!(z>0)||!lnLocked(f,i,lockKey))return null;const a=String(String(f['ind'+sd]||'').split(';')[i]||'').split('/').map(v=>num(v));return a.length===z&&a.every(Number.isFinite)?a:null;}
 function lnSetAng(f,key,idx,val){const n=lnRows(f).length,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[idx]=String(val).trim();f[key]=a.slice(0,n).join(';');}
 let LN_POS=false,LN_POSROW='all';
 let LN_DEPTH=null,LN_ROT=0,LN_VIEW='beide',LN_PLAY=false,LN_MAT=false,LN_T=0;
@@ -201,7 +207,7 @@ function lnDrawSim(){const f=S.forms.laengsnaht,el=document.getElementById('ln-s
 /* Positionen je Reihe: alle Wendeplatten mit Winkellage, Abweichung (Ungleichteilung), Lücke zur vorauslaufenden Platte, f_z und h_max */
 function lnPosData(f){const A=lnAng(f),C=lnCuts(f),ks=lnSel(f),cu=C.list[ks]||{},z=num(f.z),calc=LN_CALC&&LN_CALC.key===lnCalcKey(f)?LN_CALC.cuts[ks]:null,out=[];
  A.rows.forEach((r,i)=>['L','R'].forEach(sd=>{const zi=sd==='L'?r.zL:r.zR;if(!(zi>0))return;const p=360/zi,dv=sd==='L'?r.dvL:r.dvR,feff=cu.fz>0&&z>0?cu.fz*z/zi:NaN,e=calc?calc.edges.find(x=>x.i===i&&x.side===sd):null;
-  A.ins.filter(q=>q.i===i&&q.side===sd).forEach(q=>{const ff=q.fzf||1;out.push({i,nm:r.nm,side:sd,j:q.j,zi,ang:q.ang,dth:lnDvAt(dv,q.j-1),gap:ff*p,p,ff,fz:feff*ff,h:e&&e.incs.length?e.hmax*ff:(e?0:NaN)});});}));
+  A.ins.filter(q=>q.i===i&&q.side===sd).forEach(q=>{const ff=q.fzf||1;out.push({i,nm:r.nm,side:sd,j:q.j,zi,ang:q.ang,dth:q.ind?q.dth:lnDvAt(dv,q.j-1),gap:ff*p,p,ff,fz:feff*ff,h:e&&e.incs.length?e.hmax*ff:(e?0:NaN)});});}));
  return {rows:A.rows,list:out,ks,calc:!!calc};}
 function lnPosHTML(f){const D=lnPosData(f),sel=LN_POSROW,list=sel==='all'?D.list:D.list.filter(x=>x.i===+sel);
  const chips=`<button type="button" class="chip-btn" data-lnposrow="all" aria-pressed="${sel==='all'}">Alle Reihen</button>`+D.rows.map((r,i)=>`<button type="button" class="chip-btn" data-lnposrow="${i}" aria-pressed="${String(i)===String(sel)}">${r.nm}</button>`).join('');
@@ -221,7 +227,11 @@ function lnLoop(t){if(!LN_PLAY)return;const dt=LN_T?Math.min(.1,(t-LN_T)/1000):0
 /* Umschalter (Switch): attr bekommt beim Klick den neuen Zustand '1'/'0' */
 function lnSwitch(attr,on,title,txt){return `<button type="button" role="switch" aria-checked="${on}" ${attr}="${on?'0':'1'}" style="display:flex;align-items:center;gap:10px;margin-top:8px;padding:4px 0;border:0;background:none;color:var(--fg);font:inherit;font-size:13.5px;cursor:pointer;text-align:left"><span style="position:relative;flex:none;width:42px;height:24px;border-radius:12px;background:${on?'var(--fg)':'var(--line)'};transition:background .15s"><span style="position:absolute;top:3px;left:${on?21:3}px;width:18px;height:18px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span><span><b>${title}</b> – ${txt}</span></button>`;}
 function lnOptCard(f){const o=document.getElementById('ln-opt');if(o)o.innerHTML=lnOptHTML(f);}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-lnpiton],[data-lnpitbal],[data-lnpos],[data-lnposrow],[data-lnposcsv],[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
+document.addEventListener('change',e=>{const el=e.target.closest&&e.target.closest('[data-lnindv]');if(!el)return;const f=S.forms.laengsnaht,[i,sd,j]=el.dataset.lnindv.split('|'),ii=+i,A=lnAng(f);
+ const cur=A.ins.filter(q=>q.i===ii&&q.side===sd).map(q=>q.ang),v=num(el.value);if(!Number.isFinite(v)){el.value=dec(cur[+j],3);return;}cur[+j]=((v%360)+360)%360;
+ const n=lnRows(f).length,key='ind'+sd,a=String(f[key]||'').split(';');while(a.length<n)a.push('');a[ii]=cur.map(x=>dec(x,3)).join('/');f[key]=a.slice(0,n).join(';');
+ const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnRefresh(f);});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lnind],[data-lnindclr],[data-lnpiton],[data-lnpitbal],[data-lnpos],[data-lnposrow],[data-lnposcsv],[data-lnpitreset],[data-lnview],[data-lnplay],[data-lnmat],[data-lnap],[data-lnsel],[data-lncalc],[data-lnlock],[data-lnopt],[data-lnapply],[data-lnpq],[data-lnfit],[data-lnzoom],[data-lnsrc],[data-lnsplit],[data-lnedge],[data-lnmid],[data-lnspread],[data-lneq]');if(!b)return;
  if(b.dataset.lnmid||b.dataset.lnspread||b.dataset.lneq){const f=S.forms.laengsnaht;
   if(b.dataset.lneq){f.zRowsR=lnZ(f,'L').map(r=>Number.isFinite(r.z)?r.z:'').join(';');toast('Zähnezahl rechts = links übernommen');}else
   if(b.dataset.lnmid){if(lnMid(f)){const A=lnAng(f);f.zRowsR=A.rows.map(r=>Number.isFinite(r.zL)?r.zL:'').join(';');f.phRowsR=A.rows.map(r=>dec(((r.phR%360)+360)%360,3)).join(';');f.lnMid='0';}else f.lnMid='1';}
@@ -237,6 +247,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnpiton],[
   else LN_OPTP=lnProcOpt(f);
   fin();},20);return;}
  if(b.dataset.lnapply){const f=S.forms.laengsnaht,o=LN_OPTP&&LN_OPTP.list.find(x=>x.n===+b.dataset.lnapply);if(!o)return;lnApplyProc(f,o);LN_OPTP.cur=o.n;const cc=document.getElementById('ln-cuts');if(cc)cc.innerHTML=lnCutsHTML(f);lnPowerAll(f);lnRefresh(f);lnOptRender();toast(`${o.n} Schnitte übernommen`);return;}
+ if(b.dataset.lnind!=null){const i=+b.dataset.lnind;if(LN_IND.has(i))LN_IND.delete(i);else LN_IND.add(i);const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(S.forms.laengsnaht);return;}
+ if(b.dataset.lnindclr!=null){const f=S.forms.laengsnaht,i=+b.dataset.lnindclr,n=lnRows(f).length;['indL','indR'].forEach(k=>{const a=String(f[k]||'').split(';');while(a.length<n)a.push('');a[i]='';f[k]=a.slice(0,n).join(';');});const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnRefresh(f);toast('Einzelwinkel verworfen');return;}
  if(b.dataset.lnpiton!=null){const f=S.forms.laengsnaht;f.pitOn=b.dataset.lnpiton;save();lnOptCard(f);return;}
  if(b.dataset.lnpitbal!=null){const f=S.forms.laengsnaht;f.pitBal=b.dataset.lnpitbal;save();lnOptCard(f);return;}
  if(b.dataset.lnpos){LN_POS=!LN_POS;b.textContent=LN_POS?'Positionen je Reihe ausblenden':'Positionen je Reihe';lnPosRender();return;}
@@ -262,7 +274,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-lnpiton],[
    Die Gesamtkurve entsteht durch Überlagerung aller Platten mit ihrer Winkellage θ (Positionsmatrix).
    Ergebnisobjekt LN_CALC enthält alle Zwischengrößen (je Schneide, je Inkrement, Kurven), damit weitere Größen angezeigt werden können. */
 let LN_SPLIT=false,LN_CALC=null,LN_PQ='P',LN_EDGE=0,LN_FIT=true,LN_ZOOM=360,LN_SRC='tot',LN_TRK='';
-const lnCalcKey=f=>JSON.stringify(['Dc','rR','dU','alphaN','lK','uF','nIR','nIF','z','zRows','zRowsR','phRows','phRowsR','lnMid','vc','nCuts','cutT','cutVf','g','kc','mc','nPhi','dvL','dvR','kVf','kV','kVer','tW'].map(k=>f[k]));
+const lnCalcKey=f=>JSON.stringify(['Dc','rR','dU','alphaN','lK','uF','nIR','nIF','z','zRows','zRowsR','phRows','phRowsR','lnMid','vc','nCuts','cutT','cutVf','g','kc','mc','nPhi','dvL','dvR','indL','indR','phLock','kVf','kV','kVer','tW'].map(k=>f[k]));
 function lnPowerCut(f,k){
  const G=lnGeom(f),A=lnAng(f),C=lnCuts(f),cu=C.list[k],D=num(f.Dc),Rr=D/2,vc=num(f.vc),z=num(f.z),kc11=num(f.kc),mc=num(f.mc),gk=(1-(num(f.g)||0)/100)*kvfOf(f)*kverOf(f);
  const N=Math.max(36,Math.min(7200,Math.round(num(f.nPhi))||720)),da=360/N,n=vc*1000/(Math.PI*D),om=2*Math.PI*n/60;
@@ -397,6 +409,11 @@ LN_CTL=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-
 const lnLocked=(f,i,sd)=>String(f.phLock||'').split(',').includes(i+sd);
 /* Schloss-Symbol (schwarz): geschlossen = Bügel im Körper, offen = Bügel um das linke Bein aufgedreht */
 function lnLockSvg(lk){return `<svg width="20" height="20" viewBox="-4 -2 20 20" aria-hidden="true" style="display:block"><g fill="none" stroke="var(--fg)" stroke-width="2" stroke-linecap="round">${lk?'<path d="M4.5 8.5V5.5a3.5 3.5 0 0 1 7 0v3"/>':'<path d="M4.5 8.5V5.5a3.5 3.5 0 0 1 7 0v1" transform="rotate(-38 4.5 8.5)"/>'}</g><rect x="2" y="8.5" width="12" height="8.5" rx="1.6" fill="${lk?'var(--fg)':'var(--surface)'}" stroke="var(--fg)" stroke-width="1.6"/><rect x="7.2" y="11.2" width="1.6" height="3" rx=".8" fill="${lk?'var(--surface)':'var(--fg)'}"/></svg>`;}
+let LN_IND=new Set();
+function lnIndBtn(f,i,sd){const lk=lnLocked(f,i,lnMid(f)?'L':sd);if(!lk)return '';const on=LN_IND.has(i);return `<button type="button" class="chip-btn" data-lnind="${i}" aria-pressed="${on}" title="Jede Winkellage dieser Reihe einzeln eingeben" style="margin-left:4px;padding:3px 8px;font-size:12px">einzeln</button>`;}
+function lnIndRow(f,A,i,cols){if(!LN_IND.has(i))return '';const r=A.rows[i],mid=lnMid(f),sides=['L','R'].filter(sd=>(sd==='L'?r.zL:r.zR)>0&&lnLocked(f,i,mid?'L':sd));if(!sides.length)return '';
+ const box=sd=>{const its=A.ins.filter(q=>q.i===i&&q.side===sd);return `<div style="margin:4px 0"><b>${sd==='L'?'links':'rechts'}</b>${r['ind'+sd]?' · einzeln':' · aus Teilung vorbelegt'}<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${its.map(q=>`<label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted)">${q.j}<input data-lnindv="${i}|${sd}|${q.j-1}" value="${dec(q.ang,3)}" inputmode="decimal" autocomplete="off" style="width:4.6em;padding:4px 5px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);font:inherit;font-size:13px" aria-label="Winkellage Platte ${q.j} ${r.nm} ${sd==='L'?'links':'rechts'}"></label>`).join('')}</div></div>`;};
+ return `<tr><td colspan="${cols}" style="white-space:normal;background:var(--surface-2)"><div style="font-size:12.5px">Einzelne Winkellagen θ (°) – ${r.nm} (gesperrt). Eine geänderte Platte schaltet die Reihe auf Einzelwinkel; φ<sub>0</sub>, Teilung und Δθ-Muster gelten dann nicht mehr.</div>${sides.map(box).join('')}${sides.some(sd=>r['ind'+sd])?`<button type="button" class="btn" data-lnindclr="${i}" style="margin-top:4px">Einzelwinkel verwerfen (wieder aus Teilung)</button>`:''}</td></tr>`;}
 function lnLockBtn(f,i,sd){const lk=lnLocked(f,i,sd);return `<button type="button" data-lnlock="${i}${sd}" aria-pressed="${lk}" title="${lk?'Gesperrt – wird nicht optimiert':'Offen – wird optimiert'}" aria-label="${lk?'Winkellage gesperrt':'Winkellage offen'}" style="border:0;background:none;cursor:pointer;padding:2px 5px 2px 0;vertical-align:middle;display:inline-flex">${lnLockSvg(lk)}</button>`;}
 let LN_OPTT=null,LN_OPTP=null;
 /* Werkzeugoptimierer: Schnitt für Schnitt die Winkellage der dort erstmals eingreifenden, offenen Reihen so verschieben,
@@ -413,7 +430,9 @@ function lnToolOpt(f){
  /* je Reihe: Gesamtkurve c, Seitendifferenz d = P_links − P_rechts, Anzahl Platten im Eingriff je Seite */
  const curve=(v,r)=>{const c=new Float64Array(N),d=new Float64Array(N),nL=new Float64Array(N),nR=new Float64Array(N);let any=false;
   v.sides.forEach(sd=>{const e=r.edges.find(x=>x.i===v.i&&x.side===sd);if(!e||!e.incs.length)return;any=true;const sg=sd==='L'?1:-1,cnt=sd==='L'?nL:nR;
-   const dvv=sd==='R'?A.rows[v.i].dvR:A.rows[v.i].dvL,mcT=num(f.mc)||0;for(let j=0;j<v.z;j++){const o=Math.round((j*v.p+lnDvAt(dvv,j)+(mid&&sd==='R'?v.p/2:0))/da),sc=dvv.length?Math.pow(1+(lnDvAt(dvv,j+1)-lnDvAt(dvv,j))/v.p,1-mcT):1;for(let y=0;y<N;y++){const pv=e.P[(y+o)%N]*sc;if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}}});
+   const dvv=sd==='R'?A.rows[v.i].dvR:A.rows[v.i].dvL,mcT=num(f.mc)||0;
+   if(A.rows[v.i]['ind'+sd]){A.ins.filter(q=>q.i===v.i&&q.side===sd).forEach(q=>{const o=((Math.round(q.ang/da)-v.s)%N+N)%N,sc=Math.pow(q.fzf,1-mcT);for(let y=0;y<N;y++){const pv=e.P[(y+o)%N]*sc;if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}});return;}
+   for(let j=0;j<v.z;j++){const o=Math.round((j*v.p+lnDvAt(dvv,j)+(mid&&sd==='R'?v.p/2:0))/da),sc=dvv.length?Math.pow(1+(lnDvAt(dvv,j+1)-lnDvAt(dvv,j))/v.p,1-mcT):1;for(let y=0;y<N;y++){const pv=e.P[(y+o)%N]*sc;if(pv){c[y]+=pv;d[y]+=sg*pv;cnt[y]++;}}}});
   return any?{c,d,nL,nR}:null;};
  const wS=Math.max(0,num(f.wSide)>=0?num(f.wSide):1);
  const stats=(curves)=>{let mx=-1e18,mn=1e18,dm=0,lm=0,rm=0;const T=new Float64Array(N),D=new Float64Array(N),L=new Float64Array(N),Rn=new Float64Array(N);
@@ -514,7 +533,9 @@ function* lnPitchOptGen(f){
   if(mid)add(['L','R'],row.zL,row.phL,i+'M',row.nm,row.dvL);else{add(['L'],row.zL,row.phL,i+'L',row.nm+' links',row.dvL);add(['R'],row.zR,row.phR,i+'R',row.nm+' rechts',row.dvR);}});
  const K=Math.floor(N/2);
  const curv=res.map(r=>{const M={};r.edges.forEach(e=>{if(e.incs.length)M[e.i+e.side]=e.P;});return M;});
- vars.forEach(v=>{v.pl=[];v.sides.forEach(sd=>{const ph=sd==='R'&&mid?v.ph+v.p/2:v.ph;for(let j=0;j<v.z;j++)v.pl.push({sd,q:v.m?j%v.m:0,o0:Math.round((ph+j*v.p)/da)});});
+ vars.forEach(v=>{v.pl=[];
+  if(v.lock){v.m=0;v.d=[0];v.sides.forEach(sd=>A.ins.filter(q=>q.i===v.i&&q.side===sd).forEach(q=>v.pl.push({sd,q:0,o0:Math.round(q.ang/da),sc:Math.pow(q.fzf||1,1-mc)})));}
+  else v.sides.forEach(sd=>{const ph=sd==='R'&&mid?v.ph+v.p/2:v.ph;for(let j=0;j<v.z;j++)v.pl.push({sd,q:v.m?j%v.m:0,o0:Math.round((ph+j*v.p)/da)});});
   v.byQ=Array.from({length:Math.max(1,v.m)},(_,q)=>v.pl.filter(pp=>pp.q===q));
   v.hN=Math.max(0,...res.flatMap(r=>r.edges.filter(e=>e.i===v.i&&v.sides.includes(e.side)).map(e=>e.hmax)));});
  /* Vorschubfaktor einer Platte aus dem Muster: Lücke zur vorauslaufenden Platte / Teilung */
@@ -522,7 +543,7 @@ function* lnPitchOptGen(f){
  const dhOf=v=>{if(!v.m)return 0;let a=1e9,b=-1e9;for(let q=0;q<v.m;q++){const x=ffOf(v,q);if(x<a)a=x;if(x>b)b=x;}return v.hN*(b-a);};
  /* Summensignal je Schnitt wird inkrementell nachgeführt; das Spektrum kommt per FFT aus dem Summensignal */
  const T=res.map(()=>new Float64Array(N));
- const addPl=(v,pp,sg)=>{const o=((pp.o0+v.d[pp.q])%N+N)%N,g=sg*Math.pow(ffOf(v,pp.q),1-mc);res.forEach((r,c)=>{const P=curv[c][v.i+pp.sd];if(!P)return;const Tc=T[c];
+ const addPl=(v,pp,sg)=>{const o=((pp.o0+v.d[pp.q])%N+N)%N,g=sg*(pp.sc!=null?pp.sc:Math.pow(ffOf(v,pp.q),1-mc));res.forEach((r,c)=>{const P=curv[c][v.i+pp.sd];if(!P)return;const Tc=T[c];
    for(let y=0,ix=o;y<N;y++,ix++){if(ix===N)ix=0;const pv=P[ix];if(pv)Tc[y]+=g*pv;}});};
  const addV=(v,sg)=>v.pl.forEach(pp=>addPl(v,pp,sg));
  /* Änderung von d[q] betrifft nur Platten mit Musterindex q (Lage und Lücke) und q−1 (Lücke) */
