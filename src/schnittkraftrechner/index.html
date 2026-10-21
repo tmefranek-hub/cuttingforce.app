@@ -1757,15 +1757,27 @@ function catCard(kind,p){
   <div data-cattbl="${id}"></div>
  </section>`;
 }
-function stammSecs(){return [...PROCS.filter(q=>VIS.includes(q)).map(q=>[q,PROC[q].name]),['mat','Werkstoffe'],['io','Datenaustausch']];}
+function stammSecs(){return [['users','Benutzer'],...PROCS.filter(q=>VIS.includes(q)).map(q=>[q,PROC[q].name]),['mat','Werkstoffe'],['io','Datenaustausch']];}
 /* Offene Registrierungen für den Administrator */
 let PENDING_USERS=null,PENDING_USERS_LOADING=false;
 async function loadPendingUsers(){
  try{const r=await fetch('/api/admin/pending-users');PENDING_USERS=r.ok?((await r.json()).users||[]):[];}catch(e){PENDING_USERS=[];}
  PENDING_USERS_LOADING=false;render();
 }
-async function approveUser(id){await fetch('/api/admin/approve-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:id})});PENDING_USERS=null;render();toast('Konto freigegeben');}
-async function rejectUser(id){await fetch('/api/admin/reject-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:id})});PENDING_USERS=null;render();toast('Registrierung abgelehnt');}
+async function approveUser(id){await fetch('/api/admin/approve-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:id})});PENDING_USERS=null;ALL_USERS=null;render();toast('Konto freigegeben');}
+async function rejectUser(id){await fetch('/api/admin/reject-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:id})});PENDING_USERS=null;ALL_USERS=null;render();toast('Registrierung abgelehnt');}
+/* Stammdaten · Benutzer: alle Konten (nur Administrator, Prüfung am Server) */
+let ALL_USERS=null,ALL_USERS_LOADING=false;
+async function loadAllUsers(){try{const r=await fetch('/api/admin/users');ALL_USERS=r.ok?((await r.json()).users||[]):[];}catch(e){ALL_USERS=[];}ALL_USERS_LOADING=false;render();}
+function renderUserList(){
+ if(ALL_USERS===null){if(!ALL_USERS_LOADING){ALL_USERS_LOADING=true;loadAllUsers();}return `<section class="card"><h2>Benutzer</h2><p class="hint">Lade Benutzerliste …</p></section>`;}
+ const dt=v=>v?esc(new Date(v).toLocaleString(LOC())):'–',act=ALL_USERS.filter(u=>u.sessions>0).length,pend=ALL_USERS.filter(u=>!u.approved).length;
+ return `<section class="card"><h2>Benutzer</h2><p class="hint">Alle registrierten Konten. ${ALL_USERS.length} Konten · ${act} aktuell angemeldet · ${pend} warten auf Freigabe${pend?' (Freigabe im Reiter „Benutzer“)':''}.</p>
+  <div class="toolbar" style="margin:0 0 8px"><button class="btn sm" data-usersreload="1">Aktualisieren</button>${pend?' <button class="btn sm" data-gousers="1">Zur Freigabe</button>':''}</div>
+  ${ALL_USERS.length?`<div class="tbl-wrap"><table><thead><tr><th>E-Mail</th><th>Rolle</th><th>Status</th><th>Registriert</th><th>Letzte Anmeldung</th><th>Aktuell angemeldet</th></tr></thead><tbody>
+  ${ALL_USERS.map(u=>`<tr><td>${esc(u.email)}</td><td>${u.role==='admin'?'Administrator':'Benutzer'}</td><td>${!u.approved?'wartet auf Freigabe':u.locked?'vorübergehend gesperrt':'freigegeben'}</td><td>${dt(u.created_at)}</td><td>${dt(u.last_login_at)}</td><td>${u.sessions>0?'ja'+(u.sessions>1?` (${u.sessions} Sitzungen)`:''):'nein'}</td></tr>`).join('')}
+  </tbody></table></div>`:'<div class="empty">Keine Konten vorhanden.</div>'}
+ </section>`;}
 function renderUserAdmin(){
  if(PENDING_USERS===null){if(!PENDING_USERS_LOADING){PENDING_USERS_LOADING=true;loadPendingUsers();}return `<section class="card"><h2>Benutzer</h2><p class="hint">Lade offene Registrierungen …</p></section>`;}
  if(!PENDING_USERS.length)return `<section class="card"><h2>Benutzer</h2><p class="hint">Neue Registrierungen warten hier auf Freigabe.</p><div class="empty">Aktuell keine offenen Registrierungen.</div></section>`;
@@ -1777,10 +1789,10 @@ function renderUserAdmin(){
 }
 function renderStamm(){
  const secs=stammSecs();let sec=S.stammSec;if(!secs.some(x=>x[0]===sec))sec=secs[0][0];
- const cnt=k=>k==='mat'?CAT.mat.length:k==='io'?'':k==='users'?(PENDING_USERS?PENDING_USERS.length:'…'):CAT.wsp.filter(catFilter('wsp',k)).length+CAT.tr.filter(catFilter('tr',k)).length;
+ const cnt=k=>k==='mat'?CAT.mat.length:k==='io'?'':k==='users'?(ALL_USERS?ALL_USERS.length:'…'):CAT.wsp.filter(catFilter('wsp',k)).length+CAT.tr.filter(catFilter('tr',k)).length;
  const nav=secs.map(([k,l],i)=>`<button data-stsec="${k}" aria-current="${k===sec}"><span class="sn">${k==='io'?'⇅':k==='mat'?'M':k==='users'?'U':i}</span><span class="st"><b>${l}</b><small>${k==='io'?'CSV, JSON, Quellcode':cnt(k)+(cnt(k)===1?' Eintrag':' Einträge')}</small></span></button>`).join('');
  let mid;
- if(sec==='users')mid=`<div class="stack">${renderUserAdmin()}</div>`;
+ if(sec==='users')mid=`<div class="stack">${renderUserList()}</div>`;
  else if(PROCS.includes(sec))mid=`<div class="stack">${renderMan(sec)}${catCard('wsp',sec)}${catCard('tr',sec)}</div>`;
  else if(sec==='mat')mid=`<div class="stack">${renderMatMan()}${catCard('mat','all')}</div>`;
  else mid=`<div class="stack"><section class="card"><h2>Datenaustausch</h2>
@@ -2145,6 +2157,7 @@ main.addEventListener('click',e=>{
  if(b.dataset.approve){approveUser(Number(b.dataset.approve));return;}
  if(b.dataset.reject){rejectUser(Number(b.dataset.reject));return;}
  if(b.dataset.gostamm){S.tab='stamm';save();render();window.scrollTo(0,0);return;}
+ if(b.dataset.usersreload){ALL_USERS=null;render();return;}
  if(b.dataset.gousers){S.tab='benutzer';save();render();window.scrollTo(0,0);return;}
  if(b.dataset.stsec){S.stammSec=b.dataset.stsec;pendingCatClear=null;save();render();window.scrollTo(0,0);return;}
  if(b.dataset.cattab){catTab=b.dataset.cattab;pendingCatClear=null;render();return;}
