@@ -252,9 +252,13 @@ function lnPosMatrixCSV(f){const D=lnPosData(f),c=v=>Number.isFinite(v)?String(+
    oder wie die Liste (Reihe;Seite;Platte;…;Theta …). Je Reihe/Seite: gleichmäßig geteilt → φ0 = Winkel der Platte 1;
    sonst Einzelwinkel und die Reihe wird gesperrt (Einzelwinkel gelten nur für gesperrte Reihen). */
 function lnImportCSV(f,text){
- const lines=String(text).replace(/^﻿/,'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);if(lines.length<2)return {err:'Die Datei enthält keine Daten.'};
- const sep=[';','\t',','].map(c=>[c,lines[0].split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
- const cells=l=>l.split(sep).map(c=>c.trim().replace(/^"|"$/g,''));const H=cells(lines[0]).map(h=>h.toLowerCase());
+ /* doppelt kodierte Dateien (UTF-8 als ANSI gelesen und wieder gespeichert, z. B. „ZÃ¤hnezahl“) reparieren */
+ let tx=String(text);if(/Ã.|Â°|ï»¿/.test(tx)){try{tx=decodeURIComponent(escape(tx));}catch(e){tx=tx.replace(/ï»¿/g,'');}}
+ const lines=tx.replace(/^\uFEFF/,'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);if(lines.length<2)return {err:'Die Datei enthält keine Daten.'};
+ /* CSV mit Anführungszeichen (z. B. Excel mit Komma als Trennzeichen und "22,5" als Zahl) korrekt zerlegen */
+ const splitQ=(l,c)=>{const o=[];let cur='',q=false;for(let k=0;k<l.length;k++){const ch=l[k];if(q){if(ch==='"'){if(l[k+1]==='"'){cur+='"';k++;}else q=false;}else cur+=ch;}else if(ch==='"')q=true;else if(ch===c){o.push(cur);cur='';}else cur+=ch;}o.push(cur);return o;};
+ const sep=[';','\t',','].map(c=>[c,splitQ(lines[0],c).length]).sort((a,b)=>b[1]-a[1])[0][0];
+ const cells=l=>splitQ(l,sep).map(c=>c.trim());const H=cells(lines[0]).map(h=>h.toLowerCase().replace(/^[^a-zäöüßθ]+/,''));
  const nv=v=>{const x=num(String(v).replace(/\s/g,''));return Number.isFinite(x)?x:NaN;},sideOf=v=>/^(r|rechts|right)$/i.test(v)?'R':/^(l|links|left)$/i.test(v)?'L':null;
  const iR=H.findIndex(h=>h.startsWith('reihe')),iS=H.findIndex(h=>h.startsWith('seite'));if(iR<0||iS<0)return {err:'Spalten „Reihe“ und „Seite“ fehlen.'};
  const recs={};const add=(nm,sd,j,a)=>{const k=nm+'|'+sd;(recs[k]=recs[k]||{nm,sd,a:[]}).a[j]=a;};
@@ -280,7 +284,7 @@ function lnImportCSV(f,text){
  const zr=Math.max(Number(zL[0])||0,Number(zR[0])||0);if(zr>0&&zr!==Math.round(num(f.z))){f.z=String(zr);msgs.push(`Zähnezahl des Fräsers auf z = ${zr} gesetzt`);}
  for(const [Z,sn] of [[zL,'links'],[zR,'rechts']])for(let i=1;i<n;i++)if(Number(Z[i])>Number(Z[i-1])&&Number(Z[i-1])>0)msgs.push(`${names[i]} ${sn} hat mehr Platten als ${names[i-1]} – bitte prüfen (äußere Reihen werden begrenzt)`);
  f.zRows=zL.join(';');if(!mid)f.zRowsR=zR.join(';');f.phRows=pL.join(';');if(!mid)f.phRowsR=pR.join(';');f.indL=iL.join(';');f.indR=iRr.join(';');f.dvL=dL.join(';');if(!mid)f.dvR=dR.join(';');f.phLock=lk.join(',');
- return {ok:true,nEven,nInd,used,msgs};}
+ return {ok:true,nEven,nInd,used,msgs:[...new Set(msgs)]};}
 function lnImportPick(){let inp=document.getElementById('ln-imp-file');if(!inp){inp=document.createElement('input');inp.type='file';inp.accept='.csv,text/csv,text/plain';inp.id='ln-imp-file';inp.hidden=true;document.body.appendChild(inp);
   inp.addEventListener('change',async()=>{const file=inp.files&&inp.files[0];inp.value='';if(!file)return;let txt='';try{txt=await file.text();}catch(e){toast('Datei konnte nicht gelesen werden');return;}
    const f=S.forms.laengsnaht,LS=null,r=lnImportCSV(f,txt),box=document.getElementById('ln-imp-msg');
