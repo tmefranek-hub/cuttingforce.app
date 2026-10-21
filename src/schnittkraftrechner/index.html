@@ -662,8 +662,24 @@ function bkRows(f){const s=bkSub(f),G=bkGeom(f),t=num(f.t),rows=[];if(!(num(f.lK
    (L.plates||[]).forEach(([a,b])=>{cnt[g]=(cnt[g]||0)+1;const a1=Math.max(0,a+u),b1=Math.min(tot,b-u);let inn=0;const M=40;for(let m=0;m<M;m++){const sv=a1+(b1-a1)*(m+0.5)/M,y=yAt(sv);if(y>=-1e-9&&y<=t+1e-9)inn+=(b1-a1)/M;}
     const NS=60,pts=[];for(let m=0;m<=NS;m++)pts.push(ptAt(a+u+(b-a-2*u)*m/NS));rows.push({id:g+cnt[g],grp:g,s0:a,s1:b,len:Math.max(0,inn),pass:1,pts,dl:(b-a-2*u)/NS});});});}
  const Z=bkMapGet(f.bkZ),PH=bkMapGet(f.bkPh),N=rows.length;
- rows.forEach((r,i)=>{r.z=Math.max(1,Math.round(num(Z[r.id])||num(f.zDef)||4));r.zSet=Z[r.id]!=null;const ph=num(PH[r.id]);r.ph=Number.isFinite(ph)?ph:(360/r.z)*i/Math.max(1,N);r.phSet=Number.isFinite(ph);});
+ const LK=bkLockSet(f),DV=bkMapGet(f.bkDv),IND=bkMapGet(f.bkInd);
+ rows.forEach((r,i)=>{r.z=Math.max(1,Math.round(num(Z[r.id])||num(f.zDef)||4));r.zSet=Z[r.id]!=null;const ph=num(PH[r.id]);r.ph=Number.isFinite(ph)?ph:(360/r.z)*i/Math.max(1,N);r.phSet=Number.isFinite(ph);
+  r.locked=LK.has(r.id);r.dv=String(DV[r.id]||'').split('/').map(v=>num(v)).map(v=>Number.isFinite(v)?v:0);if(!r.dv.length||r.dv.every(v=>!v))r.dv=[];
+  r.ind=bkIndArr(IND[r.id],r.z);r.hasInd=r.ind.some(Number.isFinite);const A=bkPlateAng(r);r.ang=A.ang;r.fzf=A.fzf;});
  return rows;}
+/* Teilung je Reihe (wie beim Längsnahtfräser): Grundlage φ0 + j·360°/z, optional Ungleichteilung Δθ_j (Muster der Länge m, wiederholt);
+   Einzelwinkel als Nachbelegung – nur eingetragene Platten sind fest, die übrigen werden zwischen ihnen gleichmäßig verteilt.
+   f_z-Faktor je Platte = Lücke zur vorauslaufenden Platte (kleinerer Winkel) / Teilung → h_j = f_z·Faktor */
+function bkIndArr(str,z){const a=String(str||'').split('/').map(v=>v.trim()===''?NaN:num(v));const o=[];for(let j=0;j<z;j++)o.push(Number.isFinite(a[j])?((a[j]%360)+360)%360:NaN);return o;}
+function bkLockSet(f){return new Set(String(f.bkLock||'').split(',').map(x=>x.trim()).filter(Boolean));}
+function bkPlateAng(r){const z=r.z,p=360/z,m=r.dv.length;let ang=[];for(let j=0;j<z;j++)ang.push(r.ph+j*p+(m?r.dv[j%m]:0));
+ const F=[];r.ind.forEach((v,j)=>{if(Number.isFinite(v))F.push(j);});
+ if(F.length===1){const j0=F[0],a0=r.ind[j0];ang=ang.map((_,j)=>a0+(j-j0)*p);}
+ else if(F.length>1){for(let q=0;q<F.length;q++){const i1=F[q],i2=F[(q+1)%F.length],a1=r.ind[i1];let a2=r.ind[i2],di=(i2-i1+z)%z||z;while(a2<=a1)a2+=360;if(di===z)a2=a1+360;
+   for(let d=0;d<=di;d++){const j=(i1+d)%z;if(d===0||!Number.isFinite(r.ind[j]))ang[j]=a1+(a2-a1)*d/di;}}}
+ ang=ang.map(v=>((v%360)+360)%360);const srt=ang.map((v,j)=>[v,j]).sort((a,b)=>a[0]-b[0]),fzf=new Array(z).fill(1);
+ for(let q=0;q<z;q++){const [v,j]=srt[q],pv=srt[(q-1+z)%z][0];let g=v-pv;if(g<=0)g+=360;if(z===1)g=360;fzf[j]=g/p;}
+ return {ang,fzf};}
 /* Mehrere Schnitte: Schnitt 1 mit a_ref bzw. ae,min von der Ausgangskante, jeder weitere Schnitt mit radialer Zustellung Δa
    ab der zuvor gefrästen Kante (Profil um Δa nach innen) und Höhenänderung Δh gegenüber dem vorherigen Schnitt.
    Kante nach Schnitt k: e_k(y) = max(e_{k−1}(y), c_k(y)), c_k = Werkzeugkontur verschoben um (X_k, Y_k), außerhalb geradlinig verlängert */
@@ -683,11 +699,31 @@ function bkCuts(f){const G=bkGeom(f),t=num(f.t);if(!G.C||!(t>0)||!Number.isFinit
  return {N,ys,cuts,at,edge:prev,maxX:Math.max(...prev),G};}
 const bkZmin=f=>{const r=bkRows(f);return r.length?Math.min(...r.map(x=>x.z)):(num(f.zDef)||4);};
 function bkTeilHTML(f){const rows=bkRows(f);if(!rows.length)return `<div id="bk-teil" class="wide" style="grid-column:1/-1"><p class="note">Teilung: zuerst Profil und Wendeplatte (lK) festlegen.</p></div>`;
- const zs=rows.reduce((a,r)=>a+r.z,0);
- return `<div id="bk-teil" class="wide" style="grid-column:1/-1"><div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>Schneidlänge im Blech (mm)</th><th>Zähnezahl z</th><th>Teilung (°)</th><th>Winkellage φ0 (°)</th></tr></thead><tbody>
- ${rows.map(r=>`<tr><td><b>${r.id}</b></td><td>${fmt(r.len,1)}</td><td><input class="lnin" data-bkz="${r.id}" value="${r.z}" inputmode="numeric" style="width:60px"></td><td>${fmt(360/r.z,2)}</td><td><input class="lnin" data-bkph="${r.id}" value="${r.phSet?esc(bkMapGet(f.bkPh)[r.id]):''}" placeholder="${fmt(r.ph,2)}" inputmode="decimal" style="width:70px"></td></tr>`).join('')}
- </tbody></table></div><p class="note" style="margin:4px 0 0">FO = Fase oben · FU = Fase unten · I = Stegplatten · R = Radiusplatte. Schneiden gesamt Σz = ${zs}. Der Zahnvorschub fz in den Prozessparametern gilt für die Reihe mit den wenigsten Zähnen (z = ${Math.min(...rows.map(r=>r.z))}); Reihen mit mehr Zähnen fahren mit fz·z_min/z. Winkellage leer = gleichmäßig versetzt.</p>
- <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:13px">Alle Reihen: <input class="lnin" id="bk-zall" value="${esc(f.zDef||'4')}" inputmode="numeric" style="width:60px"> Zähne <button type="button" class="btn" data-bkzall="1">übernehmen</button></div></div>`;}
+ const zs=rows.reduce((a,r)=>a+r.z,0),mat=f.bkZView==='mat',IND=bkMapGet(f.bkInd);
+ const sw=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin:0 0 6px">Ansicht: <button type="button" class="chip-btn" data-bkzview="rows" aria-pressed="${!mat}">Reihen (Zähnezahl, Teilung, Winkelversatz)</button><button type="button" class="chip-btn" data-bkzview="mat" aria-pressed="${mat}">Tabellenansicht</button></div>`;
+ const lockB=r=>`<button type="button" class="chip-btn" data-bklock="${r.id}" aria-pressed="${r.locked}" title="${r.locked?'gesperrt – wird von keiner Aktion verändert':'offen'}">${r.locked?'🔒':'🔓'}</button>`;
+ let body;
+ if(!mat)body=`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>Schneidlänge im Blech (mm)</th><th>Zähnezahl z</th><th>Teilung (°)</th><th>Winkelversatz φ0 (°)</th><th>Teilung</th><th>Sperre</th></tr></thead><tbody>
+ ${rows.map(r=>`<tr${r.locked?' style="background:var(--surface-2)"':''}><td><b style="color:${bkTrC(r.id)}">${r.id}</b></td><td>${fmt(r.len,1)}</td><td><input class="lnin" data-bkz="${r.id}" value="${r.z}" inputmode="numeric" style="width:60px"${r.locked?' disabled':''}></td><td>${fmt(360/r.z,2)}</td><td><input class="lnin" data-bkph="${r.id}" value="${r.phSet?esc(bkMapGet(f.bkPh)[r.id]):''}" placeholder="${fmt(r.ph,2)}" inputmode="decimal" style="width:70px"${r.locked||r.hasInd?' disabled':''}></td><td>${r.hasInd?`Einzelwinkel (${r.ind.filter(Number.isFinite).length}/${r.z})`:r.dv.length?`ungleich (m = ${r.dv.length}, ±${fmt(Math.max(...r.dv.map(Math.abs)),2)}°)`:'gleich'}</td><td>${lockB(r)}</td></tr>`).join('')}
+ </tbody></table></div>`;
+ else{const zx=Math.max(...rows.map(r=>r.z));body=`<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Reihe</th><th>z</th><th>Sperre</th>${Array.from({length:zx},(_,j)=>`<th>Platte ${j+1}</th>`).join('')}</tr></thead><tbody>
+ ${rows.map(r=>{const raw=bkIndArr(IND[r.id],r.z);return `<tr${r.locked?' style="background:var(--surface-2)"':''}><td><b style="color:${bkTrC(r.id)}">${r.id}</b></td><td>${r.z}</td><td>${lockB(r)}</td>${Array.from({length:zx},(_,j)=>j<r.z?`<td><input class="lnin" data-bkang="${r.id}|${j}" value="${Number.isFinite(raw[j])?dec(raw[j],3).replace('.',','):''}" placeholder="${fmt(r.ang[j],2)}" inputmode="decimal" style="width:66px"></td>`:'<td></td>').join('')}</tr>`;}).join('')}
+ </tbody></table></div>`;}
+ return `<div id="bk-teil" class="wide" style="grid-column:1/-1">${sw}${body}<p class="note" style="margin:4px 0 0">FO = Fase oben · FU = Fase unten · I = Stegplatten · R = Radiusplatte. Schneiden gesamt Σz = ${zs}. Der Zahnvorschub fz in den Prozessparametern gilt für die Reihe mit den wenigsten Zähnen (z = ${Math.min(...rows.map(r=>r.z))}); Reihen mit mehr Zähnen fahren mit fz·z_min/z, bei ungleicher Teilung jede Platte mit fz·(Lücke zur vorauslaufenden Platte / Teilung). ${mat?'Tabellenansicht: eingetragene Winkel sind fest, die übrigen Platten der Reihe werden zwischen ihnen gleichmäßig verteilt (Nachbelegung); eine Eingabe sperrt die Reihe.':'Winkelversatz leer = gleichmäßig versetzt. Gesperrte Reihen (🔒) werden von keiner Aktion verändert.'}</p>
+ <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:13px">Alle offenen Reihen: <input class="lnin" id="bk-zall" value="${esc(f.zDef||'4')}" inputmode="numeric" style="width:60px"> Zähne <button type="button" class="btn" data-bkzall="1">übernehmen</button><button type="button" class="btn" data-bkcsv="1">Teilung als CSV exportieren</button><button type="button" class="btn" data-bkimp="1">Teilung aus CSV importieren</button>${rows.some(r=>!r.locked&&(r.dv.length||r.hasInd))?'<button type="button" class="btn" data-bkeven="1">Gleichteilung wiederherstellen</button>':''}</div><div id="bk-imp-msg"></div></div>`;}
+/* CSV: Reihe, Zähnezahl, Teilung (°), Platte 1 … n (Winkellagen) – Semikolon oder Komma, Dezimalkomma, BOM und doppelt kodiertes UTF-8 werden erkannt */
+function bkCsvExport(f){const rows=bkRows(f),zx=Math.max(1,...rows.map(r=>r.z)),q=v=>{const t=String(v);return /[",;\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;},d=v=>dec(v,3).replace('.',',');
+ const L=[['Reihe','Zähnezahl','Teilung (°)'].concat(Array.from({length:zx},(_,j)=>'Platte '+(j+1))).map(q).join(',')].concat(rows.map(r=>[r.id,r.z,d(360/r.z)].concat(Array.from({length:zx},(_,j)=>j<r.z?d(r.ang[j]):'')).map(q).join(',')));
+ const bl=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='blechkante-teilung.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
+function bkCsvParse(txt){let t=String(txt||'').replace(/^﻿/,'');try{if(/Ã.|Â./.test(t))t=decodeURIComponent(escape(t));}catch(e){}
+ const lines=t.split(/\r?\n/).filter(x=>x.trim()),sep=(lines[0]||'').split(';').length>(lines[0]||'').split(',').length?';':',';
+ return lines.map(l=>{const o=[];let cur='',qu=false;for(let i=0;i<l.length;i++){const ch=l[i];if(qu){if(ch==='"'){if(l[i+1]==='"'){cur+='"';i++;}else qu=false;}else cur+=ch;}else if(ch==='"')qu=true;else if(ch===sep){o.push(cur);cur='';}else cur+=ch;}o.push(cur);return o.map(x=>x.trim());});}
+function bkCsvImport(f,txt){const T=bkCsvParse(txt);if(T.length<2)return {err:'Die Datei enthält keine Daten.'};const H=T[0].map(x=>x.toLowerCase()),iz=H.findIndex(x=>/hne|^z$/.test(x)),ip=H.findIndex(x=>/^platte\s*1$/.test(x));
+ if(iz<0||ip<0)return {err:'Spalten „Zähnezahl“ und „Platte 1 …“ nicht gefunden.'};const rows=bkRows(f),Z=bkMapGet(f.bkZ),IND=bkMapGet(f.bkInd),LK=bkLockSet(f),used=[],miss=[];
+ T.slice(1).forEach(c=>{const id=(c[0]||'').toUpperCase().replace(/\s+/g,'');const r=rows.find(x=>x.id===id);if(!r){if(id)miss.push(id);return;}const z=Math.round(num(c[iz]));if(!(z>0))return;
+  const a=c.slice(ip,ip+z).map(v=>num(v));Z[id]=String(z);IND[id]=a.map(v=>Number.isFinite(v)?dec(((v%360)+360)%360,3):'').join('/');LK.add(id);used.push(id);});
+ if(!used.length)return {err:'Keine Reihe der Datei passt zum aktuellen Profil (Reihen: '+rows.map(r=>r.id).join(', ')+').'};
+ f.bkZ=bkMapStr(Z);f.bkInd=bkMapStr(IND);f.bkLock=[...LK].join(',');return {used,miss};}
 const BK_CUTC=['#c2560c','#1d5fc4','#2e9d6a','#a23b9a','#c99a06','#0f8b8d','#b3261e','#5b6bd6','#7a5a00','#d65b9a','#3d7a1f','#6b3fa0'];
 const bkCutRes=c=>[fmt(c.A,1),fmt(c.aeMx,2),fmt(c.phs,0),fmt(c.vf,0),fmt(c.Pc,2),fmt(c.Mc,1),fmt(c.th,2)];
 function bkCutsCells(f){const L=PROC.blechkante.calc(f).cuts||[];L.forEach((c,k)=>bkCutRes(c).forEach((v,q)=>{const e=document.getElementById(`bkc-${k}-${q}`);if(e)e.textContent=v;}));}
@@ -702,7 +738,7 @@ let BK_SIM=null,BK_ROT=0;
 function bkSketchUpd(f){const e=document.getElementById('bk-prof');if(e)e.innerHTML=bkSketch(f);const st=document.getElementById('bk-simstale');if(st)st.style.display=BK_SIM&&BK_SIM.key!==bkSimKey(f)?'':'none';}
 function bkCarousel(f){return `<div style="display:flex;gap:6px;align-items:center;margin:0 0 6px;font-size:12.5px"><span class="mini-seg" role="group" aria-label="Anzeige"><button type="button" data-bkslide="0" aria-pressed="true">Profil</button><button type="button" data-bkslide="1" aria-pressed="false">Eingriff</button></span><span class="note" style="margin:0">← wischen →</span></div>
  <div id="bk-car" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px"><div id="bk-prof" style="flex:0 0 100%;scroll-snap-align:start;min-width:0">${bkSketch(f)}</div><div id="bk-sim" style="flex:0 0 100%;scroll-snap-align:start;min-width:0">${bkSimHTML(f)}</div></div>`;}
-const bkSimKey=f=>JSON.stringify(PROC.blechkante.params.map(([k])=>f[k]).concat([f.sub,f.bkZ,f.bkPh,f.zDef,f.bkN,f.bkCutA,f.bkCutH,f.bkCutF,f.pos,f.bkDcRef,f.bkRef,f.bkAeM,f.kc,f.mc,f.bkHand,f.bkProf]));
+const bkSimKey=f=>JSON.stringify(PROC.blechkante.params.map(([k])=>f[k]).concat([f.sub,f.bkZ,f.bkPh,f.bkInd,f.bkDv,f.zDef,f.bkN,f.bkCutA,f.bkCutH,f.bkCutF,f.pos,f.bkDcRef,f.bkRef,f.bkAeM,f.kc,f.mc,f.bkHand,f.bkProf]));
 /* Simulation eines Schnitts: je Reihe Radius R_r, örtliche Schnitttiefe ae_r und eingreifende Schneidlänge b_r; Platte im Eingriff zwischen φein und φaus,
    h = fz_r·sin φ, Fc = b·h·kc(h), M = Fc·R, P = M·ω. Gesamtsignal = Summe aller Platten über eine Umdrehung (Δφ = 0,5°) */
 /* Simulation eines Schnitts mit Inkrementen (wie beim Längsnahtfräser): jede Schneide (Reihe) in nR bzw. nF gleich lange Abschnitte geteilt;
@@ -723,9 +759,9 @@ function bkSimCalc(f,k){const CU=bkCuts(f),RW=bkRows(f),t=num(f.t);if(!CU||!RW.l
      Object.assign(inc,{on:true,y:sY/cnt,r:Ri,ae,b:w,by:wy,a,e,hmax:hx,kap});}}
    incs.push(inc);}
   const on=incs.some(x=>x.on),rowP=new Float64Array(NP),sh=[];
-  for(let j=0;j<r.z;j++){const s0=Math.round(((r.ph+j*360/r.z)%360+360)%360/da);sh.push(s0);for(let i=0;i<NP;i++){const v=one[(i+s0)%NP];if(v){M[i]+=v;P[i]+=v*om/1000;rowP[i]+=v*om/1000;}}}
+  const mcE=1-(num(f.mc)||0),sc=[];for(let j=0;j<r.z;j++){const s0=Math.round(r.ang[j]/da)%NP,q=Math.pow(Math.max(0,r.fzf[j]),mcE);sh.push(s0);sc.push(q);for(let i=0;i<NP;i++){const v=one[(i+s0)%NP]*q;if(v){M[i]+=v;P[i]+=v*om/1000;rowP[i]+=v*om/1000;}}}
   const act=incs.filter(x=>x.on),Rm=act.length?act.reduce((a,x)=>a+x.r*x.b,0)/act.reduce((a,x)=>a+x.b,0):NaN,mid=Q[Math.floor(Q.length/2)]||[0,0];
-  info.push({id:r.id,grp:r.grp,z:r.z,ph:r.ph,on,R:Rm,a:act.length?Math.min(...act.map(x=>x.a)):NaN,e:act.length?Math.max(...act.map(x=>x.e)):NaN,incs,one,rowP,sh,yc:mid[1]+c.oy,rc:Rr+(mid[0]-xr),yLo,yHi});});
+  info.push({id:r.id,grp:r.grp,z:r.z,ph:r.ph,ang:r.ang,sc,on,R:Rm,a:act.length?Math.min(...act.map(x=>x.a)):NaN,e:act.length?Math.max(...act.map(x=>x.e)):NaN,incs,one,rowP,sh,yc:mid[1]+c.oy,rc:Rr+(mid[0]-xr),yLo,yHi});});
  let Pm=0;for(let i=0;i<NP;i++)Pm+=P[i]/NP;
  return {k:c.k,P,M,NP,da,info,Pm,Pmax:Math.max(...P),Pmin:Math.min(...P),Mmax:Math.max(...M),Mm:Pm*1000/om,n,vf,om,Rmax:Math.max(...info.filter(x=>x.on).map(x=>x.R),Dm/2)};}
 function bkSimHTML(f){const CU=bkCuts(f),N=CU?CU.N:1,kSel=BK_SIM?Math.min(BK_SIM.k,N-1):0;
@@ -747,7 +783,7 @@ function bkSimSvg(f){const S0=BK_SIM.res,t=num(f.t),CU=bkCuts(f),RW=bkRows(f),D=
  /* Achse und Flugkreis-Umriss */
  h+=`<line x1="${cx}" y1="2" x2="${cx}" y2="${H-2}" stroke="#6b3fa0" stroke-width="1" stroke-dasharray="12 3 2 3"/><line x1="${U(-Rm).toFixed(1)}" y1="${pT-6}" x2="${U(-Rm).toFixed(1)}" y2="${H-pB+6}" stroke="var(--line)" stroke-dasharray="3 3"/><line x1="${U(Rm).toFixed(1)}" y1="${pT-6}" x2="${U(Rm).toFixed(1)}" y2="${H-pB+6}" stroke="var(--line)" stroke-dasharray="3 3"/>`;
  /* Platten: erst hinten, dann vorne */
- const L=[];RW.forEach(r=>{const x=inf[r.id]||{},z=r.z,g=r.id.replace(/\d+/,'');for(let j=0;j<z;j++){const ph=((r.ph+j*360/z-BK_ROT)%360+360)%360,s=Math.sin(ph*Math.PI/180),front=Math.cos(ph*Math.PI/180)<0,act=x.on&&ph>=x.a&&ph<=x.e;
+ const L=[];RW.forEach(r=>{const x=inf[r.id]||{},z=r.z,g=r.id.replace(/\d+/,'');for(let j=0;j<z;j++){const ph=((r.ang[j]-BK_ROT)%360+360)%360,s=Math.sin(ph*Math.PI/180),front=Math.cos(ph*Math.PI/180)<0,act=x.on&&ph>=x.a&&ph<=x.e;
    const d=(r.pts||[]).map((p,m)=>{const rho=Rr+(p[0]-xr);return (m?'L':'M')+U(rho*s).toFixed(1)+' '+Y(p[1]+c.oy).toFixed(1);}).join(' ');L.push({front,act,svg:`<path d="${d}" fill="none" stroke="${col[g]||'#555'}" stroke-width="${act?4:front?2:1.2}" stroke-opacity="${act?1:front?.7:.35}" ${front?'':'stroke-dasharray="3 2"'} stroke-linecap="round"/>`});}});
  L.sort((a,b)=>(a.front-b.front)||(a.act-b.act)).forEach(x=>h+=x.svg);
  /* Spindel und Vorschub */
@@ -768,12 +804,12 @@ function bkAdvHTML(f){const CU=bkCuts(f),N=CU?CU.N:1,k=Math.min(N-1,Math.max(0,M
  ${sel.incs.map(q=>q.on?`<tr><td>${q.q}</td><td>${fmt(q.y,2)}</td><td>${fmt(q.r,2)}</td><td>${fmt(q.ae,3)}</td><td>${fmt(q.a,1)}</td><td>${fmt(q.e,1)}</td><td>${fmt(q.e-q.a,1)}</td><td>${fmt(q.b,3)}</td><td>${fmt(q.by,3)}</td><td>${fmt(q.kap,3)}</td><td>${fmt(q.hmax,4)}</td></tr>`:`<tr style="opacity:.5"><td>${q.q}</td><td>${fmt(q.y,2)}</td><td>${fmt(q.r,2)}</td><td colspan="8">nicht im Eingriff</td></tr>`).join('')}</tbody></table></div>
  <p class="note" style="margin:4px 0 0">Jedes Inkrement hat seinen Radius r, seine örtliche Schnitttiefe a<sub>e</sub> (Abtrag dieses Schnitts in seiner Höhe), den Eingriffsbogen φ<sub>ein</sub> … φ<sub>aus</sub>, die Schneidlänge b und die Höhe b<sub>y</sub> (sin κ = b<sub>y</sub>/b); h = f<sub>z</sub>·sin φ·sin κ. Dieselbe Rechnung liegt der Eingriffssimulation zugrunde.</p>`;}
 function bkSimRefresh(){if(!BK_SIM||!BK_SIM.res||BK_SIM.res.err)return;const f=S.forms.blechkante,a=document.getElementById('bk-simsvg'),d=document.getElementById('bk-simdet'),c=document.getElementById('bk-simctl'),g=document.getElementById('bk-simg');if(a)a.innerHTML=bkSimSvg(f);if(d)d.innerHTML=bkSimDetail(f);if(c)c.innerHTML=bkSimCtl();if(g)g.innerHTML=bkSimGraph();}
-function bkSimCtl(){const S0=BK_SIM.res,on=S0.info.filter(x=>x.on),opt=[['all','Fräser gesamt']].concat(on.map(x=>['trk:'+x.id,'Spur '+x.id+' ('+x.z+' Platten)'])).concat([].concat(...on.map(x=>Array.from({length:x.z},(_,j)=>['ins:'+x.id+':'+j,'Wendeplatte '+x.id+'/'+(j+1)+' · θ = '+fmt(((x.ph+j*360/x.z)%360+360)%360,2)+'°']))));
+function bkSimCtl(){const S0=BK_SIM.res,on=S0.info.filter(x=>x.on),opt=[['all','Fräser gesamt']].concat(on.map(x=>['trk:'+x.id,'Spur '+x.id+' ('+x.z+' Platten)'])).concat([].concat(...on.map(x=>Array.from({length:x.z},(_,j)=>['ins:'+x.id+':'+j,'Wendeplatte '+x.id+'/'+(j+1)+' · θ = '+fmt(x.ang[j],2)+'°']))));
  if(!opt.some(o=>o[0]===BK_SRC))BK_SRC='all';
  return `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;margin:6px 0 2px"><select data-bksrc="1" style="max-width:100%">${opt.map(([v,l])=>`<option value="${v}"${v===BK_SRC?' selected':''}>${l}</option>`).join('')}</select>
  <span>Bereich: ${[[360,'2π'],[90,'90°'],[30,'30°'],[10,'10°']].map(([v,l])=>`<button type="button" class="chip-btn" data-bkzoom="${v}" aria-pressed="${BK_ZOOM===v}">${l}</button>`).join('')}<button type="button" class="chip-btn" data-bkfit="1" aria-pressed="${!BK_FIT}">Achse ab 0</button></span></div>`;}
 function bkSimSeries(){const S0=BK_SIM.res;if(BK_SRC==='all')return {y:S0.P,lab:'Fräser gesamt'};const [kind,id,j]=BK_SRC.split(':'),x=S0.info.find(r=>r.id===id);if(!x)return {y:S0.P,lab:'Fräser gesamt'};
- if(kind==='trk')return {y:x.rowP,lab:'Spur '+id};const y=new Float64Array(S0.NP),s0=x.sh[+j]||0;for(let i=0;i<S0.NP;i++)y[i]=x.one[(i+s0)%S0.NP]*S0.om/1000;return {y,lab:'Wendeplatte '+id+'/'+(+j+1)};}
+ if(kind==='trk')return {y:x.rowP,lab:'Spur '+id};const y=new Float64Array(S0.NP),s0=x.sh[+j]||0,q=x.sc?x.sc[+j]:1;for(let i=0;i<S0.NP;i++)y[i]=x.one[(i+s0)%S0.NP]*q*S0.om/1000;return {y,lab:'Wendeplatte '+id+'/'+(+j+1)};}
 function bkSimGraph(){const S0=BK_SIM.res,Sr=bkSimSeries(),W=420,H=140,pl=36,pr=8,pt=14,pb=22,Z=BK_ZOOM,c0=BK_ROT-Z/2,N=Math.max(2,Math.round(Z/S0.da)),xs=[],ys=[];
  for(let q=0;q<=N;q++){const ang=c0+Z*q/N,i=((Math.round(ang/S0.da)%S0.NP)+S0.NP)%S0.NP;xs.push(ang);ys.push(Sr.y[i]);}
  const mxv=Math.max(...ys,1e-6),mnv=BK_FIT?Math.min(...ys):0,hi=mxv+(mxv-mnv)*0.08,lo=BK_FIT?Math.max(0,mnv-(mxv-mnv)*0.08):0,X=a=>pl+(W-pl-pr)*(a-c0)/Z,Y=v=>H-pb-(H-pt-pb)*(v-lo)/Math.max(1e-9,hi-lo);
@@ -799,7 +835,7 @@ function bkSimDetail(f){const S0=BK_SIM.res,t=num(f.t),fl=bkHasPos(bkSub(f))&&bk
  on.forEach(x=>{const col=bkTrC(x.id);h+=`<line x1="0" y1="${Y(x.yc).toFixed(1)}" x2="${W}" y2="${Y(x.yc).toFixed(1)}" stroke="${col}" stroke-width="1.4" stroke-dasharray="7 3"/><text x="4" y="${(Y(x.yc)-3).toFixed(1)}" font-size="10" font-weight="700" fill="${col}" style="paint-order:stroke;stroke:var(--surface);stroke-width:3px">${x.id}</text>`;});
  /* Platten nur auf der Eingriffsseite (cos φ < 0); im Eingriff fett */
  const RW=bkRows(f),D=bkDia(f),Rr=D.Dref/2,xr=D.xr||0,CU=bkCuts(f),c=CU?CU.cuts[Math.min(S0.k,CU.cuts.length-1)]:{oy:0};
- RW.forEach(r=>{const x=S0.info.find(v=>v.id===r.id);if(!x)return;const col=bkTrC(r.id);for(let j=0;j<r.z;j++){const ph=((r.ph+j*360/r.z-BK_ROT)%360+360)%360;if(Math.cos(ph*Math.PI/180)>=0)continue;const sn=Math.sin(ph*Math.PI/180),act=x.on&&ph>=x.a&&ph<=x.e;
+ RW.forEach(r=>{const x=S0.info.find(v=>v.id===r.id);if(!x)return;const col=bkTrC(r.id);for(let j=0;j<r.z;j++){const ph=((r.ang[j]-BK_ROT)%360+360)%360;if(Math.cos(ph*Math.PI/180)>=0)continue;const sn=Math.sin(ph*Math.PI/180),act=x.on&&ph>=x.a&&ph<=x.e;
    const d=(r.pts||[]).map((p,mm)=>(mm?'L':'M')+U((Rr+(p[0]-xr))*sn).toFixed(1)+' '+Y(p[1]+c.oy).toFixed(1)).join(' ');h+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="${act?4.5:2}" stroke-opacity="${act?1:.45}" stroke-linecap="round"/>`;
    if(act){const pm=r.pts[Math.floor(r.pts.length/2)];h+=`<circle cx="${U((Rr+(pm[0]-xr))*sn).toFixed(1)}" cy="${Y(pm[1]+c.oy).toFixed(1)}" r="3" fill="var(--surface)" stroke="${col}" stroke-width="1.5"/>`;}}});
  h+=`<line x1="${U(0).toFixed(1)}" y1="0" x2="${U(0).toFixed(1)}" y2="${H}" stroke="#6b3fa0" stroke-width="1" stroke-dasharray="12 3 2 3"/></g><text x="8" y="14" font-size="10.5" fill="var(--muted)">Detail Eingriff · Kreuzriss · Spur = Bahn der Plattenmitten</text>
@@ -1002,7 +1038,7 @@ function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='drehen')Object.assign(b,{D:'80',vc:'220',f:'0,25',ap:'2',kr:'95',g:'6',l:'120',eta:'0,8'});
  if(p==='fraesen')Object.assign(b,{Dc:'63',z:'5',vc:'200',fz:'0,15',ap:'3',pos:'gleich',aue:'5',ae:'40',kr:'90',g:'10',lam:'2',l:'300',eta:'0,8'});
  if(p==='bohren')Object.assign(b,{Dc:'12',z:'2',vc:'90',fn:'0,2',sig:'140',g:'30',l:'40',eta:'0,8'});
- if(p==='blechkante')Object.assign(b,{nIBR:'4',nIBF:'4',bkN:'1',bkCutA:'',bkCutH:'',bkCutF:'',zDef:'4',bkZ:'',bkPh:'',cXW:'2',hOX:'12',hUX:'12',aS:'14',dSX:'0',hUJ:'1',aUJ:'45',tMax:'25',hRef:'15',cMax:'4',hFMax:'20',lK:'12,7',uF:'1',dUe:'2',bkProf:'oben',rJ:'6',betaJ:'10',bkHand:'L',bkSp:'oben',pos:'gleich',Dc:'160',z:'10',vc:'180',fz:'0,2',t:'20',aRef:'3',aeMin:'3',alpha:'30',c:'2',h1:'',alpha2:'30',t2:'12',nS:'4',kr:'45',g:'6',lam:'2',l:'1000',eta:'0,8'});
+ if(p==='blechkante')Object.assign(b,{bkLock:'',bkInd:'',bkDv:'',bkZView:'rows',nIBR:'4',nIBF:'4',bkN:'1',bkCutA:'',bkCutH:'',bkCutF:'',zDef:'4',bkZ:'',bkPh:'',cXW:'2',hOX:'12',hUX:'12',aS:'14',dSX:'0',hUJ:'1',aUJ:'45',tMax:'25',hRef:'15',cMax:'4',hFMax:'20',lK:'12,7',uF:'1',dUe:'2',bkProf:'oben',rJ:'6',betaJ:'10',bkHand:'L',bkSp:'oben',pos:'gleich',Dc:'160',z:'10',vc:'180',fz:'0,2',t:'20',aRef:'3',aeMin:'3',alpha:'30',c:'2',h1:'',alpha2:'30',t2:'12',nS:'4',kr:'45',g:'6',lam:'2',l:'1000',eta:'0,8'});
  if(p==='laengsnaht')b.pos='gleich';
  if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
  b.kVf=KVF_DEF[p]||'1';b.kV='';b.kVer='1';
@@ -1993,12 +2029,15 @@ const main=document.getElementById('main');
 /* Schnitttabelle Blechkante: Anzahl der Zeilen erst beim Verlassen des Feldes neu aufbauen */
 document.addEventListener('change',e=>{const el=e.target;if(!el||!el.dataset)return;if(el.dataset.bksrc){BK_SRC=el.value;const g=document.getElementById('bk-simg');if(g&&BK_SIM&&BK_SIM.res&&!BK_SIM.res.err)g.innerHTML=bkSimGraph();return;}if(el.dataset.bkadv){const f=S.forms.blechkante;f[el.dataset.bkadv==='K'?'bkAdvK':'bkAdvR']=el.value;save();const a=document.getElementById('bk-adv');if(a)a.innerHTML=bkAdvHTML(f);}});
 document.addEventListener('scroll',e=>{const c=e.target;if(!c||c.id!=='bk-car')return;const i=Math.round(c.scrollLeft/Math.max(1,c.clientWidth));document.querySelectorAll('[data-bkslide]').forEach(x=>x.setAttribute('aria-pressed',String(+x.dataset.bkslide===i)));},true);
-document.addEventListener('focusout',e=>{const el=e.target;if(!el||!el.dataset||el.dataset.bkn==null)return;const c=document.getElementById('bk-cuts');if(c)setTimeout(()=>{const c2=document.getElementById('bk-cuts');if(c2)c2.outerHTML=bkCutsHTML(S.forms.blechkante);},0);});
+document.addEventListener('focusout',e=>{const el=e.target;if(el&&el.dataset&&el.dataset.bkang!=null){setTimeout(()=>{const t=document.getElementById('bk-teil');if(t&&!t.contains(document.activeElement))t.outerHTML=bkTeilHTML(S.forms.blechkante);},0);return;}if(!el||!el.dataset||el.dataset.bkn==null)return;const c=document.getElementById('bk-cuts');if(c)setTimeout(()=>{const c2=document.getElementById('bk-cuts');if(c2)c2.outerHTML=bkCutsHTML(S.forms.blechkante);},0);});
 main.addEventListener('input',e=>{
  const el=e.target,k=el.dataset.k;
  if(el.dataset.bkrot!=null){BK_ROT=+el.value;const v=document.getElementById('bk-rotv');if(v)v.textContent=fmt(BK_ROT,1)+'°';if(BK_SIM&&BK_SIM.res&&!BK_SIM.res.err){const f=S.forms.blechkante,a=document.getElementById('bk-simsvg'),d=document.getElementById('bk-simdet'),g=document.getElementById('bk-simg');if(a)a.innerHTML=bkSimSvg(f);if(d)d.innerHTML=bkSimDetail(f);if(g)g.innerHTML=bkSimGraph();}return;}
  if(el.dataset.bkcut!=null||el.dataset.bkn!=null){const f=S.forms.blechkante;if(el.dataset.bkn!=null){f.bkN=el.value.trim();}else{const key={a:'bkCutA',h:'bkCutH',f:'bkCutF'}[el.dataset.ck],k=+el.dataset.bkcut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=el.value.trim();f[key]=a.join(';');}
   renderOut('blechkante');bkSketchUpd(f);save();bkCutsCells(f);return;}
+ if(el.dataset.bkang!=null){/* Einzelwinkel (Nachbelegung): Eingabe sperrt die Reihe */const f=S.forms.blechkante,[id,j]=el.dataset.bkang.split('|'),r=bkRows(f).find(x=>x.id===id);if(!r)return;const t=String(el.value).trim();if(t!==''&&!Number.isFinite(num(t)))return;
+  const IND=bkMapGet(f.bkInd),a=bkIndArr(IND[id],r.z);a[+j]=t===''?NaN:((num(t)%360)+360)%360;IND[id]=a.some(Number.isFinite)?a.map(v=>Number.isFinite(v)?dec(v,3):'').join('/'):'';f.bkInd=bkMapStr(IND);
+  const L=bkLockSet(f);if(!L.has(id)){L.add(id);const Z=bkMapGet(f.bkZ);Z[id]=String(r.z);f.bkZ=bkMapStr(Z);f.bkLock=[...L].join(',');}save();bkSketchUpd(f);renderOut('blechkante');return;}
  if(el.dataset.bkz!=null||el.dataset.bkph!=null){const f=S.forms.blechkante,isZ=el.dataset.bkz!=null,key=isZ?'bkZ':'bkPh',id=isZ?el.dataset.bkz:el.dataset.bkph,m=bkMapGet(f[key]);m[id]=el.value.trim();f[key]=bkMapStr(m);syncAlt('blechkante',f);renderOut('blechkante');renderDerived('blechkante');save();return;}
  if(el.dataset.lncut!=null){const f=S.forms.laengsnaht,key=el.dataset.ck==='t'?'cutT':'cutVf',k=+el.dataset.lncut,a=String(f[key]||'').split(';');while(a.length<=k)a.push('');a[k]=el.value.trim();f[key]=a.join(';');
   const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);lnRefresh(f);lnCutsCells(f);return;}
@@ -2059,7 +2098,15 @@ main.addEventListener('click',e=>{
  if(b.dataset.bkzoom){BK_ZOOM=+b.dataset.bkzoom;bkSimRefresh();return;}
  if(b.dataset.bkfit){BK_FIT=!BK_FIT;bkSimRefresh();return;}
  if(b.dataset.bksim){const f=S.forms.blechkante,sel=document.querySelector('[data-bksimk]'),k=sel?+sel.value:0;BK_SIM={k,key:bkSimKey(f),res:bkSimCalc(f,k)};const e=document.getElementById('bk-sim');if(e)e.innerHTML=bkSimHTML(f);return;}
- if(b.dataset.bkzall){const f=S.forms.blechkante,v=document.getElementById('bk-zall'),z=Math.round(num(v&&v.value));if(z>0){f.zDef=String(z);f.bkZ='';save();render();toast('Alle Reihen: z = '+z);}return;}
+ if(b.dataset.bkzall){const f=S.forms.blechkante,v=document.getElementById('bk-zall'),z=Math.round(num(v&&v.value));if(z>0){const Z=bkMapGet(f.bkZ),rows=bkRows(f);rows.forEach(r=>{if(!r.locked)Z[r.id]=String(z);else if(Z[r.id]==null)Z[r.id]=String(r.z);});f.zDef=String(z);f.bkZ=bkMapStr(Z);save();render();toast('Alle offenen Reihen: z = '+z);}return;}
+ if(b.dataset.bkzview){S.forms.blechkante.bkZView=b.dataset.bkzview;save();const t=document.getElementById('bk-teil');if(t)t.outerHTML=bkTeilHTML(S.forms.blechkante);return;}
+ if(b.dataset.bklock){const f=S.forms.blechkante,L=bkLockSet(f),id=b.dataset.bklock;if(L.has(id))L.delete(id);else{/* beim Sperren die aktuelle Lage festschreiben */const r=bkRows(f).find(x=>x.id===id),Z=bkMapGet(f.bkZ),PH=bkMapGet(f.bkPh);if(r){Z[id]=String(r.z);if(!r.hasInd)PH[id]=dec(r.ph,3);f.bkZ=bkMapStr(Z);f.bkPh=bkMapStr(PH);}L.add(id);}f.bkLock=[...L].join(',');save();const t=document.getElementById('bk-teil');if(t)t.outerHTML=bkTeilHTML(f);bkSketchUpd(f);renderOut('blechkante');return;}
+ if(b.dataset.bkcsv){bkCsvExport(S.forms.blechkante);return;}
+ if(b.dataset.bkimp){let inp=document.getElementById('bk-imp-file');if(!inp){inp=document.createElement('input');inp.type='file';inp.accept='.csv,text/csv,text/plain';inp.id='bk-imp-file';inp.hidden=true;document.body.appendChild(inp);
+   inp.addEventListener('change',async()=>{const file=inp.files&&inp.files[0];inp.value='';if(!file)return;let txt='';try{txt=await file.text();}catch(e){toast('Datei konnte nicht gelesen werden');return;}const f=S.forms.blechkante,r=bkCsvImport(f,txt);
+    if(r.err){toast(r.err);const m=document.getElementById('bk-imp-msg');if(m)m.innerHTML=`<p class="warn">${r.err}</p>`;return;}save();const t=document.getElementById('bk-teil');if(t)t.outerHTML=bkTeilHTML(f);bkSketchUpd(f);renderOut('blechkante');
+    const m=document.getElementById('bk-imp-msg');if(m)m.innerHTML=`<p class="note" style="margin:6px 0 0">Importiert: ${r.used.join(', ')} – Zähnezahl und Winkellagen übernommen, die Reihen wurden gesperrt; jede Lage lässt sich in der Tabellenansicht nachträglich anpassen.${r.miss.length?' Nicht im Profil: '+r.miss.join(', ')+'.':''}</p>`;toast('Teilung importiert');});}inp.click();return;}
+ if(b.dataset.bkeven){const f=S.forms.blechkante,rows=bkRows(f),DV=bkMapGet(f.bkDv),IND=bkMapGet(f.bkInd);rows.forEach(r=>{if(!r.locked){delete DV[r.id];delete IND[r.id];}});f.bkDv=bkMapStr(DV);f.bkInd=bkMapStr(IND);save();const t=document.getElementById('bk-teil');if(t)t.outerHTML=bkTeilHTML(f);bkSketchUpd(f);toast('Gleichteilung wiederhergestellt (offene Reihen)');return;}
  if(b.dataset.bkset){const f=S.forms.blechkante;f[b.dataset.bkset]=b.dataset.v;save();render();return;}
  if(b.dataset.sub){const f=S.forms[p],x=SUBS[p].find(a=>a[0]===b.dataset.sub);f.sub=x[0];const msg=[];
   for(const [k,v] of Object.entries(x[2])){if(k==='pos'){f.pos=v;msg.push(POSN[v]);}else if(v==='=Dc'){f.ae=f.Dc;msg.push('ae = Dc');}else{f[k]=v;msg.push((k==='kr'?'κr ':k+' ')+v+(k==='kr'?'°':''));}}
