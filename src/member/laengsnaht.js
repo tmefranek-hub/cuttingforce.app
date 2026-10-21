@@ -266,7 +266,7 @@ function lnImportCSV(f,text){
  let nEven=0,nInd=0;
  Object.values(data).forEach(({i,sd,a})=>{if(mid&&sd==='R')return;const z=a.length;(sd==='L'?zL:zR)[i]=String(z);if(mid)zR[i]=String(z);
   const key=i+sd;if(even(a)){(sd==='L'?pL:pR)[i]=dec(a[0],3);(sd==='L'?iL:iRr)[i]='';(sd==='L'?dL:dR)[i]='';nEven++;}
-  else{(sd==='L'?iL:iRr)[i]=a.map(x=>dec(x,3)).join('/');(sd==='L'?dL:dR)[i]='';if(!lk.includes(key))lk.push(key);nInd++;}
+  else{(sd==='L'?iL:iRr)[i]=a.map(x=>dec(x,3)).join('/');(sd==='L'?dL:dR)[i]='';if(!lk.includes(key))lk.push(key);nInd++;LN_IND.add(i);}
   used.push(names[i]+' '+(mid?'L+R':sd==='L'?'links':'rechts'));});
  // Zähnezahl des Fräsers = größte Zähnezahl der Radiusreihe
  const zr=Math.max(Number(zL[0])||0,Number(zR[0])||0);if(zr>0&&zr!==Math.round(num(f.z))){f.z=String(zr);msgs.push(`Zähnezahl des Fräsers auf z = ${zr} gesetzt`);}
@@ -278,7 +278,7 @@ function lnImportPick(){let inp=document.getElementById('ln-imp-file');if(!inp){
    const f=S.forms.laengsnaht,LS=null,r=lnImportCSV(f,txt),box=document.getElementById('ln-imp-msg');
    if(r.err){if(box)box.innerHTML=`<p class="warn">${r.err}</p>`;toast(r.err);return;}
    const z=document.getElementById('ln-z');if(z)z.innerHTML=lnZHTML(f);lnRefresh(f);
-   if(box)box.innerHTML=`<p class="note" style="margin:6px 0 0">Importiert: ${r.used.join(', ')}. ${r.nEven} Reihe(n) gleichmäßig geteilt (Winkelversatz übernommen)${r.nInd?`, ${r.nInd} mit Einzelwinkeln – diese Reihen wurden gesperrt`:''}.${r.msgs.length?'<br>'+r.msgs.join('<br>'):''}</p>`;
+   if(box)box.innerHTML=`<p class="note" style="margin:6px 0 0">Importiert: ${r.used.join(', ')}. ${r.nEven} Reihe(n) gleichmäßig geteilt (Winkelversatz übernommen, in der Tabelle änderbar)${r.nInd?`, ${r.nInd} mit Einzelwinkeln – diese Reihen wurden gesperrt und ihre Eingabefelder je Platte geöffnet, so dass jede Lage nachträglich angepasst werden kann`:''}. Berechnete Ergebnisse (Leistung, Erweitert, Optimierer) bleiben bis „Berechnen“ unverändert.${r.msgs.length?'<br>'+r.msgs.join('<br>'):''}</p>`;
    toast('Teilung importiert');});}
  inp.click();}
 function lnPosRender(){const e=document.getElementById('ln-pos');if(e)e.innerHTML=LN_POS?lnPosHTML(S.forms.laengsnaht):'';}
