@@ -26,3 +26,12 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+
+-- Zentrale Stammdaten (Wendeschneidplatten, Werkzeugträger, eigene Werkstoffe) als JSON in einer Zeile.
+-- Lesen: angemeldete Benutzer, Schreiben: nur Administrator (geprüft im Worker). Der Worker legt die Tabelle bei Bedarf selbst an.
+CREATE TABLE IF NOT EXISTS stammdaten (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  data TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT
+);

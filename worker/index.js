@@ -20,6 +20,8 @@ const NEW_PATH = '/versuchsprotokoll/';
 // Das Versuchsprotokoll nutzt dieselbe App-Datei wie der Schnittkraftrechner (Modus per Adresse)
 const PROTOKOLL_PATH = '/versuchsprotokoll';
 const APP_FILE = '/schnittkraftrechner/';
+// Zentrale Einstellungs-App (Platz 8 der Startseite): ebenfalls dieselbe App-Datei, Modus per Adresse
+const SETTINGS_PATH = '/einstellungen';
 
 export default {
   async fetch(request, env) {
@@ -39,6 +41,14 @@ export default {
       return Response.redirect(new URL(PROTOKOLL_PATH + '/', url.origin), 301);
     }
     if (path.startsWith(PROTOKOLL_PATH + '/')) {
+      return env.ASSETS.fetch(new Request(new URL(APP_FILE, url.origin), request));
+    }
+
+    // 1b') Einstellungen: für alle erreichbar (Gäste sehen nur die Grundeinstellungen, Admin-Bereiche prüft die API)
+    if (path === SETTINGS_PATH) {
+      return Response.redirect(new URL(SETTINGS_PATH + '/', url.origin), 301);
+    }
+    if (path.startsWith(SETTINGS_PATH + '/')) {
       return env.ASSETS.fetch(new Request(new URL(APP_FILE, url.origin), request));
     }
 
@@ -87,6 +97,12 @@ export default {
     }
     if (path === '/api/logout' && request.method === 'POST') {
       return handleLogout(request, env, secure);
+    }
+    if (path === '/api/stammdaten' && request.method === 'GET') {
+      return handleGetStammdaten(request, env);
+    }
+    if (path === '/api/stammdaten' && request.method === 'PUT') {
+      return handlePutStammdaten(request, env);
     }
     if (path === '/api/admin/pending-users' && request.method === 'GET') {
       return handlePendingUsers(request, env);
@@ -275,6 +291,45 @@ async function getSessionUser(request, env) {
     return null;
   }
   return { email: row.email, userId: row.user_id };
+}
+
+/* ---------- Stammdaten (zentral, Lesen: angemeldete Benutzer, Schreiben: nur Administrator) ---------- */
+
+const STAMM_MAX_BYTES = 900 * 1024;
+
+async function ensureStammTable(env) {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS stammdaten (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT)`
+  ).run();
+}
+
+async function handleGetStammdaten(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) return json({ error: 'Anmeldung erforderlich' }, 401);
+  await ensureStammTable(env);
+  const row = await env.DB.prepare(`SELECT data, updated_at FROM stammdaten WHERE id = 1`).first();
+  if (!row) return json({ data: null });
+  let data = null;
+  try { data = JSON.parse(row.data); } catch (e) { data = null; }
+  return json({ data, updated_at: row.updated_at });
+}
+
+async function handlePutStammdaten(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'Nur Administratoren dürfen Stammdaten ändern' }, 403);
+  const text = await request.text();
+  if (text.length > STAMM_MAX_BYTES) return json({ error: 'Stammdaten sind zu groß' }, 413);
+  let body;
+  try { body = JSON.parse(text); } catch (e) { return json({ error: 'Ungültige Anfrage' }, 400); }
+  const arr = (v) => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : []);
+  const data = { wsp: arr(body.wsp), tr: arr(body.tr), mat: arr(body.mat), matMode: body.matMode === 'replace' ? 'replace' : 'add' };
+  await ensureStammTable(env);
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO stammdaten (id, data, updated_at, updated_by) VALUES (1, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, updated_by = excluded.updated_by`
+  ).bind(JSON.stringify(data), now, admin.email).run();
+  return json({ ok: true, updated_at: now });
 }
 
 /* ---------- Routen ---------- */
