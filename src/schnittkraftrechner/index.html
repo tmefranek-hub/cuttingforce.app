@@ -648,7 +648,7 @@ function defForm(p){const b={...TOOL0,sub:SUB_DEF[p]};
  if(p==='laengsnaht')b.pos='gleich';
  if(window.ZV_BLANK)['D','Dc','z','vc','f','fz','fn','ap','ae','aue','g','sig','l','eta','lam'].forEach(k=>{if(k in b)b[k]='';});
  b.kVf=KVF_DEF[p]||'1';b.kV='';b.kVer='1';
- if(p==='laengsnaht')Object.assign(b,{Dc:'1000',rR:'8',ap:'90',nCuts:'3',cutT:'40;70;90',cutVf:'480;380;290',pMach:'30',vfTol:'20',hMin:'0,05',wSide:'1',pitOn:'0',pitM:'4',pitMax:'1',pitDh:'0,02',pitBal:'1',lnCut:'0',nPhi:'720',vc:'150',g:'6',lam:'2',eta:'0,8',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
+ if(p==='laengsnaht')Object.assign(b,{Dc:'1000',rR:'8',ap:'90',nCuts:'3',cutT:'40;70;90',cutVf:'480;380;290',pMach:'30',vfTol:'20',hMin:'0,05',pcFull:'1',pcPow:'1',pcTol:'1',pcHmin:'1',pcHmax:'0',hMax:'0,3',pcStep:'2',wSide:'1',pitOn:'0',pitM:'4',pitMax:'1',pitDh:'0,02',pitBal:'1',lnCut:'0',nPhi:'720',vc:'150',g:'6',lam:'2',eta:'0,8',dU:'5',alphaN:'16',lK:'19',uF:'1',nIR:'10',nIF:'10',z:'40'});
  return b;}
 const TRIAL0={kunde:'',standort:'',ansprech:'',techniker:'',datum:new Date().toISOString().slice(0,10),vnr:'',maschine:'',mHersteller:'',mTyp:'',mLeistung:'',mDrehmoment:'',steuerung:'',bauteil:'',zeichnung:'',spannung:'',los:'',ziel:''};
 
@@ -1053,16 +1053,17 @@ const typLong=f=>{const t=typTxt(f);return t==='Referenz'?'Referenzprodukt':t===
 const subLbl=p=>p==='schaelen'?'Kassettentyp':'Bearbeitung';
 const SECS=[['tool','Bearbeitung & Werkzeug'],['mat','Werkstoff'],['cut','Schnittdaten'],['eval','Ergebnis'],['report','Prozessbericht']];
 /* Gäste sehen nur Werkstoff und Schnittdaten */
-const secsFor=()=>(isGuest()||IS_RECHNER)?SECS.filter(x=>x[0]==='mat'||x[0]==='cut'):SECS;
-const curSec=p=>{const a=secsFor(),s=(S.sec&&S.sec[p])||a[0][0];return a.some(x=>x[0]===s)?s:a[0][0];};
+const secsFor=p=>{const a=(isGuest()||IS_RECHNER)?SECS.filter(x=>x[0]==='mat'||x[0]==='cut'):SECS.slice();if(p==='laengsnaht'&&!isGuest()){const i=a.findIndex(x=>x[0]==='cut');a.splice(i+1,0,['adv','Erweitert']);}return a;};
+const curSec=p=>{const a=secsFor(p),s=(S.sec&&S.sec[p])||a[0][0];return a.some(x=>x[0]===s)?s:a[0][0];};
 function secStatus(p,k){const f=S.forms[p],m=MATS.find(x=>x.k===f.mat)||MATS[0];
  if(k==='tool')return subName(p,f.sub)+' · '+(f.platteBez||f.platteNr||'Werkzeug offen');
  if(k==='mat')return isGuest()?repOf(f).n:(f.matKunde||m.n);
  if(k==='cut')return PROC[p].short.map(([q,l])=>`${l} ${f[q]||'–'}`).join(' · ');
+ if(k==='adv')return 'Tabellen je Wendeplatte';
  if(k==='eval')return f.stueck?`${f.stueck} Stk.${f.verschl?' · '+f.verschl:''}`:'noch offen';
  const n=S.sets.filter(s=>s.proc===p).length;return n?`${n} ${n>1?'Parametersätze':'Parametersatz'}`:'noch keine Sätze';}
 function navHTML(p){const sec=curSec(p),f=S.forms[p];
- return secsFor().map(([k,l],i)=>(k==='tool'&&p==='schaelen'&&(l='Kassette & Werkzeug'),`<button data-sec="${k}" aria-current="${k===sec}"><span class="sn">${k==='report'?'≡':i+1}</span><span class="st"><b>${l}</b><small>${esc(secStatus(p,k))}</small></span></button>`)).join('')
+ return secsFor(p).map(([k,l],i)=>(k==='tool'&&p==='schaelen'&&(l='Kassette & Werkzeug'),`<button data-sec="${k}" aria-current="${k===sec}"><span class="sn">${k==='report'?'≡':i+1}</span><span class="st"><b>${l}</b><small>${esc(secStatus(p,k))}</small></span></button>`)).join('')
   +(isGuest()||IS_RECHNER?'':`<div class="navtyp"><span class="pill ${f.typ}">${typLong(f)}</span></div>`)
   +(procInUse(p)?`<button class="btn sm danger navreset" data-preset="${p}">${pendingReset===p?'Wirklich alles löschen?':'Prozessdaten zurücksetzen'}</button>`:'');}
 function renderNav(p){const n=document.getElementById(p+'-nav');if(n)n.innerHTML=navHTML(p);}
@@ -1080,8 +1081,9 @@ function guestMatHTML(p,f){
 function renderProc(p){
  if(isGuest())ensureRep(p);
  const c=PROC[p],f=S.forms[p],m=MATS.find(x=>x.k===f.mat)||MATS[0],sec=curSec(p);
- const SX=secsFor(),idx=SX.findIndex(x=>x[0]===sec),next=SX[idx+1];
+ const SX=secsFor(p),idx=SX.findIndex(x=>x[0]===sec),next=SX[idx+1];
  const B={
+ adv:p==='laengsnaht'&&typeof lnAdvHTML==='function'?`<section class="card"><h2>Erweitert – Detailtabellen</h2><div id="ln-adv">${lnAdvHTML(f)}</div></section>`:'',
  tool:`<section class="card"><h2>${subLbl(p)} und Werkzeug</h2>
   <span class="lbl">${subLbl(p)}</span>
   <div class="chips" role="group" aria-label="${subLbl(p)}">${SUBS[p].map(([k,l])=>`<button class="chip-btn" data-sub="${k}" aria-pressed="${(f.sub||SUB_DEF[p])===k}">${l}</button>`).join('')}</div>
@@ -1648,6 +1650,7 @@ main.addEventListener('input',e=>{
 });
 main.addEventListener('change',e=>{
  if(e.target.dataset.lntrk!=null){LN_TRK=e.target.value;lnPowRender();return;}
+ if(e.target.dataset.lnins!=null){LN_INS=e.target.value;lnPowRender();return;}
  if(e.target.dataset.lncut!=null||e.target.dataset.lnncut!=null){const f=S.forms.laengsnaht,t=e.target;
   if(t.dataset.lnncut!=null){f.nCuts=t.value;if(lnSel(f)>=+t.value)f.lnCut=String(+t.value-1);const n0=String(f.cutT||'').split(';');if(n0.length<+t.value){/* neue Schnitte mit Tiefe und vf vorbelegen */const T=n0.slice(),V=String(f.cutVf||'').split(';');for(let k=T.length;k<+t.value;k++){const prev=num(T[k-1])||0,pv=num(V[k-1]);T.push(dec(prev+10,1));V.push(Number.isFinite(pv)?dec(pv,0):'');}f.cutT=T.join(';');f.cutVf=V.join(';');}
    const C=lnCuts(f);if(C.tMax>0)f.ap=dec(C.tMax,2);const cc=document.getElementById('ln-cuts');if(cc)cc.innerHTML=lnCutsHTML(f);lnRefresh(f);const sel=document.querySelector('[data-lnncut]');if(sel)sel.focus();return;}
