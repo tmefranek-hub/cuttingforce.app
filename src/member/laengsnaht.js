@@ -576,16 +576,19 @@ function lnPeakM(f,tp,t,vf){const key=lnCalcKey(f)+'|'+tp.toFixed(4)+'|'+t.toFix
 function lnProcOpt(f){const C=lnCuts(f),G=lnGeom(f),T=C.tMax,mc=num(f.mc),eta=num(f.eta)||1,cb=Math.cos(G.be);
  /* Randbedingungen einzeln schaltbar: volle Schneidkante (Zwischentiefen auf Reihengrenzen), Maschinenleistung, Vorschubtoleranz,
     Mindest-Spanungsdicke, optional Höchst-Spanungsdicke (Obergrenze für vf, nötig wenn die Maschinenleistung aus ist) */
- const on={full:f.pcFull!=='0',pow:f.pcPow!=='0',tol:f.pcTol!=='0',hmin:f.pcHmin!=='0',hmax:f.pcHmax==='1',torq:f.pcTorq==='1'};
+ const on={full:f.pcFull!=='0',pow:f.pcPow!=='0',tol:f.pcTol!=='0',hmin:f.pcHmin!=='0',hmax:f.pcHmax==='1',torq:f.pcTorq==='1',zust:f.pcZust==='1'};const dMx=num(f.dMax);
  const PM=num(f.pMach),hMaxL=num(f.hMax),MM=num(f.mMach),om=2*Math.PI*(num(f.vc)*1000/(Math.PI*num(f.Dc)))/60;
  if(on.torq&&!(MM>0))return {err:'Maximales Drehmoment eintragen (oder die Bedingung ausschalten).'};
  if(on.pow&&!(PM>0))return {err:'Maschinenleistung eintragen (oder die Bedingung ausschalten).'};
+ if(on.zust&&!(dMx>0))return {err:'Maximale Zustellung je Schnitt eintragen (oder die Bedingung ausschalten).'};
  if(on.hmax&&!(hMaxL>0))return {err:'Höchst-Spanungsdicke h_max eintragen (oder die Bedingung ausschalten).'};
  if(!on.pow&&!on.hmax&&!on.torq)return {err:'Ohne Maschinenleistung gibt es keine Obergrenze für den Vorschub – Maschinenleistung, maximales Drehmoment oder Höchst-Spanungsdicke h_max aktivieren.'};
  if(!(T>0)||!G.ok)return {err:'Profil und Zieltiefe (tiefster Schnitt) prüfen.'};if(!(num(f.kc)>0&&mc>0&&num(f.vc)>0))return {err:'Werkstoff und vc eintragen.'};
  const B=[];if(G.yt<T-1e-6)B.push({y:G.yt,nm:'Radius'});G.segs.forEach(([a,b],i)=>{const y=G.yt+b*cb;if(y<T-1e-6)B.push({y,nm:'F'+(i+1)});});
  let pts=[{y:0,nm:''}].concat(B,[{y:T,nm:'Ziel'}]);const step=Math.max(0.5,num(f.pcStep)||2);
  if(!on.full){const g=[];for(let y=step;y<T-1e-6;y+=step)g.push({y,nm:''});B.forEach(b=>{if(!g.some(x=>Math.abs(x.y-b.y)<1e-6))g.push(b);});g.sort((a,b)=>a.y-b.y);pts=[{y:0,nm:''}].concat(g,[{y:T,nm:'Ziel'}]);}
+ /* maximale Zustellung Δmax: Tiefen k·Δmax (z. B. 40/80/120 … bis zur Zieltiefe) zusätzlich als Kandidaten, kein Schritt größer als Δmax */
+ if(on.zust){for(let y=dMx;y<T-1e-6;y+=dMx)if(!pts.some(x=>Math.abs(x.y-y)<1e-6))pts.push({y,nm:''});pts.sort((a,b)=>a.y-b.y);}
  const L=pts.length,Pav=on.pow?PM*eta:NaN,ref=100,hMin=on.hmin?Math.max(0,num(f.hMin)||0):0,tol=on.tol?Math.max(0,(num(f.vfTol)>=0?num(f.vfTol):20))/100:Infinity;
  const VP=[],VW=[],VH=[],HU=[],VT=[];
  for(let a=0;a<L;a++){VP.push([]);VW.push([]);VH.push([]);HU.push([]);VT.push([]);for(let b=0;b<L;b++){if(b<=a){VP[a].push(NaN);VW[a].push(NaN);VH[a].push(NaN);HU[a].push(NaN);VT[a].push(NaN);continue;}
@@ -596,10 +599,10 @@ function lnProcOpt(f){const C=lnCuts(f),G=lnGeom(f),T=C.tMax,mc=num(f.mc),eta=nu
   const vx=on.hmax&&hu>0?hMaxL/hu:Infinity;VW[a].push(vw);VT[a].push(vt);VP[a].push(Math.min(vw,vx,vt));VH[a].push(hMin>0&&hu>0?hMin/hu:0);HU[a].push(hu);}}
  /* Optimierung je Schnittanzahl: kürzeste Hauptzeit Σ 1/vf. Mit Toleranz: für jede mögliche kleinste Vorschubgrenze v0
     dürfen nur Schnitte mit vf_zul ≥ v0 vorkommen, gefahren wird mit min(vf_zul, v0·(1 + tol)); dynamische Programmierung über die Tiefenpunkte. */
- const NMAX=Math.min(10,L-1),best={};let cand=[0];
+ const NMAX=Math.min(on.zust?Math.max(10,Math.ceil(T/dMx-1e-9)):10,L-1),best={};let cand=[0];
  if(on.tol){const all=[];for(let a=0;a<L;a++)for(let b=a+1;b<L;b++){const v=VP[a][b];if(v>0&&Number.isFinite(v))all.push(v);}all.sort((x,y)=>x-y);
   const u=[...new Set(all.map(v=>+v.toPrecision(6)))];cand=u.length>400?Array.from({length:400},(_,k)=>u[Math.round(k*(u.length-1)/399)]):u;}
- for(const v0 of cand){const cap=on.tol?v0*(1+tol):Infinity,cost=(a,b)=>{const vp=VP[a][b];if(!(vp>0)||vp<v0*(1-1e-9))return Infinity;const vf=Math.min(vp,cap);if(VH[a][b]>vf*(1+1e-9))return Infinity;return 1/vf;};
+ for(const v0 of cand){const cap=on.tol?v0*(1+tol):Infinity,cost=(a,b)=>{if(on.zust&&pts[b].y-pts[a].y>dMx+1e-6)return Infinity;const vp=VP[a][b];if(!(vp>0)||vp<v0*(1-1e-9))return Infinity;const vf=Math.min(vp,cap);if(VH[a][b]>vf*(1+1e-9))return Infinity;return 1/vf;};
   let D=new Float64Array(L).fill(Infinity);D[0]=0;const back=[];
   for(let n=1;n<=NMAX;n++){const E=new Float64Array(L).fill(Infinity),bk=new Int32Array(L).fill(-1);
    for(let b=1;b<L;b++)for(let a=0;a<b;a++){if(!Number.isFinite(D[a]))continue;const c=cost(a,b);if(!Number.isFinite(c))continue;const v=D[a]+c;if(v<E[b]){E[b]=v;bk[b]=a;}}
@@ -609,7 +612,7 @@ function lnProcOpt(f){const C=lnCuts(f),G=lnGeom(f),T=C.tMax,mc=num(f.mc),eta=nu
   return {n:o.n,spread:(mx-mn)/mn,mn,mx,seq,vf,vP,use,tsum,hm,cuts:seq.slice(1).map((pi,q)=>({t:pts[pi].y,nm:pts[pi].nm,tp:pts[seq[q]].y,vf:vf[q],use:use[q],useM:useM[q],hm:hm[q],full:pts[pi].nm&&pts[pi].nm!=='Ziel'?pts[pi].nm:''}))};});
  const rec1=list.reduce((a,o)=>!a||o.tsum<a.tsum?o:a,null);
  const miss=[];for(let k=1;k<=NMAX;k++)if(!best[k])miss.push(k);
- return {list,Pav,PM,eta,T,bound:B,cur:C.n,tol,on,step,hMaxL,MM,rec:rec1?rec1.n:0,l:num(f.l),hMin,miss};}
+ return {list,Pav,PM,eta,T,dMx,bound:B,cur:C.n,tol,on,step,hMaxL,MM,rec:rec1?rec1.n:0,l:num(f.l),hMin,miss};}
 let LN_OPTF=null;
 /* Teil des Werkzeugoptimierers (nur wenn ausdrücklich gewählt): kleine Ungleichteilung.
    Je offener Reihe ein Abweichungsmuster Δθ (Länge m = größter Teiler von z mit m ≤ m_max und z/m ≥ 2, damit sich das Muster
@@ -708,6 +711,7 @@ function lnOptHTML(f){return `<div style="display:grid;grid-template-columns:min
   ${lnPcSw(f,'pcTol','Vorschubtoleranz','die Vorschübe aller Schnitte liegen höchstens um die Abweichung auseinander','jeder Schnitt fährt mit seinem höchsten zulässigen Vorschub')}${f.pcTol!=='0'?`<div class="fields" style="margin:2px 0 4px">${field('laengsnaht','vfTol','Max. Abweichung der Vorschübe',{num:1,u:'%'})}</div>`:''}
   ${lnPcSw(f,'pcHmin','Mindest-Spanungsdicke','die größte Spanungsdicke jedes Schnitts erreicht mindestens h<sub>min</sub>','keine Untergrenze')}${f.pcHmin!=='0'?`<div class="fields" style="margin:2px 0 4px">${field('laengsnaht','hMin','Mindest-Spanungsdicke h_min',{num:1,u:'mm'})}</div>`:''}
   ${lnPcSw(f,'pcHmax','Höchst-Spanungsdicke','die größte Spanungsdicke jedes Schnitts bleibt unter h<sub>max</sub> (begrenzt den Vorschub)','keine Obergrenze',true)}${f.pcHmax==='1'?`<div class="fields" style="margin:2px 0 4px">${field('laengsnaht','hMax','Höchst-Spanungsdicke h_max',{num:1,u:'mm'})}</div>`:''}
+  ${lnPcSw(f,'pcZust','Maximale Zustellung','kein Schnitt stellt mehr als Δ<sub>max</sub> zu – bei 40 mm z. B. 40 / 80 / 120 / 150 (die Tiefen k·Δ<sub>max</sub> sind zusätzliche Kandidaten)','keine Grenze für die Zustellung',true)}${f.pcZust==='1'?`<div class="fields" style="margin:2px 0 4px">${field('laengsnaht','dMax','Maximale Zustellung je Schnitt Δ_max',{num:1,u:'mm'})}</div>`:''}
   <button type="button" class="btn primary" data-lnopt="proc" style="margin-top:8px">Schnitte optimieren</button><div id="ln-optp" style="margin-top:8px">${lnOptPHTML(f)}</div></div></div>`;}
 function lnOptTHTML(){const o=LN_OPTT;if(!o)return '';if(o.err)return `<p class="warn">${o.err}</p>`;
  return `<div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitt</th><th>Tiefe (mm)</th><th>optimierte Reihen</th><th>P<sub>max</sub> vorher → nachher (kW)</th><th>P<sub>min</sub> vorher → nachher (kW)</th><th>ΔP vorher → nachher</th><th>max. |P<sub>L</sub> − P<sub>R</sub>| vorher → nachher (kW)</th><th>max. Platten gleichzeitig L / R vorher → nachher</th></tr></thead><tbody>
@@ -715,7 +719,7 @@ function lnOptTHTML(){const o=LN_OPTT;if(!o)return '';if(o.err)return `<p class=
  </tbody></table></div><p class="note" style="margin:4px 0 0">Die neuen Winkellagen sind in die Zähnezahl-Tabelle übernommen; Leistung und Simulation wurden neu berechnet.</p>`;}
 function lnOptPHTML(f){const o=LN_OPTP;if(!o)return '';if(o.err)return `<p class="warn">${o.err}</p>`;
  const row=x=>`<tr${x.n===o.cur?' style="background:var(--surface-2)"':''}><td>${x.n}${x.n===o.rec?' <b>empfohlen</b>':''}</td><td>${o.l>0?fmt(o.l*x.tsum,1)+' min':fmt(x.tsum*1000,2)+' ‰'}</td><td>${fmt(x.spread*100,1)} %</td><td><button type="button" class="chip-btn" data-lnapply="${x.n}">übernehmen</button></td><td>${x.cuts.map(c=>fmt(c.t,1)).join(' / ')}</td><td>${x.cuts.map(c=>fmt(c.vf,0)).join(' / ')}</td><td>${x.cuts.map(c=>Number.isFinite(c.use)?fmt(c.use*100,0):'–').join(' / ')}</td>${o.on.torq?`<td>${x.cuts.map(c=>Number.isFinite(c.useM)?fmt(c.useM*100,0):'–').join(' / ')}</td>`:''}<td>${x.cuts.map(c=>fmt(c.hm,3)).join(' / ')}</td></tr>`;
- const act=[o.on.full?'volle Schneidkante':`Tiefen im Raster ${fmt(o.step,1)} mm`,o.on.pow?`Maschinenleistung (P<sub>M</sub>·η = ${fmt(o.Pav,1)} kW)`:'',o.on.tol?`Vorschubtoleranz ${fmt(o.tol*100,0)} %`:'',o.on.hmin?`h<sub>min</sub> ${fmt(o.hMin,3)} mm`:'',o.on.hmax?`h<sub>max</sub> ${fmt(o.hMaxL,3)} mm`:'',o.on.torq?`M<sub>max</sub> ${fmt(o.MM,0)} Nm`:''].filter(Boolean).join(' · ');
+ const act=[o.on.full?'volle Schneidkante':`Tiefen im Raster ${fmt(o.step,1)} mm`,o.on.pow?`Maschinenleistung (P<sub>M</sub>·η = ${fmt(o.Pav,1)} kW)`:'',o.on.tol?`Vorschubtoleranz ${fmt(o.tol*100,0)} %`:'',o.on.hmin?`h<sub>min</sub> ${fmt(o.hMin,3)} mm`:'',o.on.hmax?`h<sub>max</sub> ${fmt(o.hMaxL,3)} mm`:'',o.on.torq?`M<sub>max</sub> ${fmt(o.MM,0)} Nm`:'',o.on.zust?`Zustellung ≤ ${fmt(o.dMx,1)} mm je Schnitt`:''].filter(Boolean).join(' · ');
  return `<p class="note" style="margin:0 0 6px">Aktive Randbedingungen: ${act}. Zieltiefe ${fmt(o.T,1)} mm · Reihengrenzen: ${o.bound.map(b=>b.nm+' '+fmt(b.y,1)).join(', ')||'–'} mm</p>
  <div class="tbl-wrap"><table class="lnzt"><thead><tr><th>Schnitte</th><th>Hauptzeit${o.l>0?'':' (rel.)'}</th><th>v<sub>f,max</sub>/v<sub>f,min</sub> − 1</th><th></th><th>Tiefen t<sub>k</sub> (mm)</th><th>v<sub>f,k</sub> (mm/min)</th><th>Leistungsausnutzung (%)</th>${o.on.torq?'<th>Drehmomentausnutzung M̂/M<sub>max</sub> (%)</th>':''}<th>h<sub>max</sub> je Schnitt (mm)</th></tr></thead><tbody>${o.list.map(row).join('')}</tbody></table></div>${o.miss.length?`<p class="warn" style="margin:4px 0 0">Keine zulässige Aufteilung für ${o.miss.join(', ')} Schnitt${o.miss.length>1?'e':''}: die aktiven Randbedingungen lassen sich dort nicht gleichzeitig einhalten.</p>`:''}${!o.list.length?'<p class="warn">Keine Aufteilung erfüllt alle aktiven Bedingungen – einzelne Bedingungen lockern oder ausschalten.</p>':''}
  <p class="note" style="margin:4px 0 0">${o.on.tol?`Die Vorschübe liegen höchstens ${fmt(o.tol*100,0)} % auseinander (v<sub>f,max</sub> ≤ ${fmt(1+o.tol,2)} · v<sub>f,min</sub>); ein Schnitt, der schneller fahren könnte, wird begrenzt und nutzt die Maschinenleistung dann nicht ganz (Ausnutzung &lt; 100 %).`:'Vorschubtoleranz aus: jeder Schnitt fährt mit seinem höchsten zulässigen Vorschub.'} Je Schnittanzahl ist die Aufteilung mit der kürzesten Hauptzeit gezeigt${o.l>0?' (Nahtlänge '+fmt(o.l,0)+' mm)':' (ohne Nahtlänge relativ)'}; „empfohlen“ = kürzeste Hauptzeit insgesamt. Hervorgehoben: aktuelle Anzahl der Schnitte (${o.cur}). „Übernehmen“ setzt Anzahl, Tiefen und Vorschübe (auf 5 mm/min abgerundet) und rechnet neu.</p>`;}
