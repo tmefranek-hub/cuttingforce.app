@@ -157,6 +157,7 @@ tr:last-child td{border-bottom:0}
 .proc3 .mid{min-width:0}
 .proc3 .side{grid-column:3;grid-row:auto}
 .secnav{display:flex;flex-direction:column;gap:4px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px)}
+#bk-sketch{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);z-index:3;background:var(--surface);padding-top:4px}
 .secnav button{display:flex;gap:10px;align-items:flex-start;text-align:left;border:1px solid transparent;background:none;border-radius:5px;padding:9px 10px;cursor:pointer;min-width:0}
 .secnav button:hover{background:var(--surface);border-color:var(--line)}
 .secnav button[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -466,7 +467,7 @@ const SUBS={
  fraesen:[['plan','Planfräsen',{kr:'45',pos:'mitte'}],['eck','Eckfräsen',{kr:'90',pos:'gleich'}],['hfc','Hochvorschubfräsen (HFC)',{kr:'15',pos:'mitte'}],['nut','Nutfräsen',{kr:'90',ae:'=Dc',pos:'mitte'}],['tasche','Taschenfräsen',{kr:'90'}],['tauch','Tauchfräsen',{kr:'90'}],['zirkular','Zirkularfräsen',{kr:'90'}],['rampe','Rampe eintauchen',{kr:'90'}],['besaeumen','Besäumen',{kr:'90',pos:'gleich'}],['kopier','Kopierfräsen',{kr:'45'}],['trochoidal','Trochoidales Fräsen',{kr:'90',pos:'gleich'}],['fasen','Fasen',{kr:'45'}]],
  bohren:[['voll','Vollbohren',{}],['wechsel','Vollbohren mit Wechselkopf',{}],['auf','Aufbohren',{}],['tiefloch','Tieflochbohren',{}]],
  schaelen:[['trio','Trio',{}],['duo','Duo',{}],['single','Single',{}]],
- blechkante:[['i','I-Naht',{}],['y','Y-Naht',{}],['x','X-Naht',{}],['j','J-Naht',{}],['schaerfen','Schärfen',{}]],
+ blechkante:[['i','I-Naht',{}],['y','Y-Naht',{}],['x','X-Naht',{}],['j','J-Naht',{}],['schaerfen','Schärfen',{}],['dxf','Eigenes Profil (DXF)',{}]],
  laengsnaht:[['profil','V-Profil mit Spitzenradius',{}]],
  kurbelwelle:[['hl','Außenfräsen Hauptlager',{}],['hub','Außenfräsen Hublager',{}],['innen','Innenfräsen',{}]]
 };
@@ -546,10 +547,10 @@ const PROC={
    if(!ok)return {n,vf,vfm:vf/1000,zs:nk*wspCount(f),fzc,h:NaN,kc:NaN,Fc:NaN,Mc:NaN,Q,Pc:NaN,Pm:NaN,tph,th:l/vf,edges,err:E.err};
    return {n,vf,vfm:vf/1000,zs:nk*wspCount(f),fzc,h,kc,Fc,Mc,Q,Pc,Pm:Pc/eta,tph,th:l/vf,edges};}},
  blechkante:{name:'Blechkantenfräsen',t1:'Wendeschneidplatte',t2:'Fräskopf',ph1:'z. B. SPKN 1203',ph2:'z. B. Fasenfräskopf Ø160',
-  params:[['Dc','Durchmesser des Fräsers Dc','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc','m/min'],['fz','Zahnvorschub fz','mm/Z'],['t','Blechdicke t','mm'],['aeB','Zugabe a (Abtrag an der Kante)','mm'],['alpha','Fasenwinkel α (oben)','°'],['c','Steghöhe c','mm'],['h1','Fasenhöhe oben h₁ (leer = mittiger Steg)','mm'],['alpha2','Fasenwinkel unten α₂','°'],['rJ','Radius der J-Fuge R','mm'],['betaJ','Flankenwinkel der J-Fuge β','°'],['t2','Restdicke t₂ an der Kante','mm'],['nS','Neigung der Schärfung 1 : n',''],['kr','Anstellwinkel κr','°'],['g','Spanwinkel γ₀','°'],['kVf','Verfahrensfaktor KVf',''],['kV','Schnittgeschwindigkeitsfaktor Kv',''],['kVer','Verschleißfaktor Kver',''],['lam','Spanstauchungsfaktor λ',''],['l','Kantenlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
-  vis(k,f){const s=bkSub(f);if(k==='aeB')return s==='i';if(k==='alpha')return s==='y'||s==='x';if(k==='c')return s==='y'||s==='x'||s==='j';if(k==='rJ'||k==='betaJ')return s==='j';if(k==='h1'||k==='alpha2')return s==='x';if(k==='t2'||k==='nS')return s==='schaerfen';return true;},
+  params:[['Dc','Durchmesser des Fräsers Dc','mm'],['z','Zähnezahl z',''],['vc','Schnittgeschwindigkeit vc','m/min'],['fz','Zahnvorschub fz','mm/Z'],['t','Blechdicke t','mm'],['aeB','Zugabe a (Abtrag an der Kante)','mm'],['alpha','Fasenwinkel α (oben)','°'],['c','Steghöhe c','mm'],['h1','Fasenhöhe oben h₁ (leer = mittiger Steg)','mm'],['alpha2','Fasenwinkel unten α₂','°'],['rJ','Radius der J-Fuge R','mm'],['betaJ','Flankenwinkel der J-Fuge β','°'],['aeD','Arbeitseingriff ae (leer = automatisch)','mm'],['t2','Restdicke t₂ an der Kante','mm'],['nS','Neigung der Schärfung 1 : n',''],['kr','Anstellwinkel κr','°'],['g','Spanwinkel γ₀','°'],['kVf','Verfahrensfaktor KVf',''],['kV','Schnittgeschwindigkeitsfaktor Kv',''],['kVer','Verschleißfaktor Kver',''],['lam','Spanstauchungsfaktor λ',''],['l','Kantenlänge l','mm'],['eta','Wirkungsgrad Maschine η','']],
+  vis(k,f){const s=bkSub(f);if(k==='aeB')return s==='i';if(k==='alpha')return s==='y'||s==='x';if(k==='c')return s==='y'||s==='x'||s==='j';if(k==='rJ'||k==='betaJ')return s==='j';if(k==='h1'||k==='alpha2')return s==='x';if(k==='t2'||k==='nS')return s==='schaerfen';if(k==='aeD')return s==='dxf';if(k==='t')return s!=='dxf';return true;},
   short:[['vc','vc'],['fz','fz'],['t','t'],['alpha','α']], keys:['Pc','Q','vfm'],
-  formula:'I-Naht: A = t·a, ae = t · Y-Naht: A = (t−c)²·tan α / 2, ae = Fasenbreite (t−c)/cos α · X-Naht: je Fase A = h²·tan α / 2, h₁ + h₂ = t − c, zwei Durchgänge · J-Naht: Steg c, Radius R (Mittelpunkt über der Steghöhe an der Kante), Flanke unter β tangential, A aus dem Profil, ae = abgewickelte Profillänge · Schärfen: L = (t − t₂)·n, A = (t − t₂)·L / 2, ae = √(L² + (t − t₂)²) · Q = A·vf · hm aus φs wie beim Fräsen',
+  formula:'I-Naht: A = t·a, ae = t · Y-Naht: A = (t−c)²·tan α / 2, ae = Fasenbreite (t−c)/cos α · X-Naht: je Fase A = h²·tan α / 2, h₁ + h₂ = t − c, zwei Durchgänge · J-Naht: Steg c, Radius R (Mittelpunkt über der Steghöhe an der Kante), Flanke unter β tangential, A aus dem Profil, ae = abgewickelte Profillänge · Eigenes Profil: geschlossene DXF-Kontur des Abtrags, A = Fläche, ae = Diagonale der Kontur (oder Eingabe) · Schärfen: L = (t − t₂)·n, A = (t − t₂)·L / 2, ae = √(L² + (t − t₂)²) · Q = A·vf · hm aus φs wie beim Fräsen',
   calc(f){const Dc=num(f.Dc),z=num(f.z),vc=num(f.vc),fz=num(f.fz),eta=num(f.eta)||1,l=num(f.l),t=num(f.t),sk=Math.sin(rad(num(f.kr)));
    const n=vc*1000/(Math.PI*Dc),vf=fz*z*n,G=bkGeom(f),E=engage(posForm('blechkante',f));
    const h=E.ok?fz*sk*(Math.cos(E.a)-Math.cos(E.e))/(E.e-E.a):NaN,kc=kcOf(f,h);
@@ -582,6 +583,9 @@ const bkSub=f=>({v:'y',ju:'j',besaeumen_b:'i'}[f.sub]||f.sub||'y');
 function bkGeom(f){const s=bkSub(f),t=num(f.t),c=s==='y'||s==='x'?(num(f.c)||0):0,a=rad(num(f.alpha));
  if(s==='i'){const ae=num(f.aeB);return {A:t*ae,fb:t};}
  if(s==='schaerfen'){const dt=t-num(f.t2),n=num(f.nS),L=dt*n;return {A:dt*L/2,fb:Math.hypot(L,dt),L,dt};}
+ if(s==='dxf'){const P=bkDxfPts(f);if(!P)return {A:NaN,fb:NaN};let A=0;for(let q=0;q<P.length;q++){const [x1,y1]=P[q],[x2,y2]=P[(q+1)%P.length];A+=x1*y2-x2*y1;}
+  const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),w=Math.max(...xs)-Math.min(...xs),h=Math.max(...ys)-Math.min(...ys),aeIn=num(f.aeD);
+  return {A:Math.abs(A)/2,fb:Number.isFinite(aeIn)&&aeIn>0?aeIn:Math.hypot(w,h),w,h,P};}
  if(s==='j'){const cj=num(f.c)||0,R=num(f.rJ),b=rad(num(f.betaJ)||0);if(!(R>0)||!(t>cj))return {A:NaN,fb:NaN};
   /* J-Fuge: Kreis um (0, c + R), Boden bei (0, c); Flanke unter β gegen die Senkrechte, tangential am Kreis in T = M + R·(cos β, −sin β) */
   const My=cj+R,Tx=R*Math.cos(b),Ty=My-R*Math.sin(b);let pts=[];const phE=Math.PI/2-b;
@@ -593,8 +597,46 @@ function bkGeom(f){const s=bkSub(f),t=num(f.t),c=s==='y'||s==='x'?(num(f.c)||0):
   return {A:h1*h1*Math.tan(a)/2,fb:h1/Math.cos(a),h1,h2,p2:{A:h2*h2*Math.tan(a2)/2,fb:h2/Math.cos(a2)}};}
  const hf=t-c;return {A:hf*hf*Math.tan(a)/2,fb:hf/Math.cos(a)};}
 /* Querschnittsskizze der Blechkante: Blech grau, abgetragener Werkstoff orange, maßstäblich in t */
-function bkSketch(f){const s=bkSub(f),G=bkGeom(f),t=num(f.t);if(!(t>0)||!Number.isFinite(G.A))return '<p class="note">Blechdicke und Bearbeitungsmaße eintragen.</p>';
- const W=420,H=186,pad=28,px=44,ex=s==='schaerfen'?Math.max(G.L||0,t)*1.5:Math.max(2.2*t,(G.fb||0)*1.6),k=Math.min((W-2*px)/ex,(H-2*pad)/t),rh=f.bkHand==='R',dn=f.bkSp==='unten',X=x=>rh?px+x*k:W-px-x*k,Y=y0=>{const y=dn&&(s==='y'||s==='j'||s==='schaerfen')?t-y0:y0;return H-pad-y*k;},P=a=>a.map(([x,y],i)=>(i?'L':'M')+X(x).toFixed(1)+' '+Y(y).toFixed(1)).join(' ')+'Z';
+/* ---------- Eigenes Profil aus DXF: geschlossene Kontur des Abtragsquerschnitts (mm) ---------- */
+function bkDxfPts(f){try{const a=JSON.parse(f.dxfPts||'null');return Array.isArray(a)&&a.length>=3?a:null;}catch(e){return null;}}
+function bkParseDxf(txt){const L=String(txt).split(/\r?\n/).map(x=>x.trim());const pairs=[];for(let i=0;i+1<L.length;i+=2)pairs.push([parseInt(L[i],10),L[i+1]]);
+ let st=pairs.findIndex(p=>p[0]===2&&p[1]==='ENTITIES');if(st<0)st=0;const segs=[],loops=[];
+ const arcPts=(cx,cy,r,a0,a1)=>{let d=a1-a0;while(d<=0)d+=360;const n=Math.max(4,Math.ceil(d/5)),o=[];for(let k=0;k<=n;k++){const a=(a0+d*k/n)*Math.PI/180;o.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}return o;};
+ /* Bogensegment einer Polylinie aus Bulge b = tan(θ/4) */
+ const bulgePts=(p1,p2,b)=>{if(!b)return [p1,p2];const th=4*Math.atan(b),dx=p2[0]-p1[0],dy=p2[1]-p1[1],c=Math.hypot(dx,dy);if(!(c>0))return [p1,p2];const r=c/(2*Math.sin(Math.abs(th)/2)),d=r*Math.cos(Math.abs(th)/2),mx=(p1[0]+p2[0])/2,my=(p1[1]+p2[1])/2,sg=b>0?1:-1;
+  const cx=mx-sg*d*dy/c,cy=my+sg*d*dx/c,a0=Math.atan2(p1[1]-cy,p1[0]-cx),n=Math.max(4,Math.ceil(Math.abs(th)*180/Math.PI/5)),o=[];for(let k=0;k<=n;k++){const a=a0+th*k/n;o.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}return o;};
+ const polyPts=(vs,closed)=>{const pts=[];for(let k=0;k<vs.length-(closed?0:1);k++){const a=vs[k],b=vs[(k+1)%vs.length];bulgePts([a[0],a[1]],[b[0],b[1]],a[2]).slice(0,-1).forEach(p=>pts.push(p));}if(!closed&&vs.length)pts.push([vs[vs.length-1][0],vs[vs.length-1][1]]);return pts;};
+ for(let i=st;i<pairs.length;i++){if(pairs[i][0]!==0)continue;const ty=pairs[i][1];if(ty==='ENDSEC'&&i>st)break;const g=[];let j=i+1;for(;j<pairs.length&&pairs[j][0]!==0;j++)g.push(pairs[j]);
+  const v=c=>{const x=g.find(p=>p[0]===c);return x?parseFloat(x[1]):NaN;},fl=()=>(parseInt((g.find(p=>p[0]===70)||[0,'0'])[1],10)&1)===1;
+  if(ty==='LINE')segs.push([[v(10),v(20)],[v(11),v(21)]]);
+  else if(ty==='ARC')segs.push(arcPts(v(10),v(20),v(40),v(50),v(51)));
+  else if(ty==='CIRCLE')loops.push(arcPts(v(10),v(20),v(40),0,360).slice(0,-1));
+  else if(ty==='LWPOLYLINE'){const vs=[];let cur=null;g.forEach(([c,val])=>{if(c===10){cur=[parseFloat(val),NaN,0];vs.push(cur);}else if(c===20&&cur)cur[1]=parseFloat(val);else if(c===42&&cur)cur[2]=parseFloat(val);});const cl=fl(),pts=polyPts(vs,cl);if(cl)loops.push(pts);else segs.push(pts);}
+  else if(ty==='POLYLINE'){const cl=fl(),vs=[];let k=j;while(k<pairs.length&&!(pairs[k][0]===0&&pairs[k][1]==='SEQEND')){if(pairs[k][0]===0&&pairs[k][1]==='VERTEX'){const gv=[];let m=k+1;for(;m<pairs.length&&pairs[m][0]!==0;m++)gv.push(pairs[m]);const vv=c=>{const x=gv.find(p=>p[0]===c);return x?parseFloat(x[1]):0;};vs.push([vv(10),vv(20),vv(42)]);k=m;}else k++;}
+   const pts=polyPts(vs,cl);if(cl)loops.push(pts);else segs.push(pts);j=k;}
+  i=j-1;}
+ /* offene Linien und Bögen zu geschlossenen Konturen verketten */
+ const all=segs.flat(),tol=1e-3*Math.max(1,...all.map(p=>Math.max(Math.abs(p[0]),Math.abs(p[1])))),eq=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1])<tol;
+ const pool=segs.filter(sg=>sg.length>=2&&sg.every(p=>Number.isFinite(p[0])&&Number.isFinite(p[1])));
+ while(pool.length){let chain=pool.shift().slice(),grew=true;while(grew&&!eq(chain[0],chain[chain.length-1])){grew=false;for(let q=0;q<pool.length;q++){const sg=pool[q],e=chain[chain.length-1];
+    if(eq(sg[0],e)){chain=chain.concat(sg.slice(1));pool.splice(q,1);grew=true;break;}if(eq(sg[sg.length-1],e)){chain=chain.concat(sg.slice(0,-1).reverse());pool.splice(q,1);grew=true;break;}}}
+  if(chain.length>=4&&eq(chain[0],chain[chain.length-1]))loops.push(chain.slice(0,-1));}
+ if(!loops.length)return {err:'Keine geschlossene Kontur gefunden. Die DXF muss den Abtragsquerschnitt als geschlossene Polylinie bzw. als zusammenhängende Linien und Bögen enthalten.'};
+ const area=P=>{let A=0;for(let q=0;q<P.length;q++){const [x1,y1]=P[q],[x2,y2]=P[(q+1)%P.length];A+=x1*y2-x2*y1;}return Math.abs(A)/2;};
+ loops.sort((a,b)=>area(b)-area(a));let P=loops[0];const mnx=Math.min(...P.map(p=>p[0])),mny=Math.min(...P.map(p=>p[1]));P=P.map(p=>[+(p[0]-mnx).toFixed(4),+(p[1]-mny).toFixed(4)]);
+ if(P.length>600){const st2=Math.ceil(P.length/600);P=P.filter((_,q)=>q%st2===0);}
+ return {pts:P,A:area(P),n:loops.length};}
+function bkDxfPick(){let inp=document.getElementById('bk-dxf-file');if(!inp){inp=document.createElement('input');inp.type='file';inp.accept='.dxf';inp.id='bk-dxf-file';inp.hidden=true;document.body.appendChild(inp);
+  inp.addEventListener('change',async()=>{const file=inp.files&&inp.files[0];inp.value='';if(!file)return;let txt='';try{txt=await file.text();}catch(e){toast('Datei konnte nicht gelesen werden');return;}
+   const r=bkParseDxf(txt),f=S.forms.blechkante;if(r.err){f.dxfMsg=r.err;save();render();return;}f.dxfPts=JSON.stringify(r.pts);f.dxfName=file.name;f.dxfMsg=`${r.n>1?r.n+' Konturen gefunden – die größte wird verwendet. ':''}Querschnitt ${fmt(r.A,1)} mm².`;save();render();toast('Profil übernommen');});}
+ inp.click();}
+function bkSketch(f){const s=bkSub(f),G=bkGeom(f),t=num(f.t);
+ if(s==='dxf'){const P=G.P;let h=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px"><button type="button" class="btn" data-bkdxf="1">DXF hochladen</button><span class="note" style="margin:0">${f.dxfName?esc(f.dxfName)+' · ':''}${esc(f.dxfMsg||'Geschlossene Kontur des Abtragsquerschnitts in mm (Polylinie oder Linien/Bögen).')}</span></div>`;
+  if(!P)return h;const W=420,H=186,pd=24,k=Math.min((W-2*pd)/Math.max(G.w,1e-6),(H-2*pd)/Math.max(G.h,1e-6)),rh=f.bkHand==='R',dn=f.bkSp==='unten',ox=(W-G.w*k)/2,oy=(H+G.h*k)/2;
+  const X=x=>rh?ox+(G.w-x)*k:ox+x*k,Y=y=>dn?oy-(G.h-y)*k:oy-y*k;
+  return h+`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px;margin:0 0 10px" role="img" aria-label="Eigenes Profil"><path d="${P.map(([x,y],i)=>(i?'L':'M')+X(x).toFixed(1)+' '+Y(y).toFixed(1)).join(' ')}Z" fill="#c2560c" fill-opacity=".45" stroke="#c2560c" stroke-width="1"/><text x="8" y="14" font-size="10.5" fill="var(--muted)">Eigenes Profil (Abtrag) · ${fmt(G.w,1)} × ${fmt(G.h,1)} mm · A = ${fmt(G.A,1)} mm² · ae = ${fmt(G.fb,1)} mm${num(f.aeD)>0?'':' (Diagonale)'}${rh?' · gespiegelt':''}${dn?' · Spindel unten':''}</text></svg>`;}
+ if(!(t>0)||!Number.isFinite(G.A))return '<p class="note">Blechdicke und Bearbeitungsmaße eintragen.</p>';
+ const W=420,pad=30,px=44,ex=s==='schaerfen'?Math.max(G.L||0,t)*1.5:Math.max(2.2*t,(G.fb||0)*1.6,s==='i'?t+3*(num(f.aeB)||0):0),k0=(W-2*px)/ex,H=Math.round(Math.min(340,Math.max(150,t*k0+2*pad))),k=Math.min(k0,(H-2*pad)/t),rh=f.bkHand==='R',dn=f.bkSp==='unten',X=x=>rh?px+x*k:W-px-x*k,Y=y0=>{const y=dn&&(s==='y'||s==='j'||s==='schaerfen')?t-y0:y0;return H-pad-y*k;},P=a=>a.map(([x,y],i)=>(i?'L':'M')+X(x).toFixed(1)+' '+Y(y).toFixed(1)).join(' ')+'Z';
  /* Koordinaten: x = Abstand von der fertigen Kante nach innen, y = Höhe über der Blechunterseite; Kante liegt rechts */
  let rem=[],fin=[];const c=s==='y'||s==='x'?(num(f.c)||0):0,ta=v=>Math.tan(v*Math.PI/180);
  if(s==='i'){const a=num(f.aeB)||0;fin=[[ex,0],[0,0],[0,t],[ex,t]];rem=[[0,0],[-a,0],[-a,t],[0,t]];}
@@ -605,7 +647,14 @@ function bkSketch(f){const s=bkSub(f),G=bkGeom(f),t=num(f.t);if(!(t>0)||!Number.
  const dim=(x1,y1,x2,y2,txt)=>`<line x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}" stroke="#1d5fc4" stroke-width=".8"/><text x="${(X(x1)+X(x2))/2+4}" y="${(Y(y1)+Y(y2))/2+4}" font-size="11" fill="#1d5fc4">${txt}</text>`;
  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px;margin:0 0 10px" role="img" aria-label="Querschnitt der Blechkante">
   <path d="${P(fin)}" fill="var(--surface-2)" stroke="var(--fg)" stroke-width="1"/><path d="${P(rem)}" fill="#c2560c" fill-opacity=".45" stroke="#c2560c" stroke-width="1"/>${typeof rem2!=='undefined'?`<path d="${P(rem2)}" fill="#c2560c" fill-opacity=".45" stroke="#c2560c" stroke-width="1"/>`:''}
-  ${dim(ex*0.92,0,ex*0.92,t,'t = '+fmt(t,1))}<text x="8" y="${f.bkSp==='unten'?14:H-6}" font-size="10.5" fill="var(--muted)">Querschnitt · orange = Abtrag · ${rh?'rechtes':'linkes'} Werkzeug · Spindel von ${dn?'unten':'oben'}</text>${(()=>{/* Spindelpfeil an der Kante */const xe=X(0)+(rh?-22:22),y1=dn?H-2:2,y2=dn?Y(0)+3:Y(t)-3;return `<line x1="${xe}" y1="${y1}" x2="${xe}" y2="${y2}" stroke="var(--fg)" stroke-width="1.6" marker-end="url(#bkar)"/><text x="${xe+(rh?6:-6)}" y="${dn?H-8:14}" font-size="10" text-anchor="${rh?'start':'end'}" fill="var(--fg)">Spindel</text>`;})()}<defs><marker id="bkar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fg)"/></marker></defs></svg>`;}
+  ${dim(ex*0.92,0,ex*0.92,t,'t = '+fmt(t,1))}${(()=>{/* Beschriftung der aktiven Maße, wächst mit der Bearbeitung */const L=[],tx=(x,y,txt,anc)=>L.push(`<text x="${(X(x)+(anc===(rh?'start':'end')?(rh?5:-5):0)).toFixed(1)}" y="${Y(y).toFixed(1)}" font-size="11" fill="#1d5fc4" text-anchor="${anc||'middle'}" style="paint-order:stroke;stroke:var(--surface);stroke-width:3px">${txt}</text>`);
+   const out=rh?'end':'start',inn=rh?'start':'end';
+   if(s==='i'){const a=num(f.aeB)||0;tx(-a/2,t/2,'a = '+fmt(a,1));}
+   if(s==='y'){const w=(t-c)*ta(num(f.alpha));tx(w*0.55,t-(t-c)*0.25,'α = '+fmt(num(f.alpha),1)+'°');if(c>0)tx(0,c/2,'c = '+fmt(c,1),inn);tx(w/2,t+0.04*t+0.5,'b = '+fmt(w,1));}
+   if(s==='x'){const a2=Number.isFinite(num(f.alpha2))?num(f.alpha2):num(f.alpha);tx(G.h1*ta(num(f.alpha))*0.6,t-G.h1*0.3,'α = '+fmt(num(f.alpha),1)+'°');tx(G.h2*ta(a2)*0.6,G.h2*0.3,'α₂ = '+fmt(a2,1)+'°');tx(0,G.h2+c/2,'c = '+fmt(c,1),inn);tx(0,t-G.h1/2,'h₁ = '+fmt(G.h1,1),inn);tx(0,G.h2/2,'h₂ = '+fmt(G.h2,1),inn);}
+   if(s==='j'){const cj=num(f.c)||0;tx(0,cj/2,'c = '+fmt(cj,1),inn);tx((num(f.rJ)||0)*0.5,cj+(num(f.rJ)||0)*0.35,'R = '+fmt(num(f.rJ),1));tx((G.J&&G.J.length?G.J[G.J.length-1][0]:0)*0.7,t*0.8,'β = '+fmt(num(f.betaJ),1)+'°');}
+   if(s==='schaerfen'){const t2=num(f.t2);tx(0,t2/2,'t₂ = '+fmt(t2,1),inn);tx((G.L||0)/2,t+0.04*t+0.5,'L = '+fmt(G.L,1)+' (1 : '+fmt(num(f.nS),1)+')');}
+   return L.join('');})()}<text x="8" y="${f.bkSp==='unten'?14:H-6}" font-size="10.5" fill="var(--muted)">Querschnitt · orange = Abtrag · ${rh?'rechtes':'linkes'} Werkzeug · Spindel von ${dn?'unten':'oben'}</text>${(()=>{/* Spindelpfeil an der Kante */const xe=X(0)+(rh?-22:22),y1=dn?H-2:2,y2=dn?Y(0)+3:Y(t)-3;return `<line x1="${xe}" y1="${y1}" x2="${xe}" y2="${y2}" stroke="var(--fg)" stroke-width="1.6" marker-end="url(#bkar)"/><text x="${xe+(rh?6:-6)}" y="${dn?H-8:14}" font-size="10" text-anchor="${rh?'start':'end'}" fill="var(--fg)">Spindel</text>`;})()}<defs><marker id="bkar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--fg)"/></marker></defs></svg>`;}
 function posForm(p,f){if(p==='blechkante')return {...f,ae:String(bkGeom(f).fb)};if(p==='laengsnaht'){const c=lnCuts(f).list[lnSel(f)]||{};return {...f,pos:'gleich',ae:String(c.d)};}return f;}
 const RES={tCut:['Schnitttiefe des gewählten Schnitts','mm',1,'t'],dCut:['Zustellung Δ','mm',1,'Δ'],thAll:['Hauptzeit alle Schnitte','min',2,'th ges'],bn:['Nutbreite an der Oberfläche','mm',1,'b'],LF:['Flankenlänge je Seite','mm',1,'LF'],hP:['Profilhöhe','mm',1,'hP'],lFe:['Schneidlänge im Einsatz','mm',1,'lF'],nF:['Flankenplatten je Seite','',0,'nF'],nInc:['Inkremente im Profil','',0,'nInk'],nIncCut:['Inkremente im Schnitt','',0,'nInk'],nFg:['Platten im Profil (2 Radius + Flanken)','',0,'n'],fzn:['Vorschub je Schneide','mm',3,'fz'],zs:['Schneiden gesamt z','',0,'z'],vfm:['Durchlaufgeschwindigkeit','m/min',2,'vf'],fzc:['Vorschub je Kassette','mm',3,'fz'],tph:['Durchsatz','t/h',2,'ṁ'],fb:['Breite der gefrästen Fläche (ae)','mm',1,'b'],fb2:['Fasenbreite unten','mm',1,'b₂'],A2:['Spanquerschnitt Fase unten','mm²',1,'A₂'],Pc2:['Schnittleistung Fase unten','kW',2,'Pc₂'],thX:['Hauptzeit beide Fasen','min',2,'th ges'],A:['Spanquerschnitt','mm²',1,'A'],nw:['Werkstückdrehzahl','1/min',2,'nw'],hmax:['Max. Spandicke','mm',3,'hmax'],phs:['Eingriffswinkel','°',0,'φs'],le:['Eingriffslänge','mm',1,'le'],hin:['Spandicke Eintritt','mm',3,'h ein'],hout:['Spandicke Austritt','mm',3,'h aus'],lsp:['Spanlänge','mm',1,'lsp'],n:['Drehzahl','1/min',0,'n'],vf:['Vorschubgeschwindigkeit','mm/min',0,'vf'],h:['Spanungsdicke','mm',3,'h'],kc:['Spez. Schnittkraft','N/mm²',0,'kc'],
  Fc:['Schnittkraft','N',0,'Fc'],Ff:['Vorschubkraft','N',0,'Ff'],Mc:['Drehmoment','Nm',1,'Mc'],Q:['Zeitspanvolumen','cm³/min',1,'Q'],Pc:['Schnittleistung','kW',2,'Pc'],Pm:['Antriebsleistung','kW',2,'Pmot'],th:['Hauptzeit','min',2,'th']};
@@ -1707,6 +1756,7 @@ main.addEventListener('click',e=>{
  if(b.dataset.bew){S.bewertung=S.bewertung===b.dataset.bew?'':b.dataset.bew;save();render();toast(bewOf()?`Ergebnis: ${bewOf()[1]}`:'Ergebnis zurückgesetzt');return;}
  if(b.dataset.pos){S.forms[p].pos=b.dataset.pos;save();render();toast(POSN[b.dataset.pos]);return;}
  if(b.dataset.mdel){const id=b.dataset.mdel;if(pendingMDel===id){S.media=S.media.filter(m=>m.id!==id);mDel(id);pendingMDel=null;save();render();toast('Medium entfernt');}else{pendingMDel=id;b.textContent='Wirklich entfernen?';}return;}
+ if(b.dataset.bkdxf){bkDxfPick();return;}
  if(b.dataset.bkset){const f=S.forms.blechkante;f[b.dataset.bkset]=b.dataset.v;save();render();return;}
  if(b.dataset.sub){const f=S.forms[p],x=SUBS[p].find(a=>a[0]===b.dataset.sub);f.sub=x[0];const msg=[];
   for(const [k,v] of Object.entries(x[2])){if(k==='pos'){f.pos=v;msg.push(POSN[v]);}else if(v==='=Dc'){f.ae=f.Dc;msg.push('ae = Dc');}else{f[k]=v;msg.push((k==='kr'?'κr ':k+' ')+v+(k==='kr'?'°':''));}}
