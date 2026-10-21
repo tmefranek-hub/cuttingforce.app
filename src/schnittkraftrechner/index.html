@@ -590,14 +590,16 @@ function bkFaces(f,G){const s=bkSub(f),t=num(f.t),c=s==='y'||s==='x'?(num(f.c)||
  /* Y-Naht: Werkzeugprofil am Referenzpunkt (Fase/Steg) – Fase bis h_F,max, Steg bis c_max, jeweils + Δü */
  if(s==='y'){const hF=num(f.hFMax)>0?num(f.hFMax):t-c,cM=num(f.cMax)>0?num(f.cMax):0,r=[{pl:[[0,c],[hF*ta(num(f.alpha)),c+hF]],os:false,oe:true}];if(cM>0)r.push({pl:[[0,c],[0,c-cM]],os:false,oe:true,r:'steg'});return r;}
  /* J-Naht: Flanke, Stegplatte von der unteren Fase bis c, kleine untere Fase */
- if(s==='j'){const cj=num(f.c)||0,r=G.flank&&G.flank.length?[{pl:G.flank,os:false,oe:true}]:[];if(cj-(G.hU||0)>1e-6)r.push({pl:[[0,G.hU||0],[0,cj]],os:false,oe:false,r:'steg'});if(G.hU>0)r.push({pl:[[0,G.hU],[G.wU,0]],os:false,oe:true,r:'uf'});return r;}
+ if(s==='j'){const cj=num(f.c)||0,r=G.flank&&G.flank.length?[{pl:G.flank,os:false,oe:true}]:[];if(cj-(G.hU||0)>1e-6)r.push({pl:[[0,G.hU||0],[0,cj]],os:false,oe:false,r:'steg',center:true});if(G.hU>0)r.push({pl:[[0,G.hU],[G.wU,0]],os:false,oe:true,r:'uf'});return r;}
  if(s==='schaerfen')return [{pl:[[0,num(f.t2)],[G.L||0,t]],os:true,oe:true}];
- if(s==='x'){const a2=Number.isFinite(num(f.alpha2))?num(f.alpha2):num(f.alpha);const xs=G.xs||0,r=[{pl:[[xs,G.h2+c],[xs+G.h1*ta(num(f.alpha)),t]],os:false,oe:true},{pl:[[0,G.h2],[G.h2*ta(a2),0]],os:false,oe:true,r:'p2'}];if(c>0)r.push({pl:[[0,G.h2],[xs,G.h2+c]],os:false,oe:false,r:'steg'});return r;}
+ if(s==='x'){const a2=Number.isFinite(num(f.alpha2))?num(f.alpha2):num(f.alpha);const xs=G.xs||0,r=[{pl:[[xs,G.h2+c],[xs+G.h1*ta(num(f.alpha)),t]],os:false,oe:true},{pl:[[0,G.h2],[G.h2*ta(a2),0]],os:false,oe:true,r:'p2'}];if(c>0)r.push({pl:[[0,G.h2],[xs,G.h2+c]],os:false,oe:false,r:'steg',center:true});return r;}
  return [];}
 /* Plattenlage auf einer Fläche (Bogenlänge s): volle Schneidkante lK, nutzbar lF = lK − 2ü, Nachbarn überlappen um 2ü;
    an Enden, die den Werkstoff verlassen, mindestens Δü über die Oberfläche; an der Wurzel beginnt die Schneide an der Wurzel */
 function bkLayout(f,face){const lK=num(f.lK),u=Math.max(0,num(f.uF)||0),lF=lK-2*u,dU=Math.max(0,num(f.dUe)||0),pl=face.pl;let tot=0;for(let q=1;q<pl.length;q++)tot+=Math.hypot(pl[q][0]-pl[q-1][0],pl[q][1]-pl[q-1][1]);
- if(!(lF>0)||!(tot>0))return {n:NaN,plates:[],tot,lF};const e0=face.os?-dU-u:0,us0=e0+u,us1=tot+(face.oe?dU:0),n=Math.max(1,Math.ceil((us1-us0)/lF-1e-9)),plates=[];
+ if(!(lF>0)||!(tot>0))return {n:NaN,plates:[],tot,lF};
+ /* Stegplatte X/J: Schneidkantenmitte in der Stegmitte, bei mehreren Platten das ganze Plattenpaket mittig am Steg */
+ if(face.center){const n=Math.max(1,Math.ceil(tot/lF-1e-9)),a0=tot/2-n*lF/2,plates=[];for(let k=0;k<n;k++)plates.push([a0+k*lF-u,a0+(k+1)*lF+u]);return {n,plates,tot,lF};}const e0=face.os?-dU-u:0,us0=e0+u,us1=tot+(face.oe?dU:0),n=Math.max(1,Math.ceil((us1-us0)/lF-1e-9)),plates=[];
  for(let k=0;k<n;k++)plates.push([us0+k*lF-u,us0+(k+1)*lF+u]);return {n,plates,tot,lF};}
 /* Wendeplatten entlang einer erzeugten Fläche: nutzbare Schneidlänge lF = lK − 2·ü, Anzahl n = ⌈Länge / lF⌉ (wie beim Längsnahtfräser) */
 /* Durchmesser über dem Profil: Werkzeugachse senkrecht zum Blech, Radius wächst mit x (Abstand von der Kante ins Material);
