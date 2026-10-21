@@ -157,7 +157,7 @@ tr:last-child td{border-bottom:0}
 .proc3 .mid{min-width:0}
 .proc3 .side{grid-column:3;grid-row:auto}
 .secnav{display:flex;flex-direction:column;gap:4px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px)}
-#bk-sketch{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);z-index:3;background:var(--surface);padding-top:4px}
+#bk-sketch{position:sticky;top:var(--hdr,76px);z-index:3;background:var(--surface);padding-top:0;margin-top:0}
 .secnav button{display:flex;gap:10px;align-items:flex-start;text-align:left;border:1px solid transparent;background:none;border-radius:5px;padding:9px 10px;cursor:pointer;min-width:0}
 .secnav button:hover{background:var(--surface);border-color:var(--line)}
 .secnav button[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -630,6 +630,8 @@ function bkDxfPick(){let inp=document.getElementById('bk-dxf-file');if(!inp){inp
   inp.addEventListener('change',async()=>{const file=inp.files&&inp.files[0];inp.value='';if(!file)return;let txt='';try{txt=await file.text();}catch(e){toast('Datei konnte nicht gelesen werden');return;}
    const r=bkParseDxf(txt),f=S.forms.blechkante;if(r.err){f.dxfMsg=r.err;save();render();return;}f.dxfPts=JSON.stringify(r.pts);f.dxfName=file.name;f.dxfMsg=`${r.n>1?r.n+' Konturen gefunden – die größte wird verwendet. ':''}Querschnitt ${fmt(r.A,1)} mm².`;save();render();toast('Profil übernommen');});}
  inp.click();}
+/* tatsächliche Höhe der fixierten Kopfleiste als CSS-Variable (für mitlaufende Elemente ohne Abstand) */
+(function(){const set=()=>{const h=document.querySelector('header.top');if(h)document.documentElement.style.setProperty('--hdr',Math.max(0,Math.round(h.getBoundingClientRect().bottom))+'px');};window.addEventListener('resize',set);window.addEventListener('scroll',set,{passive:true});window.addEventListener('load',set);document.addEventListener('DOMContentLoaded',set);setTimeout(set,300);try{const h=document.querySelector('header.top');if(h&&window.ResizeObserver)new ResizeObserver(set).observe(h);}catch(e){}})();
 function bkSketch(f){const s=bkSub(f),G=bkGeom(f),t=num(f.t);
  if(s==='dxf'){const P=G.P;let h=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px"><button type="button" class="btn" data-bkdxf="1">DXF hochladen</button><span class="note" style="margin:0">${f.dxfName?esc(f.dxfName)+' · ':''}${esc(f.dxfMsg||'Geschlossene Kontur des Abtragsquerschnitts in mm (Polylinie oder Linien/Bögen).')}</span></div>`;
   if(!P)return h;const W=420,H=186,pd=24,k=Math.min((W-2*pd)/Math.max(G.w,1e-6),(H-2*pd)/Math.max(G.h,1e-6)),rh=f.bkHand==='R',dn=f.bkSp==='unten',ox=(W-G.w*k)/2,oy=(H+G.h*k)/2;
