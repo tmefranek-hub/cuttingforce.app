@@ -104,6 +104,9 @@ export default {
     if (path === '/api/stammdaten' && request.method === 'PUT') {
       return handlePutStammdaten(request, env);
     }
+    if (path === '/api/admin/users' && request.method === 'GET') {
+      return handleListUsers(request, env);
+    }
     if (path === '/api/admin/pending-users' && request.method === 'GET') {
       return handlePendingUsers(request, env);
     }
@@ -431,6 +434,31 @@ async function handleLogin(request, env, secure) {
 }
 
 /* ---------- Administrator: Freigabe neuer Konten ---------- */
+
+/** Liste aller Benutzerkonten für die Stammdaten (nur Administrator): Status, Registrierung, letzte Anmeldung, aktive Sitzungen. */
+async function handleListUsers(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'Nicht erlaubt' }, 403);
+  const now = new Date().toISOString();
+  const rows = await env.DB.prepare(
+    `SELECT u.id, u.email, u.created_at, u.last_login_at, u.approved, u.locked_until,
+            (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires_at > ?) AS sessions
+     FROM users u ORDER BY u.created_at ASC`
+  )
+    .bind(now)
+    .all();
+  const users = (rows.results || []).map((u) => ({
+    id: u.id,
+    email: u.email,
+    created_at: u.created_at,
+    last_login_at: u.last_login_at,
+    role: isAdminEmail(u.email, env) ? 'admin' : 'user',
+    approved: isApproved(u, env),
+    locked: !!(u.locked_until && u.locked_until > now),
+    sessions: u.sessions || 0,
+  }));
+  return json({ users });
+}
 
 async function handlePendingUsers(request, env) {
   const admin = await requireAdmin(request, env);
