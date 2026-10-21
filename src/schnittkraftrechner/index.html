@@ -609,6 +609,10 @@ function bkRefPt(f,G){const s=bkSub(f),c=num(f.c)||0,m=f.bkRef||'oben';G=G||bkGe
  if(s==='x'){const xs=G.xs||0,h2=G.h2||0;return m==='unten'?[0,h2]:m==='mitte'?[xs/2,h2+c/2]:[xs,h2+c];}
  if(s==='j'){const hU=G.hU||0;return m==='unten'?[0,hU]:m==='mitte'?[0,(c+hU)/2]:[0,c];}
  if(s==='y')return [0,c];if(s==='schaerfen')return [0,num(f.t2)||0];return [0,0];}
+/* Alle Punkte der Schneidkanten (volle Plattenlänge, auch außerhalb des Schnitts) für den Bildausschnitt der Skizze */
+function bkEdgePts(f,G){const P=[];if(G.arc)G.arc.forEach(p=>P.push(p));bkFaces(f,G).forEach(face=>{const pl=face.pl,L=bkLayout(f,face),seg=[];pl.forEach(p=>P.push(p));for(let q=1;q<pl.length;q++)seg.push(Math.hypot(pl[q][0]-pl[q-1][0],pl[q][1]-pl[q-1][1]));
+ const at=sv=>{if(sv<0){const d=seg[0]||1;return [pl[0][0]+(pl[1][0]-pl[0][0])*sv/d,pl[0][1]+(pl[1][1]-pl[0][1])*sv/d];}let r=sv;for(let q=1;q<pl.length;q++){const d=seg[q-1];if(r<=d||q===pl.length-1){const u=d>0?r/d:0;return [pl[q-1][0]+(pl[q][0]-pl[q-1][0])*u,pl[q-1][1]+(pl[q][1]-pl[q-1][1])*u];}r-=d;}return pl[pl.length-1];};
+ (L.plates||[]).forEach(([a,b])=>{P.push(at(a),at(b));});});return P.filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));}
 function bkDia(f){const s=bkSub(f),G=bkGeom(f),Dc=num(f.Dc),xs=[0];
  if(s==='dxf'){if(G.P)xs.push(G.w);}else{if(G.arc)G.arc.forEach(p=>xs.push(p[0]));bkFaces(f,G).forEach(face=>{const pl=face.pl;pl.forEach(p=>xs.push(p[0]));const L=bkLayout(f,face),seg=[];for(let q=1;q<pl.length;q++)seg.push(Math.hypot(pl[q][0]-pl[q-1][0],pl[q][1]-pl[q-1][1]));
   const at=sv=>{if(sv<0){const d=seg[0]||1;return pl[0][0]+(pl[1][0]-pl[0][0])*sv/d;}let r=sv;for(let q=1;q<pl.length;q++){const d=seg[q-1];if(r<=d||q===pl.length-1){const u=d>0?r/d:0;return pl[q-1][0]+(pl[q][0]-pl[q-1][0])*u;}r-=d;}return pl[pl.length-1][0];};
@@ -692,7 +696,10 @@ function bkSketch(f){const s=bkSub(f),G=bkGeom(f),t=num(f.t);
   const up=bkUnten(f),X=x=>rh?ox+(G.w-x)*k:ox+x*k,Y=y=>up?oy-(G.h-y)*k:oy-y*k;
   return h+`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px;margin:0 0 10px" role="img" aria-label="Eigenes Profil"><path d="${P.map(([x,y],i)=>(i?'L':'M')+X(x).toFixed(1)+' '+Y(y).toFixed(1)).join(' ')}Z" fill="#c2560c" fill-opacity=".45" stroke="#c2560c" stroke-width="1"/><text x="8" y="14" font-size="10.5" fill="var(--muted)">Eigenes Profil (Abtrag) · ${fmt(G.w,1)} × ${fmt(G.h,1)} mm · A = ${fmt(G.A,1)} mm² · ae = ${fmt(G.fb,1)} mm${num(f.aeD)>0?'':' (Diagonale)'}${rh?' · gespiegelt':''}${up?' · Profil unten':''}</text></svg>`;}
  if(!(t>0)||!Number.isFinite(G.A))return '<p class="note">Blechdicke und Bearbeitungsmaße eintragen.</p>';
- const pT=num(f.Dc)>0?112:44,W=420,px=44,ex=s==='schaerfen'?Math.max(G.L||0,t)*1.5:Math.max(2.2*t,(G.fb||0)*1.6,s==='i'?t+3*(num(f.aeB)||0):0),k0=(W-px-pT)/ex,pad=Math.round(30+Math.min(70,(num(f.lK)||0)*k0*0.75)),H=Math.round(Math.min(420,Math.max(150,t*k0+2*pad))),k=Math.min(k0,(H-2*pad)/t),rh=f.bkHand==='R',dn=f.bkSp==='unten',X=x=>rh?pT+x*k:W-pT-x*k,Y=y0=>{const y=bkHasPos(s)&&bkUnten(f)?t-y0:y0;return H-pad-y*k;},P=a=>a.map(([x,y],i)=>(i?'L':'M')+X(x).toFixed(1)+' '+Y(y).toFixed(1)).join(' ')+'Z';
+ /* Bildausschnitt: Blech plus alle Schneidkanten in voller Länge (auch der Teil außerhalb des Schnitts) */
+ const pT=num(f.Dc)>0?112:44,W=420,px=44,ex=s==='schaerfen'?Math.max(G.L||0,t)*1.5:Math.max(2.2*t,(G.fb||0)*1.6,s==='i'?t+3*(num(f.aeB)||0):0),fl=bkHasPos(s)&&bkUnten(f),EP=(num(f.lK)>0?bkEdgePts(f,G):[]).concat(s==='y'&&num(f.hRef)>0?[[0,(num(f.c)||0)+((f.bkSp!=='unten')!==bkUnten(f)?1:-1)*(num(f.hRef)+0.08*t)]]:[]),
+  xL=Math.min(0,s==='i'?-(num(f.aeB)||0):0,...EP.map(p=>p[0])),xR=Math.max(ex,...EP.map(p=>p[0]+t*0.15)),ys=EP.map(p=>fl?t-p[1]:p[1]),yL=Math.min(0,...ys),yH=Math.max(t,...ys),pB=30,pTop=22,
+  k0=(W-px-pT)/(xR-xL),H=Math.round(Math.min(460,Math.max(150,(yH-yL)*k0+pB+pTop))),k=Math.min(k0,(H-pB-pTop)/(yH-yL)),rh=f.bkHand==='R',dn=f.bkSp==='unten',X=x=>rh?pT+(x-xL)*k:W-pT-(x-xL)*k,Y=y0=>{const y=fl?t-y0:y0;return H-pB-(y-yL)*k;},P=a=>a.map(([x,y],i)=>(i?'L':'M')+X(x).toFixed(1)+' '+Y(y).toFixed(1)).join(' ')+'Z';
  /* Koordinaten: x = Abstand von der fertigen Kante nach innen, y = Höhe über der Blechunterseite; Kante liegt rechts */
  let rem=[],fin=[];const c=s==='y'||s==='x'?(num(f.c)||0):0,ta=v=>Math.tan(v*Math.PI/180);
  if(s==='i'){const a=num(f.aeB)||0;fin=[[ex,0],[0,0],[0,t],[ex,t]];rem=[[0,0],[-a,0],[-a,t],[0,t]];}
