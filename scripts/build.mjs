@@ -9,7 +9,7 @@ try { esbuild = require('esbuild'); } catch { esbuild = require('/opt/npm-tools/
 const min = (code, loader) => esbuild.transformSync(code, { loader, minify: true, charset: 'utf8', legalComments: 'none' }).code.trim();
 
 // Seiten: Inline-<script> (ohne src, kein JSON) und <style> minifizieren
-for (const page of ['schnittkraftrechner', 'spanbildung', 'vorspannrechner', 'gewinde']) {
+for (const page of ['schnittkraftrechner', 'spanbildung', 'vorspannrechner']) {
   let html = readFileSync(`src/${page}/index.html`, 'utf8');
   html = html.replace(/<script>([\s\S]*?)<\/script>/g, (m, js) => `<script>${min(js, 'js')}</script>`);
   html = html.replace(/<style>([\s\S]*?)<\/style>/g, (m, css) => `<style>${min(css, 'css')}</style>`);
