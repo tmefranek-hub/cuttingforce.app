@@ -94,6 +94,15 @@ svg text{font-family:'IBM Plex Sans',sans-serif;font-size:12px}
       </div>
       <div class="chips" role="group" aria-label="Materiallage"><button type="button" data-mm="0|0">kleinstes Spiel (MMC/MMC)</button><button type="button" data-mm="50|50">Mitte</button><button type="button" data-mm="100|100">größtes Spiel (LMC/LMC)</button></div>
       </fieldset>
+      <fieldset><legend>Anziehen und Querkraft</legend><div class="fgrid">
+        <label>Anziehdrehmoment T <span class="u">Nm</span><input id="tq" inputmode="decimal" value=""></label>
+        <label>Festigkeitsklasse<select id="fk"><option value="640">8.8</option><option value="940">10.9</option><option value="1100">12.9</option></select></label>
+        <label>Reibung Gewinde μ<sub>G</sub><input id="mg" inputmode="decimal" value="0,12"></label>
+        <label>Reibung Kopf μ<sub>K</sub><input id="mk" inputmode="decimal" value="0,12"></label>
+        <label>Reibdurchmesser Kopf D<sub>Km</sub> <span class="u">mm</span><input id="dkm" inputmode="decimal" value=""></label>
+        <label>Querkraft F<sub>Q</sub> <span class="u">N</span><input id="fq" inputmode="decimal" value=""></label>
+        <label class="wide">Höhe der Querkraft h <span class="u">mm über der Mutteroberkante</span><input id="hq" inputmode="decimal" value=""></label>
+      </div><p class="note" id="tq-note" style="margin:6px 0 0"></p></fieldset>
       <fieldset><legend>Verschraubung</legend><div class="fgrid">
         <label>Einschraublänge L<sub>E</sub> <span class="u">mm</span><input id="le" inputmode="decimal" value="" placeholder="= d"></label>
         <label>Anlage der Flanken<select id="load"><option value="zug">Zug (Bolzen zieht heraus)</option><option value="druck">Druck (Bolzen drückt hinein)</option><option value="mitte">mittig (ohne Last)</option></select></label>
@@ -110,6 +119,12 @@ svg text{font-family:'IBM Plex Sans',sans-serif;font-size:12px}
         <div id="v-ax"></div>
         <div class="ctl"><button type="button" class="btn" id="play">▶ Einschrauben</button><span>Drehwinkel</span><input type="range" id="rot" min="0" max="100" step="0.1" value="100" style="flex:1;min-width:140px"><span class="stat" id="rot-v"></span></div>
         <p class="note" style="margin:6px 0 0">Maßstäblich, obere Hälfte. Beim Einschrauben bleibt das Gewindeprofil in der Schnittebene in Ruhe, nur das Bolzenende wandert je Umdrehung um eine Steigung P weiter.</p>
+      </section>
+      <section class="card view">
+        <h3>Zentrierverhalten unter Anziehdrehmoment und Querkraft</h3>
+        <div class="twocol"><div id="v-cen"></div><div><div class="kv" id="cen-res"></div><div id="cen-state"></div></div></div>
+        <div id="v-cenq" style="margin-top:10px"></div>
+        <p class="note" style="margin:6px 0 0">Vorspannkraft nach VDI 2230 aus T = F<sub>V</sub>·(d₂/2·tan(φ + ρ′) + μ<sub>K</sub>·D<sub>Km</sub>/2). Unter Vorspannung liegen die Lastflanken (60°-Kegel) rundum an und zentrieren den Bolzen. Er verschiebt sich erst, wenn F<sub>Q</sub> > F<sub>V</sub>·tan(30° + ρ), ρ = arctan μ<sub>G</sub> (Keilwirkung der Flanken), und er kippt, wenn das Moment F<sub>Q</sub>·(h + L<sub>E</sub>/2) die anliegende Flankenpressung auf einer Seite aufhebt (F<sub>V</sub>·d₂/4). Danach bewegt er sich im Gewindespiel: Versatz bis Δ/2, Kippwinkel bis Δ/L<sub>E</sub>. Spiel überhöht dargestellt.</p>
       </section>
       <section class="card view twocol">
         <div><h3>Detail Flanken</h3><div id="v-det"></div></div>
@@ -187,7 +202,7 @@ function pair(A,P){const dlt=A.D2-A.d2,H1=0.541265877*P;return {dlt,ax:dlt*T30,t
 
 /* ---------- Zustand ---------- */
 const ST={rot:1,play:false};
-function inputs(){const i=+$('size').value,[d,P]=SIZES[i];let le=num($('le').value);if(!(le>0))le=d;return {d,P,cn:$('cn').value,cb:$('cb').value,sn:num($('sn').value)/100,sb:num($('sb').value)/100,le,load:$('load').value,ex:$('ex').value};}
+function inputs(){const i=+$('size').value,[d,P]=SIZES[i];let le=num($('le').value);if(!(le>0))le=d;return {tq:num($('tq').value),fk:num($('fk').value),mg:num($('mg').value),mk:num($('mk').value),dkm:num($('dkm').value),fq:num($('fq').value),hq:num($('hq').value),d,P,cn:$('cn').value,cb:$('cb').value,sn:num($('sn').value)/100,sb:num($('sb').value)/100,le,load:$('load').value,ex:$('ex').value};}
 
 /* ---------- Zeichnen ---------- */
 /* Gewindekontur r(z): Zahn bzw. Lücke mit halber Breite P/4 am Flankenradius r2, Flanken unter 30° gegen die Radialebene, begrenzt auf [rLo, rHi] */
@@ -254,6 +269,44 @@ function cmpTable(I){const sel=I.cb;let h=`<table class="t"><thead><tr><th>Bolze
   h+=`<tr class="${cb===sel?'sel':''}"><td>${I.cn}/${cb}</td><td class="n">${fmt(L.es,0)}</td><td class="n">${fmt(L.Td2,0)}</td><td class="n">${fmt(a.dlt*1000,0)} … ${fmt(z.dlt*1000,0)}</td><td class="n">${fmt(a.ax*1000,0)} … ${fmt(z.ax*1000,0)}</td><td class="n">${fmt(z.tragP,0)}</td></tr>`;});
  return h+'</tbody></table>';}
 
+/* ---------- Zentrierverhalten ---------- */
+/* VDI 2230: Vorspannkraft aus Anziehdrehmoment, Montage-Vergleichsspannung (σ² + 3τ²)^½ im Spannungsquerschnitt */
+function centering(I,L,A){const d=I.d,P=I.P,b=L.basic,d2=b.d2,d3=b.d3,d0=(d2+d3)/2,As=Math.PI/4*d0*d0,Wp=Math.PI*d0*d0*d0/16,
+  mg=Number.isFinite(I.mg)?I.mg:0.12,mk=Number.isFinite(I.mk)?I.mk:0.12,Dkm=I.dkm>0?I.dkm:1.35*d,Rp=I.fk||640,phi=Math.atan(P/(Math.PI*d2)),rhoS=Math.atan(mg/Math.cos(30*Math.PI/180)),
+  kG=d2/2*Math.tan(phi+rhoS),kK=mk*Dkm/2,FofNu=nu=>nu*Rp/Math.sqrt(1/(As*As)+3*Math.pow(kG/Wp,2)),Tof=F=>F*(kG+kK)/1000;
+ const Tauto=Tof(FofNu(0.7)),Tmax=Tof(FofNu(0.9)),T=I.tq>0?I.tq:Tauto,FV=T*1000/(kG+kK),sig=FV/As,tau=FV*kG/Wp,nu=Math.sqrt(sig*sig+3*tau*tau)/Rp;
+ const rho=Math.atan(mg),QG=FV*Math.tan(30*Math.PI/180+rho),QK=mk*FV,h=Number.isFinite(I.hq)?I.hq:d,LE=I.le,MV=FV*d2/4,QT=MV/(h+LE/2),Qauto=0.2*Math.min(QG,QT),Q=I.fq>=0&&Number.isFinite(I.fq)?I.fq:Qauto,MQ=Q*(h+LE/2);
+ const dlt=A.D2-A.d2,shiftOK=Q<=QG,tiltOK=MQ<=MV,th=tiltOK?0:dlt/LE,e=!shiftOK&&tiltOK?dlt/2:0;/* Kippen: Enden liegen gegenüber an (±Δ/2), sonst Parallelversatz um Δ/2 */
+ return {T,Tauto,Tmax,FV,sig,tau,nu,QG,QK,QT,Qauto,LE,Q,h,MQ,MV,dlt,e,th,shiftOK,tiltOK,Dkm,Rp,mg,mk,kG,kK,FofNu,Tof,As};}
+function drawCen(I,L,A,C){const W=420,P=I.P,d=I.d,LE=I.le,h=C.h,Ro=0.95*d,zt=h+0.5*d,zb=-LE-0.15*d,k=Math.min((W-40)/(2*Ro*1.25),340/(zt-zb)),H=Math.round((zt-zb)*k+40),cx=W/2,
+  X=x=>cx+x*k,Y=z=>20+(zt-z)*k,ex=Math.max(1,Math.min(40,Math.round(0.3*P/Math.max(1e-4,C.dlt/2)))),N=420;
+ /* überhöhte Lage des Bolzens: Versatz e und Kippung θ um die Mitte der Einschraublänge, Spiel mit Faktor ex */
+ const zc=-LE/2,off=z=>ex*(C.e+C.th*(z-zc)),D2=A.D2,d2=A.d2,dd=A.d,d3=A.d3,D1=A.D1,Dm=A.D,b=L.basic,xg=(v,bas)=>bas+ex*(v-bas);
+ const nr=z=>prof(z,0,P,xg(D2,b.d2)/2,xg(D1,b.d1)/2,xg(Dm,b.d)/2),nl=z=>prof(z,P/2,P,xg(D2,b.d2)/2,xg(D1,b.d1)/2,xg(Dm,b.d)/2);
+ const sh=C.shiftOK&&C.tiltOK?-(xg(D2,b.d2)-xg(d2,b.d2))/2*T30:0;/* zentriert: Bolzen auf den Lastflanken (nach oben gezogen) */
+ const br=z=>prof(z,sh,P,xg(d2,b.d2)/2,xg(d3,b.d3)/2,xg(dd,b.d)/2),bl=z=>prof(z,P/2+sh,P,xg(d2,b.d2)/2,xg(d3,b.d3)/2,xg(dd,b.d)/2);
+ /* Mutter: zwei Hälften, Innenkontur aus dem Gewindeprofil */
+ let pr=`M${X(Ro)} ${Y(0)}`,pl=`M${X(-Ro)} ${Y(0)}`;for(let q=0;q<=N;q++){const z=-LE*q/N;pr+=`L${X(nr(z)).toFixed(1)} ${Y(z).toFixed(1)}`;pl+=`L${X(-nl(z)).toFixed(1)} ${Y(z).toFixed(1)}`;}pr+=`L${X(Ro)} ${Y(-LE)}Z`;pl+=`L${X(-Ro)} ${Y(-LE)}Z`;
+ /* Bolzen: Gewinde von unten bis über die Mutter, darüber Schaft bis zum Kraftangriff */
+ const zbT=-LE-0.1*d,ztT=h+0.35*d;let pb='',pbl='';for(let q=0;q<=N;q++){const z=zbT+(ztT-zbT)*q/N;pb+=(q?'L':'M')+X(off(z)+br(z)).toFixed(1)+' '+Y(z).toFixed(1);}
+ for(let q=N;q>=0;q--){const z=zbT+(ztT-zbT)*q/N;pbl+='L'+X(off(z)-bl(z)).toFixed(1)+' '+Y(z).toFixed(1);}
+ const yq=Y(h),xq=X(off(h)-xg(dd,b.d)/2);
+ const state=!C.tiltOK?'kippt':!C.shiftOK?'verschiebt':'zentriert',col=state==='zentriert'?'#2e7d32':'#b3261e';
+ return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Zentrierverhalten"><defs><marker id="gwar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#b3261e"/></marker></defs>
+  <path d="${pr}" class="g-nut"/><path d="${pl}" class="g-nut"/><path d="${pb}${pbl}Z" class="g-bolt"/>
+  <line x1="${X(0)}" y1="${Y(zt)}" x2="${X(0)}" y2="${Y(zb)}" class="g-axis"/><line x1="${X(off(ztT))}" y1="${Y(ztT)}" x2="${X(off(zbT))}" y2="${Y(zbT)}" stroke="#1d2f45" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="${(xq-60).toFixed(1)}" y1="${yq.toFixed(1)}" x2="${(xq-3).toFixed(1)}" y2="${yq.toFixed(1)}" stroke="#b3261e" stroke-width="2.4" marker-end="url(#gwar)"/><text x="${(xq-62).toFixed(1)}" y="${(yq-6).toFixed(1)}" class="g-lab" fill="#b3261e">F_Q = ${fmt(C.Q,0)} N</text>
+  <line x1="${X(Ro)+6}" y1="${Y(0)}" x2="${X(Ro)+6}" y2="${yq}" class="g-dim"/><text x="${X(Ro)+9}" y="${((Y(0)+yq)/2+4).toFixed(1)}" class="g-dimt">h = ${fmt(h,1)}</text>
+  <text x="6" y="14" class="g-lab">Spiel × ${ex} · Zustand: <tspan fill="${col}" font-weight="700">${state}</tspan></text></svg>`;}
+function drawCenQ(C){const W=640,H=200,pl=52,pr=12,pt=14,pb=30,Tm=Math.max(C.Tmax,C.T)*1.05,qm=Math.max(C.FofNu(0.9)*Math.max(Math.tan(30*Math.PI/180+Math.atan(C.mg)),C.QT/C.FV),C.Q)*1.1,X=t=>pl+(W-pl-pr)*t/Tm,Y=q=>H-pb-(H-pt-pb)*q/qm;
+ const fq=t=>t*1000/(C.kG+C.kK)*Math.tan(30*Math.PI/180+Math.atan(C.mg)),fk=t=>t*1000/(C.kG+C.kK)*C.QT/C.FV;let d='',d2='';for(let i=0;i<=60;i++){const t=Tm*i/60;d+=(i?'L':'M')+X(t).toFixed(1)+' '+Y(fq(t)).toFixed(1);d2+=(i?'L':'M')+X(t).toFixed(1)+' '+Y(fk(t)).toFixed(1);}
+ return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Zentrierkraft über dem Anziehdrehmoment"><rect x="${X(C.Tmax)}" y="${pt}" width="${W-pr-X(C.Tmax)}" height="${H-pt-pb}" fill="#b3261e" fill-opacity=".07"/>
+  <line x1="${pl}" y1="${H-pb}" x2="${W-pr}" y2="${H-pb}" stroke="var(--line)"/><line x1="${pl}" y1="${pt}" x2="${pl}" y2="${H-pb}" stroke="var(--line)"/>
+  <path d="${d}" fill="none" stroke="#2e7d32" stroke-width="2"/><path d="${d2}" fill="none" stroke="#c99a06" stroke-width="2"/><circle cx="${X(C.T)}" cy="${Y(C.QT)}" r="4" fill="#c99a06"/><line x1="${pl}" y1="${Y(C.Q)}" x2="${W-pr}" y2="${Y(C.Q)}" stroke="#b3261e" stroke-dasharray="5 3"/><line x1="${X(C.T)}" y1="${pt}" x2="${X(C.T)}" y2="${H-pb}" stroke="#1d5fc4"/>
+  <circle cx="${X(C.T)}" cy="${Y(C.QG)}" r="4" fill="#2e7d32"/><text x="${pl+4}" y="${Y(C.Q)-5}" class="g-lab" fill="#b3261e">F_Q = ${fmt(C.Q,0)} N</text>
+  <text x="${X(C.T)+4}" y="${pt+12}" class="g-dimt">T = ${fmt(C.T,2)} Nm</text><text x="${W-pr-4}" y="${pt+12}" text-anchor="end" class="g-lab">ν > 90 %</text>
+  <text x="${pl-4}" y="${Y(qm/1.1)+4}" text-anchor="end" class="g-lab" font-size="10">${fmt(qm/1.1,0)}</text><text x="${pl-4}" y="${H-pb+4}" text-anchor="end" class="g-lab" font-size="10">0</text>
+  <text x="${W-pr}" y="${H-8}" text-anchor="end" class="g-lab" font-size="11">T in Nm (0 … ${fmt(Tm,2)}) · Kraft in N · grün: Zentrierkraft · gelb: Kippgrenze in Höhe h</text></svg>`;}
 function kv(k,v,u,hl){return `<div${hl?' class="hl"':''}><div class="k">${k}</div><div class="v">${v}<small>${u||''}</small></div></div>`;}
 
 function update(){const I=inputs(),L=limits(I.d,I.P,I.cn,I.cb);$('sn-v').textContent=fmt(I.sn*100,0)+' %';$('sb-v').textContent=fmt(I.sb*100,0)+' %';
@@ -265,14 +318,21 @@ function update(){const I=inputs(),L=limits(I.d,I.P,I.cn,I.cb);$('sn-v').textCon
  $('v-ax').innerHTML=drawAx(I,L,A);$('v-det').innerHTML=drawDet(I,L,A);$('v-tol').innerHTML=drawTol(L,A);$('lim').innerHTML=limTable(L);$('cmp').innerHTML=cmpTable(I);
  $('res').innerHTML=kv('Flankenspiel Δ = D₂ − d₂',fmt(pr.dlt*1000,0),'µm',1)+kv('Flankenspiel min … max',fmt(mn.dlt*1000,0)+' … '+fmt(mx.dlt*1000,0),'µm')+kv('Axiales Spiel gesamt',fmt(pr.ax*1000,0),'µm',1)+kv('Axiales Spiel min … max',fmt(mn.ax*1000,0)+' … '+fmt(mx.ax*1000,0),'µm')
   +kv('Tragtiefe (d − D₁)/2',fmt(pr.trag,3),'mm')+kv('Tragtiefe bezogen auf H₁',fmt(pr.tragP,0),'%')+kv('Tragtiefe min (LMC)',fmt(mx.tragP,0),'%')+kv('Spiel Außen-Ø (D − d)/2',fmt(pr.rMaj*1000,0),'µm')+kv('Spiel Kern-Ø (D₁ − d₃)/2',fmt(pr.rMin*1000,0),'µm')+kv('Tragende Gänge L_E/P',fmt(I.le/I.P,1),'');
+ {const C=centering(I,L,A);$('tq').placeholder=fmt(C.Tauto,2)+' (70 % Ausnutzung)';$('fq').placeholder=fmt(C.Qauto,0);$('hq').placeholder=fmt(I.d,1);$('dkm').placeholder=fmt(C.Dkm,2);
+  $('tq-note').textContent=`T für 90 % Ausnutzung: ${fmt(C.Tmax,2)} Nm. Leere Felder: T = 70 % Ausnutzung, F_Q = 20 % der kleineren Grenze, h = d, D_Km = 1,35·d.`;
+  $('v-cen').innerHTML=drawCen(I,L,A,C);$('v-cenq').innerHTML=drawCenQ(C);
+  $('cen-res').innerHTML=kv('Vorspannkraft F_V',fmt(C.FV,0),'N',1)+kv('Ausnutzung ν (Montage)',fmt(C.nu*100,0),'%',C.nu>0.9)+kv('Zentrierkraft F_V·tan(30°+ρ)',fmt(C.QG,0),'N',1)+kv('Reibkraft Kopf μ_K·F_V',fmt(C.QK,0),'N')
+   +kv('Moment F_Q·(h + L_E/2)',fmt(C.MQ/1000,3),'Nm')+kv('Kippgrenze F_V·d₂/4',fmt(C.MV/1000,3),'Nm')+kv('Versatz an der Mutteroberkante',fmt((C.e+C.th*I.le/2)*1000,0),'µm')+kv('Kippgrenze für F_Q in Höhe h',fmt(C.QT,0),'N',1)+kv('Kippwinkel',fmt(C.th*180/Math.PI,2),'°');
+  $('cen-state').innerHTML=(C.shiftOK&&C.tiltOK?`<p class="note" style="color:#2e7d32;margin:8px 0 0"><b>Zentriert:</b> Die Lastflanken liegen rundum an; Reserve gegen Verschieben ${fmt(C.QG/Math.max(1e-9,C.Q),2)}-fach, gegen Kippen ${fmt(C.MV/Math.max(1e-9,C.MQ),2)}-fach.</p>`
+   :`<p class="warn" style="margin:8px 0 0"><b>${!C.tiltOK?'Kippt':'Verschiebt sich'}:</b> ${!C.shiftOK?`F_Q übersteigt die Zentrierkraft (${fmt(C.QG,0)} N) – der Bolzen wandert im Flankenspiel um bis zu ${fmt(C.dlt/2*1000,0)} µm. `:''}${!C.tiltOK?`Das Moment übersteigt die Kippgrenze – der Bolzen kippt im Gewinde um bis zu ${fmt(C.th*180/Math.PI,2)}° (Spiel Δ = ${fmt(C.dlt*1000,0)} µm über L_E = ${fmt(I.le,2)} mm).`:''} Abhilfe: höheres Anziehdrehmoment, kleinere Höhe h, längere Einschraublänge oder engere Toleranzklasse.</p>`)+(C.nu>0.9?'<p class="warn">Ausnutzung über 90 % – das Anziehdrehmoment ist für diese Festigkeitsklasse zu hoch.</p>':'');}
  $('rot-v').textContent=fmt(ST.rot*(I.le+0.9*I.d)/I.P*360,0)+'°';}
 
 /* ---------- Bedienung ---------- */
 (function init(){
  $('size').innerHTML=SIZES.map(([d,P],i)=>`<option value="${i}"${d===6?' selected':''}>${mName(d)} × ${String(P).replace('.',',')}</option>`).join('');
  $('cn').innerHTML=NUT_CLS.map(c=>`<option${c==='6H'?' selected':''}>${c}</option>`).join('');$('cb').innerHTML=BOLT_CLS.map(c=>`<option${c==='6g'?' selected':''}>${c}</option>`).join('');
- try{const s=JSON.parse(localStorage.getItem('cfa-gewinde')||'null');if(s)['size','cn','cb','sn','sb','le','load','ex'].forEach(k=>{if(s[k]!=null)$(k).value=s[k];});}catch(e){}
- const save=()=>{try{const o={};['size','cn','cb','sn','sb','le','load','ex'].forEach(k=>o[k]=$(k).value);localStorage.setItem('cfa-gewinde',JSON.stringify(o));}catch(e){}};
+ try{const s=JSON.parse(localStorage.getItem('cfa-gewinde')||'null');if(s)['size','cn','cb','sn','sb','le','load','ex','tq','fk','mg','mk','dkm','fq','hq'].forEach(k=>{if(s[k]!=null)$(k).value=s[k];});}catch(e){}
+ const save=()=>{try{const o={};['size','cn','cb','sn','sb','le','load','ex','tq','fk','mg','mk','dkm','fq','hq'].forEach(k=>o[k]=$(k).value);localStorage.setItem('cfa-gewinde',JSON.stringify(o));}catch(e){}};
  $('inp').addEventListener('input',()=>{update();save();});$('inp').addEventListener('change',()=>{update();save();});
  document.querySelectorAll('[data-fit]').forEach(b=>b.addEventListener('click',()=>{const [n,c]=b.dataset.fit.split('|');$('cn').value=n;$('cb').value=c;update();save();}));
  document.querySelectorAll('[data-mm]').forEach(b=>b.addEventListener('click',()=>{const [a,c]=b.dataset.mm.split('|');$('sn').value=a;$('sb').value=c;update();save();}));
