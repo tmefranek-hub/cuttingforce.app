@@ -133,6 +133,7 @@ const MEMBER_MODULE_PREFIX = '/app/m/';
 const MEMBER_APPS = [
   { path: '/spanbildung', name: 'Spanbildung & Spankammer', text: '2D-Simulation der Spanbildung beim Fräsen und Auslegung der Spankammer.' },
   { path: '/vorspannrechner', name: 'Vorspannrechner', text: 'Klemmschraube einer Wendeschneidplatte: Kontakt, Umdrehungen bis zur festen Montage und Biegung der Schraube.' },
+  { path: '/gewinde', name: 'Gewindesimulation', text: 'Schraube im Gewinde: ISO-Regelgewinde M1 bis M10 mit Toleranzklassen nach ISO 965-1, Flankenspiel, Tragtiefe und Einschrauben.' },
 ];
 
 /** Anmeldeseite, die statt der App ausgeliefert wird, solange niemand angemeldet ist. */
